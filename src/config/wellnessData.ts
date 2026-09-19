@@ -1,12 +1,11 @@
 import { WellnessCourseSet, UserProfile } from "../types/wellness.types";
 
 export const INITIAL_USER_PROFILE: UserProfile = {
-  userName: "김건강 님",
+  userName: "관광 여행자",
   chronicConditions: ["당뇨", "고혈압"],
   allergies: ["갑각류", "땅콩"],
   dietaryPreference: "저염/저탄수화물",
   conditionToday: "식후 30분 가벼운 평지 산책 희망",
-  recoloredZones: 1,
 };
 
 export const INITIAL_WELLNESS_COURSES: WellnessCourseSet[] = [
@@ -43,12 +42,6 @@ export const INITIAL_WELLNESS_COURSES: WellnessCourseSet[] = [
     walkMinutes: 30,
     slopeGrade: "완만(무장애)",
     expectedEffect: "식후 최고 혈당 25mg/dL 억제 및 피로 회복",
-    questCoupon: {
-      name: "남산 로컬 친환경 웰빙 생과일 주스 50% 할인권",
-      barcode: "WELLNESS-2026-NAMSAN-8891",
-      discountDesc: "남산 힐링 카페 전 메뉴 50% 즉시 할인 (GPS 완주 인증 완료)",
-      isCompleted: true,
-    },
   },
   {
     id: "course-2",
@@ -83,12 +76,6 @@ export const INITIAL_WELLNESS_COURSES: WellnessCourseSet[] = [
     walkMinutes: 25,
     slopeGrade: "완만(무장애)",
     expectedEffect: "수축기 혈압 8~10mmHg 일시적 하강 효과",
-    questCoupon: {
-      name: "용산 로컬 웰니스 마켓 5,000원 체험권",
-      barcode: "WELLNESS-2026-YONGSAN-4512",
-      discountDesc: "용산 로컬 유기농 스낵 5,000원 무료 증정 (현장 인증 시 지급)",
-      isCompleted: false,
-    },
   },
   {
     id: "course-3",
@@ -123,11 +110,5 @@ export const INITIAL_WELLNESS_COURSES: WellnessCourseSet[] = [
     walkMinutes: 35,
     slopeGrade: "보통",
     expectedEffect: "기초대사량 증진 및 코르티솔(스트레스 호르몬) 30% 감소",
-    questCoupon: {
-      name: "북촌 전통 한옥 찻집 무가당 수제차 1잔 교환권",
-      barcode: "WELLNESS-2026-BUKCHON-9903",
-      discountDesc: "북촌 약선 차 1잔 무료 제공 (GPS 인증 시)",
-      isCompleted: false,
-    },
   },
 ];
