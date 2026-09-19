@@ -42,14 +42,14 @@ export function AuthModal() {
     await sendOtp(email.trim());
   };
 
-  // 2. 6자리 인증번호 검증 및 로그인
+  // 2. 인증번호 검증 및 로그인 (6~8자리 유연 지원)
   const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault();
     setLocalError(null);
 
     const cleanCode = otpCode.trim();
     if (!cleanCode || cleanCode.length < 6) {
-      setLocalError("6자리 인증번호를 정확히 입력해 주세요.");
+      setLocalError("이메일로 받으신 인증번호(6~8자리)를 입력해 주세요.");
       return;
     }
 
@@ -230,15 +230,15 @@ export function AuthModal() {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1.5">
-                    6자리 인증번호 입력
+                    인증번호 입력 (메일로 받은 숫자)
                   </label>
                   <input
                     type="text"
                     inputMode="numeric"
-                    maxLength={6}
+                    maxLength={8}
                     autoFocus
                     required
-                    placeholder="123456"
+                    placeholder="인증번호 입력"
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
                     className="w-full bg-gray-800 border-2 border-emerald-500/60 rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-widest text-white placeholder-gray-600 focus:outline-none focus:border-emerald-400 transition-colors"
