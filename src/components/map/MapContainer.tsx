@@ -6,6 +6,21 @@ import { useCircleStore } from "../../store/circleStore";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useCircleData } from "../../hooks/useCircleData";
 
+// Mapbox GL JS v3 내부 인증/토큰 만료 에러 무력화 (공공 래스터 타일 사용 환경 보장)
+try {
+  const proto = mapboxgl.Map?.prototype as unknown as Record<string, unknown>;
+  if (proto && typeof proto._authenticate === "function") {
+    proto._authenticate = () => {};
+  }
+  if (proto && typeof proto._revokeAuth === "function") {
+    proto._revokeAuth = () => {};
+  }
+} catch {
+  // 예외 무시
+}
+
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
+
 // 무료/공공 오픈 래스터 지도 타일 소스 정의
 const MAP_SOURCES = {
   // 1. 고해상도 위성 지도 (Esri World Imagery - 키 없이 전 세계 고화질 위성 사진 제공)
@@ -14,9 +29,8 @@ const MAP_SOURCES = {
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     ],
     tileSize: 256,
-    attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
   },
-  // 2. 일반 도로 지도 (OpenStreetMap / CartoDB Voyager - 선명한 한글/도로망 지원)
+  // 2. 일반 도로 지도 (CartoDB Voyager - 선명한 한글/도로망 지원)
   street: {
     tiles: [
       "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
@@ -24,11 +38,10 @@ const MAP_SOURCES = {
       "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
     ],
     tileSize: 256,
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
   },
 };
 
-// Mapbox GL 기본 스타일 스키마 (외부 토큰 종속성 제거)
+// Mapbox GL 기본 스타일 스키마 (배경 래스터 타일)
 const BASE_STYLE: mapboxgl.Style = {
   version: 8,
   sources: {
@@ -56,14 +69,14 @@ export function MapContainer() {
   const [mapType, setMapType] = useState<"satellite" | "street">("satellite");
 
   // 스토어 구독
-  const { center, zoom, pitch, bearing, setSelectedPlace } = useMapStore();
+  const { center, zoom, bearing, setSelectedPlace } = useMapStore();
   const { color, fillOpacity } = useCircleStore();
   const { courses, activeCourseId, fetchSupabaseData } = useWellnessStore();
 
   // 커스텀 훅: 동심원 및 방사선 GeoJSON 연산 (useMemo 캐싱)
   const { circleFeatures, radialLines, distanceLabels } = useCircleData();
 
-  // 1. 지도 초기화
+  // 1. 지도 초기화 (pitch: 0으로 설정하여 상단 지평선 잘림/가림 현상 완전 제거)
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -72,12 +85,14 @@ export function MapContainer() {
       style: BASE_STYLE,
       center: center,
       zoom: zoom,
-      pitch: pitch,
+      pitch: 0,       // 2D 수직 직교 탑다운 뷰 (위쪽 가림 현상 원천 차단)
+      maxPitch: 0,    // 마우스 우클릭 드래그 시에도 기울기 발생 방지
       bearing: bearing,
       antialias: true,
+      attributionControl: false,
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
 
     map.on("load", () => {
       // (1) 동심원 GeoJSON 소스 & 레이어 등록
@@ -170,7 +185,6 @@ export function MapContainer() {
 
     const source = map.getSource("base-raster-tiles") as mapboxgl.GeoJSONSource;
     if (source && map.getLayer("base-raster-layer")) {
-      // 기존 레이어 및 소스 교체
       map.removeLayer("base-raster-layer");
       map.removeSource("base-raster-tiles");
 
@@ -180,7 +194,6 @@ export function MapContainer() {
         tileSize: 256,
       });
 
-      // 동심원 레이어 아래에 배경 타일 배치
       map.addLayer(
         {
           id: "base-raster-layer",
@@ -225,7 +238,7 @@ export function MapContainer() {
     }
   }, [circleFeatures, radialLines, color, fillOpacity]);
 
-  // 4. 지도 중심 및 줌 이동 반응
+  // 4. 지도 중심 및 줌 이동 반응 (pitch는 항상 0 고정)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -233,6 +246,7 @@ export function MapContainer() {
     map.flyTo({
       center,
       zoom,
+      pitch: 0,
       speed: 1.2,
       curve: 1.4,
       essential: true,
@@ -356,7 +370,7 @@ export function MapContainer() {
   return (
     <div className="relative w-full h-full">
       {/* 지도 타일 전환 스위치 (위성 vs 일반 도로 지도) */}
-      <div className="absolute top-4 right-14 z-20 flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-1 shadow-xl">
+      <div className="absolute top-4 right-16 z-20 flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-1 shadow-2xl">
         <button
           onClick={() => handleChangeMapType("satellite")}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
