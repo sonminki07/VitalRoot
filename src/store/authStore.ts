@@ -8,12 +8,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: false,
   isInitializing: true,
   isModalOpen: false,
-  authView: "signIn",
+  authView: "emailInput",
   errorMessage: null,
   successMessage: null,
-  registeredEmail: null,
+  targetEmail: "",
 
-  openModal: (view: AuthView = "signIn") =>
+  openModal: (view: AuthView = "emailInput") =>
     set({
       isModalOpen: true,
       authView: view,
@@ -35,16 +35,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       successMessage: null,
     }),
 
+  setTargetEmail: (targetEmail: string) => set({ targetEmail }),
+
   clearMessages: () =>
     set({
       errorMessage: null,
       successMessage: null,
     }),
 
+  // Google OAuth 소셜 로그인
   signInWithGoogle: async () => {
     set({ isLoading: true, errorMessage: null });
     try {
-      // 로컬(localhost:8000) 및 Vercel 프로덕션 도메인 자동 적응
       const redirectTo = `${window.location.origin}`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -64,20 +66,49 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  signInWithEmail: async (email: string, password: string) => {
-    set({ isLoading: true, errorMessage: null });
+  // 1. 이메일로 6자리 인증번호(OTP) 발송 (회원가입/로그인 공통)
+  sendOtp: async (email: string) => {
+    set({ isLoading: true, errorMessage: null, successMessage: null });
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password,
+        options: {
+          shouldCreateUser: true, // 미가입 회원이면 자동 신규 가입
+        },
+      });
+
+      if (error) throw error;
+
+      set({
+        targetEmail: email,
+        authView: "otpInput",
+        isLoading: false,
+        errorMessage: null,
+        successMessage: "6자리 인증번호가 이메일로 발송되었습니다.",
+      });
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "인증번호 발송에 실패했습니다.";
+      set({ errorMessage: msg, isLoading: false });
+      return { success: false, error: msg };
+    }
+  },
+
+  // 2. 6자리 인증번호 검증 및 즉각 로그인 처리
+  verifyOtp: async (email: string, token: string) => {
+    set({ isLoading: true, errorMessage: null, successMessage: null });
+    try {
+      const cleanToken = token.trim();
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: cleanToken,
+        type: "email",
       });
 
       if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
-        }
-        if (error.message.includes("Email not confirmed")) {
-          throw new Error("이메일 인증이 완료되지 않았습니다. 메일함을 확인해 주세요.");
+        if (error.message.includes("Token has expired") || error.message.includes("invalid")) {
+          throw new Error("인증번호가 올바르지 않거나 유효시간이 만료되었습니다.");
         }
         throw error;
       }
@@ -85,54 +116,26 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         user: data.user,
         session: data.session,
-        isModalOpen: false,
+        authView: "success",
         isLoading: false,
         errorMessage: null,
+        successMessage: "인증이 성공적으로 완료되었습니다!",
       });
+
+      // 사용자가 로그인 완료를 즉각 체감할 수 있도록 0.6초 후 새로고침
+      setTimeout(() => {
+        window.location.reload();
+      }, 600);
+
       return { success: true };
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "로그인에 실패했습니다.";
+      const msg = err instanceof Error ? err.message : "인증번호 확인에 실패했습니다.";
       set({ errorMessage: msg, isLoading: false });
       return { success: false, error: msg };
     }
   },
 
-  signUpWithEmail: async (email: string, password: string) => {
-    set({ isLoading: true, errorMessage: null, successMessage: null });
-    try {
-      const redirectTo = `${window.location.origin}`;
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectTo,
-        },
-      });
-
-      if (error) {
-        if (error.message.includes("User already registered")) {
-          throw new Error("이미 등록된 이메일 계정입니다. 로그인을 진행해 주세요.");
-        }
-        throw error;
-      }
-
-      // 엄격한 이메일 인증 모드: 가입 안내 화면으로 전환
-      set({
-        registeredEmail: email,
-        authView: "verifyEmail",
-        isLoading: false,
-        errorMessage: null,
-        successMessage: "가입 확인 메일이 성공적으로 발송되었습니다.",
-      });
-
-      return { success: true };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "회원가입에 실패했습니다.";
-      set({ errorMessage: msg, isLoading: false });
-      return { success: false, error: msg };
-    }
-  },
-
+  // 로그아웃
   signOut: async () => {
     set({ isLoading: true });
     try {
@@ -143,14 +146,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         isModalOpen: false,
         isLoading: false,
       });
+      // 로그아웃 시에도 새로고침하여 초기 상태 반영
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
     } catch (err) {
       console.warn("SignOut error:", err);
       set({ user: null, session: null, isLoading: false });
     }
   },
 
+  // 초기 세션 복원 및 리스너 등록
   initAuth: () => {
-    // 1. 현재 세션 로드
     supabase.auth.getSession().then(({ data: { session } }) => {
       set({
         session,
@@ -158,13 +165,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         isInitializing: false,
       });
 
-      // OAuth 리턴 후 URL에 남아있는 ?code= 나 hash 정리
       if (window.location.search.includes("code=") || window.location.hash.includes("access_token=")) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     });
 
-    // 2. 인증 상태 변화 실시간 리스너
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
@@ -182,7 +187,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     });
 
-    // 구독 해제 함수 반환
     return () => {
       subscription.unsubscribe();
     };

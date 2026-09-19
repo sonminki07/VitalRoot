@@ -1,6 +1,6 @@
 import { User, Session } from "@supabase/supabase-js";
 
-export type AuthView = "signIn" | "signUp" | "verifyEmail";
+export type AuthView = "emailInput" | "otpInput" | "success";
 
 export interface AuthState {
   user: User | null;
@@ -11,16 +11,17 @@ export interface AuthState {
   authView: AuthView;
   errorMessage: string | null;
   successMessage: string | null;
-  registeredEmail: string | null;
+  targetEmail: string;
 
   // 액션
   openModal: (view?: AuthView) => void;
   closeModal: () => void;
   setAuthView: (view: AuthView) => void;
+  setTargetEmail: (email: string) => void;
   clearMessages: () => void;
   signInWithGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signUpWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  sendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  initAuth: () => () => void; // 구독 해제 함수 반환
+  initAuth: () => () => void;
 }

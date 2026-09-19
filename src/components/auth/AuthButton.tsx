@@ -27,7 +27,7 @@ export function AuthButton() {
   if (!user) {
     return (
       <button
-        onClick={() => openModal("signIn")}
+        onClick={() => openModal("emailInput")}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md text-emerald-400 hover:text-emerald-300 font-medium text-xs rounded-xl border border-emerald-500/40 shadow-xl transition-all active:scale-95"
       >
         <span className="text-sm">👤</span>
