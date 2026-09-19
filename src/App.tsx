@@ -1,23 +1,28 @@
 // 메인 App 컴포넌트
+import { useEffect } from "react";
 import { MapContainer } from "./components/map/MapContainer";
 import { ControlPanel } from "./components/panels/ControlPanel";
 import { InfoBar } from "./components/common/InfoBar";
+import { AuthModal } from "./components/auth/AuthModal";
+import { useAuthStore } from "./store/authStore";
 
 function App() {
+  const { initAuth } = useAuthStore();
+
+  // 전역 Supabase 세션 리스너 및 OAuth 복귀 파라미터 초기화
+  useEffect(() => {
+    const cleanup = initAuth();
+    return cleanup;
+  }, [initAuth]);
+
   return (
     <div className="relative w-screen h-screen bg-gray-900 overflow-hidden">
       <ControlPanel /> {/* 왼쪽 상단 패널 */}
-      <MapContainer /> {/* 지도 컴포넌트 */}
+      <MapContainer /> {/* 지도 컴포넌트 & 우측 상단 인증/지도 전환 바 */}
       <InfoBar /> {/* 하단 정보 바 */}
+      <AuthModal /> {/* 로그인 / 회원가입 오버레이 모달 */}
     </div>
   );
 }
 
 export default App;
-// 메인 App 컴포넌트에서는 총 3개의 컴포넌트를 렌더링합니다:
-// ControlPanel : 좌측 컨트롤 패널
-//                사용자의 모든 컨트롤들을 담고 있는 컴포넌트입니다.
-// MapContainer : 지도 컴포넌트입니다.
-//                컴포넌트의 심장으로 실제 MapBox지도를 렌더링합니다.
-//                사용자가 지도를 움직이거나 더블클릭을 하는 등의 이벤트를 처리하고 또한 지도 위에 그림들을 관리합니다.
-// InfoBar : 하단에 정보를 표시합니다.

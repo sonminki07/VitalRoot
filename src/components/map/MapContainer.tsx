@@ -5,6 +5,7 @@ import { useMapStore } from "../../store/mapStore";
 import { useCircleStore } from "../../store/circleStore";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useCircleData } from "../../hooks/useCircleData";
+import { AuthButton } from "../auth/AuthButton";
 
 // Mapbox GL JS v3 내부 인증/토큰 만료 에러 무력화 (공공 래스터 타일 사용 환경 보장)
 try {
@@ -369,28 +370,31 @@ export function MapContainer() {
 
   return (
     <div className="relative w-full h-full">
-      {/* 지도 타일 전환 스위치 (위성 vs 일반 도로 지도) */}
-      <div className="absolute top-4 right-16 z-20 flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-1 shadow-2xl">
-        <button
-          onClick={() => handleChangeMapType("satellite")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            mapType === "satellite"
-              ? "bg-emerald-600 text-white shadow-sm"
-              : "text-gray-400 hover:text-white"
-          }`}
-        >
-          🛰️ 위성 지도
-        </button>
-        <button
-          onClick={() => handleChangeMapType("street")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            mapType === "street"
-              ? "bg-emerald-600 text-white shadow-sm"
-              : "text-gray-400 hover:text-white"
-          }`}
-        >
-          🗺️ 일반 도로
-        </button>
+      {/* 우측 상단 컨트롤 바 (인증 버튼 + 지도 전환 스위치) */}
+      <div className="absolute top-4 right-16 z-20 flex items-center gap-2.5">
+        <AuthButton />
+        <div className="flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-1 shadow-2xl">
+          <button
+            onClick={() => handleChangeMapType("satellite")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              mapType === "satellite"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            🛰️ 위성 지도
+          </button>
+          <button
+            onClick={() => handleChangeMapType("street")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              mapType === "street"
+                ? "bg-emerald-600 text-white shadow-sm"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            🗺️ 일반 도로
+          </button>
+        </div>
       </div>
 
       <div ref={mapContainerRef} className="w-full h-full" />
