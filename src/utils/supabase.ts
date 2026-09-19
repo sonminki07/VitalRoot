@@ -1,14 +1,26 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://biruuwsoinqtlhdwbajh.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const DEFAULT_URL = "https://biruuwsoinqtlhdwbajh.supabase.co";
+const DEFAULT_KEY = "sb_publishable_Rx-4GGZmbY2eZwIkTAvqTw_Yrxk_13Y";
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
+
+function initSupabase(): SupabaseClient {
+  try {
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
+  } catch (err) {
+    console.warn("Supabase init failed, creating fallback client:", err);
+    return createClient(DEFAULT_URL, DEFAULT_KEY);
+  }
+}
+
+export const supabase = initSupabase();
 
 /**
  * Supabase DB 연결 테스트 헬퍼 함수

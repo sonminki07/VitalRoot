@@ -1,6 +1,7 @@
 // 한국관광공사 Tour API 연계 유틸리티
 
-const TOUR_API_KEY = import.meta.env.VITE_TOUR_API_KEY || "";
+const TOUR_API_KEY =
+  import.meta.env.VITE_TOUR_API_KEY || "403b2fe19eec414cb6ba3fbdaed716ee3a54adb732b82e1c9aca7e2d1835e9d7";
 const BASE_URL = "https://apis.data.go.kr/B551011/KorService1";
 
 export interface TourItem {

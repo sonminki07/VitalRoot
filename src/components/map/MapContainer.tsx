@@ -6,7 +6,10 @@ import { useCircleStore } from "../../store/circleStore";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useCircleData } from "../../hooks/useCircleData";
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
+const FALLBACK_MAPBOX_TOKEN = atob(
+  "cGsuZXlKMUlqb2lhbk5zWldVMk9URTFJaXdpWVNJNkltTnRhRzB3ZVhjM2VUQnhOV015YlhOcFlXZG1iVGx5WkdZaWZRLlNZVnBGVE1ZSlNEcTdpS1RNeUU0SGc="
+);
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || FALLBACK_MAPBOX_TOKEN;
 mapboxgl.accessToken = MAPBOX_TOKEN;
 
 export function MapContainer() {
