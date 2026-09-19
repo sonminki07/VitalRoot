@@ -1,29 +1,54 @@
 import { create } from "zustand";
-import { AuthState, AuthView } from "../types/auth.types";
+import { AuthState, AuthTab, AuthStep, AuthView } from "../types/auth.types";
 import { supabase } from "../utils/supabase";
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   isLoading: false,
   isInitializing: true,
   isModalOpen: false,
+  authTab: "signin",
+  authStep: "form",
   authView: "emailInput",
   errorMessage: null,
   successMessage: null,
   targetEmail: "",
 
-  openModal: (view: AuthView = "emailInput") =>
+  openModal: (initialView?: AuthTab | AuthView) => {
+    let tab: AuthTab = "signin";
+    if (initialView === "signup") {
+      tab = "signup";
+    }
     set({
       isModalOpen: true,
-      authView: view,
+      authTab: tab,
+      authStep: "form",
+      authView: "emailInput",
       errorMessage: null,
       successMessage: null,
-    }),
+    });
+  },
 
   closeModal: () =>
     set({
       isModalOpen: false,
+      authStep: "form",
+      errorMessage: null,
+      successMessage: null,
+    }),
+
+  setAuthTab: (tab: AuthTab) =>
+    set({
+      authTab: tab,
+      authStep: "form",
+      errorMessage: null,
+      successMessage: null,
+    }),
+
+  setAuthStep: (step: AuthStep) =>
+    set({
+      authStep: step,
       errorMessage: null,
       successMessage: null,
     }),
@@ -66,49 +91,28 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  // 1. 이메일로 6자리 인증번호(OTP) 발송 (회원가입/로그인 공통)
-  sendOtp: async (email: string) => {
+  // 1. 기존 회원: 이메일 + 비밀번호로 즉각 로그인
+  signInWithPassword: async (email: string, password: string) => {
     set({ isLoading: true, errorMessage: null, successMessage: null });
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true, // 미가입 회원이면 자동 신규 가입
-        },
-      });
-
-      if (error) throw error;
-
-      set({
-        targetEmail: email,
-        authView: "otpInput",
-        isLoading: false,
-        errorMessage: null,
-        successMessage: "6자리 인증번호가 이메일로 발송되었습니다.",
-      });
-
-      return { success: true };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "인증번호 발송에 실패했습니다.";
-      set({ errorMessage: msg, isLoading: false });
-      return { success: false, error: msg };
-    }
-  },
-
-  // 2. 6자리 인증번호 검증 및 즉각 로그인 처리
-  verifyOtp: async (email: string, token: string) => {
-    set({ isLoading: true, errorMessage: null, successMessage: null });
-    try {
-      const cleanToken = token.trim();
-      const { data, error } = await supabase.auth.verifyOtp({
-        email,
-        token: cleanToken,
-        type: "email",
+      const trimmedEmail = email.trim();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
       });
 
       if (error) {
-        if (error.message.includes("Token has expired") || error.message.includes("invalid")) {
-          throw new Error("인증번호가 올바르지 않거나 유효시간이 만료되었습니다.");
+        if (error.message.includes("Email not confirmed")) {
+          set({
+            targetEmail: trimmedEmail,
+            authStep: "otp",
+            errorMessage: "이메일 인증이 완료되지 않은 계정입니다. 인증번호를 확인해 주세요.",
+            isLoading: false,
+          });
+          return { success: false, error: "Email not confirmed" };
+        }
+        if (error.message.includes("Invalid login credentials") || error.message.includes("invalid")) {
+          throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
         throw error;
       }
@@ -116,13 +120,105 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         user: data.user,
         session: data.session,
-        authView: "success",
+        authStep: "success",
         isLoading: false,
         errorMessage: null,
-        successMessage: "인증이 성공적으로 완료되었습니다!",
+        successMessage: "로그인되었습니다!",
       });
 
-      // 사용자가 로그인 완료를 즉각 체감할 수 있도록 0.6초 후 새로고침
+      setTimeout(() => {
+        window.location.reload();
+      }, 600);
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "로그인에 실패했습니다.";
+      set({ errorMessage: msg, isLoading: false });
+      return { success: false, error: msg };
+    }
+  },
+
+  // 2. 신규 회원: 이메일 + 비밀번호로 가입 요청 및 인증번호(OTP) 발송
+  signUpWithPassword: async (email: string, password: string) => {
+    set({ isLoading: true, errorMessage: null, successMessage: null });
+    try {
+      const trimmedEmail = email.trim();
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+      });
+
+      if (error) {
+        const lower = error.message.toLowerCase();
+        if (lower.includes("already registered") || lower.includes("user already exists")) {
+          throw new Error("이미 등록된 이메일 계정입니다. [로그인] 탭을 이용해 주세요.");
+        }
+        throw error;
+      }
+
+      // Supabase Email Enumeration Protection:
+      // 이미 존재하는 사용자의 경우 identities가 빈 배열([])로 반환됨
+      if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+        throw new Error("이미 등록된 이메일 계정입니다. [로그인] 탭을 이용해 주세요.");
+      }
+
+      set({
+        targetEmail: trimmedEmail,
+        authStep: "otp",
+        isLoading: false,
+        errorMessage: null,
+        successMessage: "가입 인증번호가 이메일로 발송되었습니다.",
+      });
+
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "회원가입 요청에 실패했습니다.";
+      set({ errorMessage: msg, isLoading: false });
+      return { success: false, error: msg };
+    }
+  },
+
+  // 3. 회원가입 이메일 인증번호(OTP) 검증 및 세션 확정
+  verifySignupOtp: async (email: string, token: string) => {
+    set({ isLoading: true, errorMessage: null, successMessage: null });
+    try {
+      const cleanToken = token.trim();
+      const trimmedEmail = email.trim();
+
+      // type: 'signup' 시도 후 호환성을 위해 'email'도 폴백
+      let res = await supabase.auth.verifyOtp({
+        email: trimmedEmail,
+        token: cleanToken,
+        type: "signup",
+      });
+
+      if (res.error) {
+        const retry = await supabase.auth.verifyOtp({
+          email: trimmedEmail,
+          token: cleanToken,
+          type: "email",
+        });
+        if (!retry.error) {
+          res = retry;
+        }
+      }
+
+      if (res.error) {
+        if (res.error.message.includes("Token has expired") || res.error.message.includes("invalid")) {
+          throw new Error("인증번호가 올바르지 않거나 유효시간이 만료되었습니다.");
+        }
+        throw res.error;
+      }
+
+      set({
+        user: res.data.user,
+        session: res.data.session,
+        authStep: "success",
+        isLoading: false,
+        errorMessage: null,
+        successMessage: "회원가입 및 이메일 인증이 완료되었습니다!",
+      });
+
       setTimeout(() => {
         window.location.reload();
       }, 600);
@@ -133,6 +229,35 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ errorMessage: msg, isLoading: false });
       return { success: false, error: msg };
     }
+  },
+
+  // 4. 회원가입 인증번호 재발송
+  resendSignupOtp: async (email: string) => {
+    set({ isLoading: true, errorMessage: null, successMessage: null });
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim(),
+      });
+      if (error) throw error;
+      set({
+        isLoading: false,
+        successMessage: "새 인증번호가 이메일로 재발송되었습니다.",
+      });
+      return { success: true };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "인증번호 재전송에 실패했습니다.";
+      set({ errorMessage: msg, isLoading: false });
+      return { success: false, error: msg };
+    }
+  },
+
+  // 레거시 호환 OTP 발송 및 검증
+  sendOtp: async (email: string) => {
+    return get().signUpWithPassword(email, "TempPass123!@#");
+  },
+  verifyOtp: async (email: string, token: string) => {
+    return get().verifySignupOtp(email, token);
   },
 
   // 로그아웃
@@ -146,7 +271,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         isModalOpen: false,
         isLoading: false,
       });
-      // 로그아웃 시에도 새로고침하여 초기 상태 반영
       setTimeout(() => {
         window.location.reload();
       }, 300);
