@@ -19,6 +19,7 @@ import {
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
 import { calculateDistanceMeters } from "../utils/pedestrianRouter";
+import { generateLocalCoursesForLocation } from "../utils/localCourseSynthesizer";
 
 export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리";
 
@@ -184,8 +185,8 @@ export function computeFilteredCourses(
 
   // 3. 내 동네 생활권 모드 ('local'): 사용자 위치로부터 전국 모든 코스를 거리순 정렬하여 100% 모두 표출
   if (userLocation) {
-    // 사용자 위치로부터 거리순 정렬 (가장 가까운 코스가 1순위, 전국 전체 코스가 순차적으로 모두 노출)
-    return [...conditionFiltered].sort((a, b) => {
+    // 사용자 위치로부터 거리순 정렬
+    const sorted = [...conditionFiltered].sort((a, b) => {
       const distA = calculateDistanceMeters(
         userLocation.latitude,
         userLocation.longitude,
@@ -200,6 +201,25 @@ export function computeFilteredCourses(
       );
       return distA - distB;
     });
+
+    // 만약 사용자가 지정한 집 핀 위치 인근(4km 이내)에 기존 등록된 코스가 없는 소도시/농어촌/도서산간인 경우,
+    // 사용자의 실제 핀 좌표를 중심으로 300m~700m 초근접 도보 생활권 맞춤 코스를 실시간 합성하여 최상단에 추천!
+    const closestDist =
+      sorted[0]
+        ? calculateDistanceMeters(
+            userLocation.latitude,
+            userLocation.longitude,
+            sorted[0].restaurant.latitude,
+            sorted[0].restaurant.longitude
+          )
+        : Infinity;
+
+    if (closestDist > 4000) {
+      const localSynthesized = generateLocalCoursesForLocation(userLocation, conditions);
+      return [...localSynthesized, ...sorted];
+    }
+
+    return sorted;
   }
 
   // 위치 미연동 시 기본 추천 코스 반환
