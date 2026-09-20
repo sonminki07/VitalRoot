@@ -198,11 +198,20 @@ export function MapContainer() {
     );
   }, [storeMapType]);
 
-  // 3. 지도 뷰포트 센터 및 줌 연동 (flyTo)
+  // 3. 지도 뷰포트 센터 및 줌 연동 (flyTo - morph로 부드러운 위치/줌 동시 이동)
   useEffect(() => {
     if (!mapRef.current || !window.naver?.maps) return;
     const targetLatLng = new window.naver.maps.LatLng(center[1], center[0]);
-    mapRef.current.panTo(targetLatLng, { duration: 500 });
+    const targetZoom = Math.round(zoom || 14);
+
+    if (typeof (mapRef.current as any).morph === "function") {
+      (mapRef.current as any).morph(targetLatLng, targetZoom, { duration: 600 });
+    } else {
+      mapRef.current.panTo(targetLatLng, { duration: 500 });
+      if (mapRef.current.getZoom() !== targetZoom) {
+        mapRef.current.setZoom(targetZoom);
+      }
+    }
   }, [center, zoom]);
 
   // 4. 활성 코스의 보행로 렌더링 (네이버 공식 정밀 보행로 우선 바인딩)
