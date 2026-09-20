@@ -4,17 +4,22 @@ import {
   WellnessCourseSet,
   ChronicCondition,
   MultiDayCourseSet,
+  WellnessStay,
+  WellnessQuest,
 } from "../types/wellness.types";
 import {
   INITIAL_USER_PROFILE,
   INITIAL_WELLNESS_COURSES,
   INITIAL_MULTI_DAY_COURSES,
+  INITIAL_WELLNESS_STAYS,
+  INITIAL_WELLNESS_QUESTS,
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
 
 export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리";
 
 const STORAGE_KEY_PROFILE = "vitalroot_user_profile";
+const STORAGE_KEY_QUESTS = "vitalroot_user_quests";
 
 // 로컬 스토리지에서 초기 프로필 불러오기 (새로고침 시 유지)
 function getSavedProfile(): UserProfile {
@@ -29,7 +34,19 @@ function getSavedProfile(): UserProfile {
   return INITIAL_USER_PROFILE;
 }
 
-// 기저질환 조건에 따른 코스 실시간 필터링 함수
+function getSavedQuests(): { completedIds: string[]; earnedTitles: string[] } {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_QUESTS);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // fallback
+  }
+  return { completedIds: [], earnedTitles: [] };
+}
+
+// 기저질환 조건에 따른 코스 실시간 필터링 함수 (저혈압 식후산책, 고혈압 쉼터, 당뇨 저당)
 export function filterCoursesByConditions(
   courses: WellnessCourseSet[],
   conditions: ChronicCondition[]
@@ -39,8 +56,9 @@ export function filterCoursesByConditions(
   }
   const filtered = courses.filter((course) => {
     return conditions.some((cond) => {
-      if (cond === "당뇨" && course.targetCondition.includes("당뇨")) return true;
-      if (cond === "고혈압" && course.targetCondition.includes("고혈압")) return true;
+      if (cond === "저혈압" && (course.targetCondition.includes("저혈압") || course.targetCondition.includes("혈류"))) return true;
+      if (cond === "고혈압" && (course.targetCondition.includes("고혈압") || course.targetCondition.includes("혈관"))) return true;
+      if (cond === "당뇨" && (course.targetCondition.includes("당뇨") || course.targetCondition.includes("혈당"))) return true;
       if (
         (cond === "이상지질혈증" || cond === "신장질환" || cond === "관절/근골격계") &&
         (course.targetCondition.includes("대사") || course.targetCondition.includes("혈관"))
@@ -53,6 +71,12 @@ export function filterCoursesByConditions(
   return filtered.length > 0 ? filtered : courses;
 }
 
+interface StayFilterOptions {
+  chkcooking: boolean;
+  roomrefrigerator: boolean;
+  fitness: boolean;
+}
+
 interface WellnessState {
   profile: UserProfile;
   courses: WellnessCourseSet[];
@@ -61,6 +85,15 @@ interface WellnessState {
   multiDayCourses: MultiDayCourseSet[];
   activeMultiDayCourseId: string;
   activeWaypointFilter: WaypointFilterType;
+  // 안심 숙소 관련
+  stays: WellnessStay[];
+  activeStayId: string | null;
+  stayFilter: StayFilterOptions;
+  // 퀘스트 관련
+  quests: WellnessQuest[];
+  activeQuestId: string | null;
+  earnedTitles: string[];
+
   isSupabaseConnected: boolean;
   isLoading: boolean;
 
@@ -70,6 +103,10 @@ interface WellnessState {
   setActiveCourseId: (id: string) => void;
   setActiveMultiDayCourseId: (id: string) => void;
   setActiveWaypointFilter: (filter: WaypointFilterType) => void;
+  setActiveStayId: (id: string | null) => void;
+  toggleStayFilter: (key: keyof StayFilterOptions) => void;
+  setActiveQuestId: (id: string | null) => void;
+  completeQuest: (questId: string) => void;
   fetchSupabaseData: () => Promise<void>;
   syncProfileWithDb: (userId: string) => Promise<void>;
   saveProfileToDb: (userId: string, profile: UserProfile) => Promise<void>;
@@ -77,6 +114,7 @@ interface WellnessState {
 
 const initialProfile = getSavedProfile();
 const initialFiltered = filterCoursesByConditions(INITIAL_WELLNESS_COURSES, initialProfile.chronicConditions);
+const initialQuestData = getSavedQuests();
 
 export const useWellnessStore = create<WellnessState>((set, get) => ({
   profile: initialProfile,
@@ -86,8 +124,61 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   multiDayCourses: INITIAL_MULTI_DAY_COURSES,
   activeMultiDayCourseId: INITIAL_MULTI_DAY_COURSES[0]?.id ?? "multi-course-1",
   activeWaypointFilter: "전체",
+  stays: INITIAL_WELLNESS_STAYS,
+  activeStayId: INITIAL_WELLNESS_STAYS[0]?.id ?? null,
+  stayFilter: {
+    chkcooking: false,
+    roomrefrigerator: false,
+    fitness: false,
+  },
+  quests: INITIAL_WELLNESS_QUESTS.map((q) => ({
+    ...q,
+    isCompleted: initialQuestData.completedIds.includes(q.id),
+  })),
+  activeQuestId: INITIAL_WELLNESS_QUESTS[0]?.id ?? null,
+  earnedTitles: initialQuestData.earnedTitles,
   isSupabaseConnected: false,
   isLoading: false,
+
+  setActiveStayId: (id) => set({ activeStayId: id }),
+
+  toggleStayFilter: (key) => {
+    set((state) => ({
+      stayFilter: {
+        ...state.stayFilter,
+        [key]: !state.stayFilter[key],
+      },
+    }));
+  },
+
+  setActiveQuestId: (id) => set({ activeQuestId: id }),
+
+  completeQuest: (questId) => {
+    const targetQuest = get().quests.find((q) => q.id === questId);
+    if (!targetQuest || targetQuest.isCompleted) return;
+
+    const newQuests = get().quests.map((q) =>
+      q.id === questId ? { ...q, isCompleted: true } : q
+    );
+    const newEarnedTitles = Array.from(new Set([...get().earnedTitles, targetQuest.titleReward]));
+
+    set({
+      quests: newQuests,
+      earnedTitles: newEarnedTitles,
+    });
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEY_QUESTS,
+        JSON.stringify({
+          completedIds: newQuests.filter((q) => q.isCompleted).map((q) => q.id),
+          earnedTitles: newEarnedTitles,
+        })
+      );
+    } catch {
+      // ignore
+    }
+  },
 
   setProfile: (updates) => {
     const updatedProfile = { ...get().profile, ...updates };
@@ -106,7 +197,6 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
       activeCourseId: activeCourseExists ? get().activeCourseId : filtered[0]?.id ?? "course-1",
     });
 
-    // 로그인 상태면 Supabase에 비동기 저장
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         get().saveProfileToDb(user.id, updatedProfile);

@@ -1,6 +1,4 @@
-// 관광 및 웰니스 데이터 시각화 플랫폼 타입 정의
-
-export type ChronicCondition = '당뇨' | '고혈압' | '이상지질혈증' | '신장질환' | '관절/근골격계';
+export type ChronicCondition = '당뇨' | '고혈압' | '저혈압' | '이상지질혈증' | '신장질환' | '관절/근골격계';
 
 export interface UserProfile {
   id?: string;
@@ -100,4 +98,21 @@ export interface MultiDayCourseSet {
       tags: string[];
     }[];
   }[];
+}
+
+// 웰니스 관광명소 퀘스트 및 칭호 리워드 인터페이스
+export interface WellnessQuest {
+  id: string;
+  title: string;
+  description: string;
+  landmarkName: string;
+  category: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  targetDurationMinutes: number; // 목표 체류/산책 시간 (분)
+  titleReward: string;           // 완료 시 획득 칭호
+  badgeIcon: string;             // 뱃지 이모지
+  isCompleted: boolean;
+  progressMinutes?: number;
 }
