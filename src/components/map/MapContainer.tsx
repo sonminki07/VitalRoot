@@ -64,10 +64,8 @@ export function MapContainer() {
   const activeCourse =
     filteredCourses.find((c) => c.id === activeCourseId) || filteredCourses[0];
 
-  // 실제 도로망(OSRM) 보행자 좌표셋 상태
-  const [roadRouteCoords, setRoadRouteCoords] = useState<[number, number][]>(
-    activeCourse?.walkingRoute || []
-  );
+  // 실제 도로망 보행자 좌표셋 상태
+  const [roadRouteCoords, setRoadRouteCoords] = useState<[number, number][]>([]);
   const [userToRestCoords, setUserToRestCoords] = useState<[number, number][]>([]);
   const [actualWalkDistance, setActualWalkDistance] = useState<number>(
     activeCourse?.distanceMeters || 750
@@ -284,16 +282,9 @@ export function MapContainer() {
     }
   }, [center, zoom]);
 
-  // 4. 활성 코스의 보행로 렌더링 (네이버 공식 정밀 보행로 우선 바인딩)
+  // 4. 활성 코스의 보행로 렌더링 (공공 도로망 라우터 100% 호출 - 건물/산/물 관통 원천 배제)
   useEffect(() => {
     if (!activeCourse) return;
-
-    // 코스에 이미 검증된 네이버 공식 정밀 도보 경로선이 있는 경우 즉시 적용 (OSRM 왜곡 덮어쓰기 방지)
-    if (activeCourse.walkingRoute && activeCourse.walkingRoute.length >= 2) {
-      setRoadRouteCoords(activeCourse.walkingRoute);
-      setActualWalkDistance(activeCourse.distanceMeters || 1000);
-      return;
-    }
 
     let isMounted = true;
     fetchPedestrianRoute(
