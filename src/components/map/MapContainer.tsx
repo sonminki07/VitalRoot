@@ -131,9 +131,16 @@ export function MapContainer() {
     mapRef.current.panTo(targetLatLng, { duration: 500 });
   }, [center, zoom]);
 
-  // 4. 활성 코스의 실제 도로망(인도, 골목, 계단, 데크길) 보행로 OSRM 실시간 조회
+  // 4. 활성 코스의 보행로 렌더링 (네이버 공식 정밀 보행로 우선 바인딩)
   useEffect(() => {
     if (!activeCourse) return;
+
+    // 코스에 이미 검증된 네이버 공식 정밀 도보 경로선이 있는 경우 즉시 적용 (OSRM 왜곡 덮어쓰기 방지)
+    if (activeCourse.walkingRoute && activeCourse.walkingRoute.length >= 2) {
+      setRoadRouteCoords(activeCourse.walkingRoute);
+      setActualWalkDistance(activeCourse.distanceMeters || 1000);
+      return;
+    }
 
     let isMounted = true;
     fetchPedestrianRoute(
@@ -153,7 +160,7 @@ export function MapContainer() {
     };
   }, [activeCourse?.id]);
 
-  // 5. 사용자 현재 위치 ➔ 안심식당까지의 실제 도로망 보행로 OSRM 조회
+  // 5. 사용자 현재 위치 ➔ 안심식당까지의 실제 도로망 보행로 OSRM 조회 (식당 마커 완벽 스냅)
   useEffect(() => {
     if (!userLocation || !activeCourse) {
       setUserToRestCoords([]);
@@ -168,7 +175,15 @@ export function MapContainer() {
       activeCourse.restaurant.latitude
     ).then((res) => {
       if (isMounted) {
-        setUserToRestCoords(res.coordinates);
+        const coords = [...res.coordinates];
+        // 종점을 식당 마커 좌표에 정확히 스냅
+        if (coords.length > 0) {
+          coords[coords.length - 1] = [
+            activeCourse.restaurant.longitude,
+            activeCourse.restaurant.latitude,
+          ];
+        }
+        setUserToRestCoords(coords);
       }
     });
 
