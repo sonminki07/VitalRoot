@@ -147,12 +147,34 @@ export function ControlPanel() {
                       <span className="text-gray-200 font-medium">{course.trail.name}</span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-800">
-                      <span>도보 {course.walkMinutes}분 ({course.slopeGrade})</span>
-                      <span className="text-teal-300">💡 {course.expectedEffect}</span>
+                      <span>보행로 {course.distanceMeters || 720}m • 도보 {course.walkMinutes}분</span>
+                      <span className="text-teal-300 font-medium">{course.slopeGrade}</span>
                     </div>
                   </div>
 
-                  <div className="mt-2.5 flex items-center justify-end">
+                  <div className="mt-2.5 flex items-center justify-between gap-1.5 pt-1.5 border-t border-gray-800/80">
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={`https://map.kakao.com/link/to/${encodeURIComponent(course.trail.name)},${course.trail.latitude},${course.trail.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-1 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1"
+                      >
+                        <span>🟡</span>
+                        <span>카카오 길찾기</span>
+                      </a>
+                      <a
+                        href={`https://map.naver.com/v5/directions/-/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(course.trail.name)},,/walk`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1"
+                      >
+                        <span>🟢</span>
+                        <span>네이버 길찾기</span>
+                      </a>
+                    </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -160,7 +182,7 @@ export function ControlPanel() {
                       }}
                       className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
                     >
-                      지도에서 경로 보기 ➔
+                      경로 ➔
                     </button>
                   </div>
                 </div>

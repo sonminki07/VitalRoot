@@ -32,6 +32,8 @@ export interface WellnessCourseSet {
   restaurant: WellnessPlace;
   trail: WellnessPlace;
   walkMinutes: number;
+  distanceMeters?: number;          // 실제 도로망 보행 거리 (m)
+  walkingRoute?: [number, number][]; // 실제 도로를 따라 이어지는 보행자 좌표셋 [[lng, lat], ...]
   slopeGrade: '완만(무장애)' | '보통' | '도전';
   expectedEffect: string;
 }

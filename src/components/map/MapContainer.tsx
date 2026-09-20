@@ -24,7 +24,7 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 
 // 무료/공공 오픈 래스터 지도 타일 소스 정의
 const MAP_SOURCES = {
-  // 1. 고해상도 위성 지도 (Esri World Imagery - 키 없이 전 세계 고화질 위성 사진 제공)
+  // 1. 고해상도 위성 지도 (Esri World Imagery)
   satellite: {
     tiles: [
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -77,7 +77,10 @@ export function MapContainer() {
   // 커스텀 훅: 동심원 및 방사선 GeoJSON 연산 (useMemo 캐싱)
   const { circleFeatures, radialLines, distanceLabels } = useCircleData();
 
-  // 1. 지도 초기화 (pitch: 0으로 설정하여 상단 지평선 잘림/가림 현상 완전 제거)
+  // 현재 선택된 활성 코스
+  const activeCourse = courses.find((c) => c.id === activeCourseId) || courses[0];
+
+  // 1. 지도 초기화
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -86,8 +89,8 @@ export function MapContainer() {
       style: BASE_STYLE,
       center: center,
       zoom: zoom,
-      pitch: 0,       // 2D 수직 직교 탑다운 뷰 (위쪽 가림 현상 원천 차단)
-      maxPitch: 0,    // 마우스 우클릭 드래그 시에도 기울기 발생 방지
+      pitch: 0,
+      maxPitch: 0,
       bearing: bearing,
       antialias: true,
       attributionControl: false,
@@ -145,7 +148,7 @@ export function MapContainer() {
         },
       });
 
-      // (3) 코스 연결선 소스 & 레이어 등록
+      // (3) 실제 도로망 보행 경로(Routing Polyline) 소스 등록
       map.addSource("course-routes", {
         type: "geojson",
         data: {
@@ -154,22 +157,57 @@ export function MapContainer() {
         },
       });
 
+      // 보행 경로 외곽 글로우 효과
+      map.addLayer({
+        id: "course-routes-glow",
+        type: "line",
+        source: "course-routes",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#34d399",
+          "line-width": 10,
+          "line-opacity": 0.4,
+          "line-blur": 3,
+        },
+      });
+
+      // 보행 경로 메인 선
       map.addLayer({
         id: "course-routes-line",
         type: "line",
         source: "course-routes",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
         paint: {
-          "line-color": "#38bdf8",
-          "line-width": 4,
-          "line-dasharray": [3, 1],
+          "line-color": "#10b981",
+          "line-width": 5,
           "line-opacity": 0.95,
         },
       });
     });
 
-    mapRef.current = map;
+    // 줌 레벨에 따라 1km, 2km 거리 라벨 가시성 제어 (중앙 뭉침 완벽 방지)
+    const handleZoomVisibility = () => {
+      const currentZoom = map.getZoom();
+      document.querySelectorAll<HTMLElement>(".distance-label-1").forEach((el) => {
+        el.style.display = currentZoom < 12.8 ? "none" : "block";
+      });
+      document.querySelectorAll<HTMLElement>(".distance-label-2").forEach((el) => {
+        el.style.display = currentZoom < 11.5 ? "none" : "block";
+      });
+      document.querySelectorAll<HTMLElement>(".distance-label-3").forEach((el) => {
+        el.style.display = currentZoom < 10.0 ? "none" : "block";
+      });
+    };
 
-    // 초기 Supabase 데이터 연동 시도
+    map.on("zoom", handleZoomVisibility);
+
+    mapRef.current = map;
     fetchSupabaseData();
 
     return () => {
@@ -239,7 +277,7 @@ export function MapContainer() {
     }
   }, [circleFeatures, radialLines, color, fillOpacity]);
 
-  // 4. 지도 중심 및 줌 이동 반응 (pitch는 항상 0 고정)
+  // 4. 지도 중심 및 줌 이동 반응
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -254,7 +292,7 @@ export function MapContainer() {
     });
   }, [center, zoom]);
 
-  // 5. 안심식당 & 산책로 마커 및 연결 경로 렌더링
+  // 5. 마커 렌더링 (래퍼 분리하여 줌아웃 위치 흔들림 완벽 차단) 및 실제 도로망 경로선
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -268,85 +306,174 @@ export function MapContainer() {
     courses.forEach((course) => {
       const isSelected = course.id === activeCourseId;
 
-      // 안심식당 마커 엘리먼트
-      const restEl = document.createElement("div");
-      restEl.className = `cursor-pointer flex items-center justify-center p-2 rounded-full shadow-2xl transition-all ${
-        isSelected
-          ? "bg-emerald-500 ring-4 ring-emerald-300 scale-125 z-10"
-          : "bg-emerald-600/90 hover:scale-110"
-      }`;
-      restEl.innerHTML = `<span class="text-sm">🍽️</span>`;
+      // 카카오맵 & 네이버 지도 길찾기 URL 생성 유틸
+      const getKakaoLink = (name: string, lat: number, lng: number) =>
+        `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+      const getNaverLink = (name: string, lat: number, lng: number) =>
+        `https://map.naver.com/v5/directions/-/${lng},${lat},${encodeURIComponent(name)},,/walk`;
 
-      const restPopup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <div class="text-gray-900 p-2 max-w-[210px]">
-          <span class="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">안심식당</span>
-          <h4 class="font-bold text-xs mt-1">${course.restaurant.name}</h4>
-          <p class="text-[11px] text-gray-600 mt-1">${course.restaurant.description}</p>
-          <p class="text-[10px] text-emerald-700 font-semibold mt-1">💡 ${course.restaurant.healthBenefit}</p>
+      // -------------------------------------------------------------
+      // (A) 안심식당 마커: 래퍼(위치 고정) + 이너(비주얼 & 애니메이션) 분리
+      // -------------------------------------------------------------
+      const restWrapper = document.createElement("div");
+      restWrapper.className = "vital-marker-wrapper";
+      restWrapper.style.width = "36px";
+      restWrapper.style.height = "36px";
+      restWrapper.style.display = "flex";
+      restWrapper.style.alignItems = "center";
+      restWrapper.style.justifyContent = "center";
+
+      const restInner = document.createElement("div");
+      restInner.className = `w-9 h-9 cursor-pointer flex items-center justify-center rounded-full shadow-2xl transition-transform duration-200 ${
+        isSelected
+          ? "bg-emerald-500 ring-4 ring-emerald-300 ring-offset-2 ring-offset-gray-900 scale-125 z-20"
+          : "bg-emerald-600/95 hover:scale-110"
+      }`;
+      restInner.innerHTML = `<span class="text-base select-none">🍽️</span>`;
+      restWrapper.appendChild(restInner);
+
+      const restPopup = new mapboxgl.Popup({ offset: 20, closeButton: true }).setHTML(`
+        <div class="text-gray-900 p-2.5 max-w-[240px] font-sans">
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">안심식당</span>
+            <span class="text-[10px] text-gray-500">${course.targetCondition.split(" ")[0]}</span>
+          </div>
+          <h4 class="font-bold text-sm text-gray-900">${course.restaurant.name}</h4>
+          <p class="text-[11px] text-gray-600 mt-1 line-clamp-2">${course.restaurant.description}</p>
+          <div class="mt-2 p-1.5 bg-emerald-50 rounded text-[10px] text-emerald-800 font-medium">
+            💡 ${course.restaurant.healthBenefit}
+          </div>
+          <div class="mt-3 pt-2 border-t border-gray-100 flex items-center gap-1.5">
+            <a
+              href="${getKakaoLink(course.restaurant.name, course.restaurant.latitude, course.restaurant.longitude)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
+            >
+              <span>🟡</span>
+              <span>카카오 길찾기</span>
+            </a>
+            <a
+              href="${getNaverLink(course.restaurant.name, course.restaurant.latitude, course.restaurant.longitude)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
+            >
+              <span>🟢</span>
+              <span>네이버 길찾기</span>
+            </a>
+          </div>
         </div>
       `);
 
-      const restMarker = new mapboxgl.Marker(restEl)
+      const restMarker = new mapboxgl.Marker({ element: restWrapper, anchor: "center" })
         .setLngLat([course.restaurant.longitude, course.restaurant.latitude])
         .setPopup(restPopup)
         .addTo(map);
 
-      restEl.addEventListener("click", () => {
+      restInner.addEventListener("click", () => {
         setSelectedPlace(course.restaurant);
       });
 
       markersRef.current.push(restMarker);
 
-      // 산책로 마커 엘리먼트
-      const trailEl = document.createElement("div");
-      trailEl.className = `cursor-pointer flex items-center justify-center p-2 rounded-full shadow-2xl transition-all ${
-        isSelected
-          ? "bg-teal-500 ring-4 ring-teal-300 scale-125 z-10"
-          : "bg-teal-600/90 hover:scale-110"
-      }`;
-      trailEl.innerHTML = `<span class="text-sm">🚶</span>`;
+      // -------------------------------------------------------------
+      // (B) 완만 산책로 마커: 래퍼(위치 고정) + 이너(비주얼 & 애니메이션) 분리
+      // -------------------------------------------------------------
+      const trailWrapper = document.createElement("div");
+      trailWrapper.className = "vital-marker-wrapper";
+      trailWrapper.style.width = "36px";
+      trailWrapper.style.height = "36px";
+      trailWrapper.style.display = "flex";
+      trailWrapper.style.alignItems = "center";
+      trailWrapper.style.justifyContent = "center";
 
-      const trailPopup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <div class="text-gray-900 p-2 max-w-[210px]">
-          <span class="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold">완만 산책로</span>
-          <h4 class="font-bold text-xs mt-1">${course.trail.name}</h4>
-          <p class="text-[11px] text-gray-600 mt-1">${course.trail.description}</p>
-          <p class="text-[10px] text-teal-700 font-semibold mt-1">🌿 ${course.trail.healthBenefit}</p>
+      const trailInner = document.createElement("div");
+      trailInner.className = `w-9 h-9 cursor-pointer flex items-center justify-center rounded-full shadow-2xl transition-transform duration-200 ${
+        isSelected
+          ? "bg-teal-500 ring-4 ring-teal-300 ring-offset-2 ring-offset-gray-900 scale-125 z-20"
+          : "bg-teal-600/95 hover:scale-110"
+      }`;
+      trailInner.innerHTML = `<span class="text-base select-none">🚶</span>`;
+      trailWrapper.appendChild(trailInner);
+
+      const trailPopup = new mapboxgl.Popup({ offset: 20, closeButton: true }).setHTML(`
+        <div class="text-gray-900 p-2.5 max-w-[240px] font-sans">
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold">완만 산책로</span>
+            <span class="text-[10px] text-teal-700 font-semibold">${course.slopeGrade}</span>
+          </div>
+          <h4 class="font-bold text-sm text-gray-900">${course.trail.name}</h4>
+          <p class="text-[11px] text-gray-600 mt-1 line-clamp-2">${course.trail.description}</p>
+          <div class="mt-2 p-1.5 bg-teal-50 rounded text-[10px] text-teal-800 font-medium">
+            🌿 ${course.trail.healthBenefit}
+          </div>
+          <div class="mt-3 pt-2 border-t border-gray-100 flex items-center gap-1.5">
+            <a
+              href="${getKakaoLink(course.trail.name, course.trail.latitude, course.trail.longitude)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
+            >
+              <span>🟡</span>
+              <span>카카오 길찾기</span>
+            </a>
+            <a
+              href="${getNaverLink(course.trail.name, course.trail.latitude, course.trail.longitude)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
+            >
+              <span>🟢</span>
+              <span>네이버 길찾기</span>
+            </a>
+          </div>
         </div>
       `);
 
-      const trailMarker = new mapboxgl.Marker(trailEl)
+      const trailMarker = new mapboxgl.Marker({ element: trailWrapper, anchor: "center" })
         .setLngLat([course.trail.longitude, course.trail.latitude])
         .setPopup(trailPopup)
         .addTo(map);
 
-      trailEl.addEventListener("click", () => {
+      trailInner.addEventListener("click", () => {
         setSelectedPlace(course.trail);
       });
 
       markersRef.current.push(trailMarker);
 
-      // 선택된 코스의 경로선 추가
+      // -------------------------------------------------------------
+      // (C) 선택된 코스의 실제 도로망 보행 경로선(Polyline)
+      // -------------------------------------------------------------
       if (isSelected) {
+        const routeCoords =
+          course.walkingRoute && course.walkingRoute.length > 0
+            ? course.walkingRoute
+            : [
+                [course.restaurant.longitude, course.restaurant.latitude],
+                [course.trail.longitude, course.trail.latitude],
+              ];
+
         routeFeatures.push({
           type: "Feature",
-          properties: {},
+          properties: {
+            title: course.title,
+            distanceMeters: course.distanceMeters || 750,
+          },
           geometry: {
             type: "LineString",
-            coordinates: [
-              [course.restaurant.longitude, course.restaurant.latitude],
-              [course.trail.longitude, course.trail.latitude],
-            ],
+            coordinates: routeCoords,
           },
         });
       }
     });
 
-    // 거리 라벨 마커 (4대 방위)
+    // -------------------------------------------------------------
+    // (D) 거리 라벨 마커 (4대 방위, 줌아웃 시 뭉침 방지 클래스 적용)
+    // -------------------------------------------------------------
     distanceLabels.forEach((dl) => {
       const labelEl = document.createElement("div");
-      labelEl.className =
-        "text-[10px] bg-black/80 text-white px-1.5 py-0.5 rounded font-mono border border-emerald-500/50 shadow-md pointer-events-none";
+      labelEl.className = `distance-label-${dl.distance} text-[10px] bg-black/85 text-white px-1.5 py-0.5 rounded font-mono border border-emerald-500/50 shadow-md pointer-events-none transition-opacity duration-200`;
       labelEl.innerText = dl.label;
 
       const labelMarker = new mapboxgl.Marker({ element: labelEl, anchor: "center" })
@@ -356,7 +483,7 @@ export function MapContainer() {
       markersRef.current.push(labelMarker);
     });
 
-    // 경로선 업데이트
+    // 경로선 레이어 데이터 업데이트
     if (map.isStyleLoaded()) {
       const routeSource = map.getSource("course-routes") as mapboxgl.GeoJSONSource;
       if (routeSource) {
@@ -396,6 +523,49 @@ export function MapContainer() {
           </button>
         </div>
       </div>
+
+      {/* 지도 하단 보행 경로 요약 및 카카오/네이버 다이렉트 길찾기 바 */}
+      {activeCourse && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-gray-900/95 backdrop-blur-md border border-emerald-500/50 rounded-2xl px-4 py-2.5 shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🚶</span>
+            <div>
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <span>{activeCourse.restaurant.name}</span>
+                <span className="text-emerald-400">➔</span>
+                <span>{activeCourse.trail.name}</span>
+              </div>
+              <div className="text-[11px] text-gray-400">
+                실제 보행로 거리: <strong className="text-emerald-400 font-semibold">{activeCourse.distanceMeters || 720}m</strong> • 도보 약 <strong className="text-teal-300 font-semibold">{activeCourse.walkMinutes}분</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="h-6 w-px bg-gray-700/80 mx-1" />
+
+          {/* 원클릭 길찾기 앱 버튼 그룹 */}
+          <div className="flex items-center gap-1.5">
+            <a
+              href={`https://map.kakao.com/link/to/${encodeURIComponent(activeCourse.trail.name)},${activeCourse.trail.latitude},${activeCourse.trail.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[11px] rounded-xl shadow-sm transition-all active:scale-95"
+            >
+              <span>🟡</span>
+              <span>카카오맵 길찾기</span>
+            </a>
+            <a
+              href={`https://map.naver.com/v5/directions/-/${activeCourse.trail.longitude},${activeCourse.trail.latitude},${encodeURIComponent(activeCourse.trail.name)},,/walk`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[11px] rounded-xl shadow-sm transition-all active:scale-95"
+            >
+              <span>🟢</span>
+              <span>네이버 길찾기</span>
+            </a>
+          </div>
+        </div>
+      )}
 
       <div ref={mapContainerRef} className="w-full h-full" />
     </div>
