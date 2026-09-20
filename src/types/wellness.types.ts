@@ -34,6 +34,7 @@ export interface WaypointFacility {
   walkingMinutesFromRoute: number; // 경로에서 도보 몇 분 (예: 3분)
   distanceMetersFromRoute: number; // 경로에서 거리 (예: 180m)
   features: string[];              // 예: ['장애인 화장실', '비데', '냉난방', '그늘 벤치']
+  naverPlaceName?: string;
 }
 
 export interface WellnessPlace {
@@ -49,6 +50,7 @@ export interface WellnessPlace {
   nutrition?: NutritionInfo;       // 안심식당 대표 메뉴 식약처 영양정보
   tourApiContentId?: string;
   isMajorRoute?: boolean;
+  naverPlaceName?: string;
 }
 
 export interface WellnessCourseSet {
@@ -78,6 +80,7 @@ export interface WellnessStay {
   fitness: boolean;          // 피트니스 센터 보유 (식후 운동 루틴)
   safeBadges: string[];
   contact?: string;
+  naverPlaceName?: string;
 }
 
 // 1박 2일 다일정 장기 웰니스 코스
@@ -115,4 +118,5 @@ export interface WellnessQuest {
   badgeIcon: string;             // 뱃지 이모지
   isCompleted: boolean;
   progressMinutes?: number;
+  naverPlaceName?: string;
 }

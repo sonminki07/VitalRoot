@@ -6,6 +6,7 @@ import {
   fetchPedestrianRoute,
   calculateDistanceMeters,
 } from "../../utils/pedestrianRouter";
+import { getNaverMapDetailUrl } from "../../utils/naverMapUtils";
 
 const RADAR_CATEGORIES: { type: WaypointFilterType; label: string; icon: string }[] = [
   { type: "전체", label: "전체", icon: "🌐" },
@@ -352,9 +353,7 @@ export function MapContainer() {
         `
           : "";
 
-        const naverSearchUrl = `https://map.naver.com/p/search/${encodeURIComponent(
-          course.restaurant.name
-        )}`;
+        const naverSearchUrl = getNaverMapDetailUrl(course.restaurant);
 
         const popupContent = `
           <div class="text-gray-900 p-3 max-w-[260px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/40 animate-in fade-in zoom-in-95 duration-150">
@@ -414,9 +413,7 @@ export function MapContainer() {
       window.naver.maps.Event.addListener(trailMarker, "click", () => {
         setSelectedPlace(course.trail);
 
-        const naverSearchUrl = `https://map.naver.com/p/search/${encodeURIComponent(
-          course.trail.name
-        )}`;
+        const naverSearchUrl = getNaverMapDetailUrl(course.trail);
 
         const popupContent = `
           <div class="text-gray-900 p-3 max-w-[260px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/40 animate-in fade-in zoom-in-95 duration-150">
@@ -487,9 +484,7 @@ export function MapContainer() {
           });
 
           window.naver.maps.Event.addListener(wpMarker, "click", () => {
-            const naverSearchUrl = `https://map.naver.com/p/search/${encodeURIComponent(
-              wp.name
-            )}`;
+            const naverSearchUrl = getNaverMapDetailUrl(wp);
             const featureBadges = wp.features
               .map(
                 (f) =>
@@ -561,9 +556,7 @@ export function MapContainer() {
       });
 
       window.naver.maps.Event.addListener(stayMarker, "click", () => {
-        const naverSearchUrl = `https://map.naver.com/p/search/${encodeURIComponent(
-          stay.name
-        )}`;
+        const naverSearchUrl = getNaverMapDetailUrl(stay);
 
         const badgesHtml = stay.safeBadges
           .map(
@@ -627,6 +620,12 @@ export function MapContainer() {
       });
 
       window.naver.maps.Event.addListener(questMarker, "click", () => {
+        const naverSearchUrl = getNaverMapDetailUrl({
+          name: quest.landmarkName,
+          address: quest.address,
+          naverPlaceName: quest.naverPlaceName,
+        });
+
         const popupContent = `
           <div class="text-gray-900 p-2.5 max-w-[240px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-purple-500/40">
             <span class="text-[10px] bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">관광명소 퀘스트</span>
@@ -635,6 +634,17 @@ export function MapContainer() {
             <div class="mt-2 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-900 font-bold flex items-center gap-1">
               <span>🏅 칭호:</span>
               <span>${quest.titleReward}</span>
+            </div>
+            <div class="mt-2 pt-2 border-t border-gray-100">
+              <a
+                href="${naverSearchUrl}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="w-full flex items-center justify-center gap-1 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all"
+              >
+                <span>🟢</span>
+                <span>네이버 지도 상세</span>
+              </a>
             </div>
           </div>
         `;

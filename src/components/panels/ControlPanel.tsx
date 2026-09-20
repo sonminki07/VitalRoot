@@ -3,6 +3,7 @@ import { useWellnessStore } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 import { ChronicCondition } from "../../types/wellness.types";
 import { calculateDistanceMeters } from "../../utils/pedestrianRouter";
+import { getNaverMapDetailUrl } from "../../utils/naverMapUtils";
 
 const ALL_CONDITIONS: ChronicCondition[] = [
   "당뇨",
@@ -517,7 +518,7 @@ export function ControlPanel() {
                       <div className="pt-2 border-t border-gray-800 flex items-center justify-between text-[11px]">
                         <span className="text-gray-500">문의: {mc.stay.contact}</span>
                         <a
-                          href={`https://map.naver.com/p/search/${encodeURIComponent(mc.stay.name)}`}
+                          href={getNaverMapDetailUrl(mc.stay)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-emerald-400 hover:underline font-semibold flex items-center gap-0.5"
@@ -655,7 +656,7 @@ export function ControlPanel() {
                         </span>
                         <div className="flex items-center gap-1.5">
                           <a
-                            href={`https://map.naver.com/p/search/${encodeURIComponent(stay.name)}`}
+                            href={getNaverMapDetailUrl(stay)}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}

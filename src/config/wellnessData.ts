@@ -465,6 +465,7 @@ export const INITIAL_WELLNESS_STAYS: WellnessStay[] = [
   {
     id: "stay-1",
     name: "나인트리 프리미어 레지던스 명동",
+    naverPlaceName: "나인트리 프리미어 호텔 명동",
     address: "서울특별시 중구 명동길 61",
     description: "전 객실 주방 완비로 저염식 직접 조리 가능, 인슐린 전용 냉장고 및 24시간 피트니스 센터 보유",
     latitude: 37.5635,
@@ -478,6 +479,7 @@ export const INITIAL_WELLNESS_STAYS: WellnessStay[] = [
   {
     id: "stay-2",
     name: "서머셋 팰리스 서울 (종로/인사동)",
+    naverPlaceName: "서머셋팰리스 서울",
     address: "서울특별시 종로구 율곡로2길 7",
     description: "주방 조리 시설과 대형 냉장고, 실내 피트니스와 루프탑 산책로를 갖춘 장기 체류형 안심 레지던스",
     latitude: 37.5752,
@@ -491,6 +493,7 @@ export const INITIAL_WELLNESS_STAYS: WellnessStay[] = [
   {
     id: "stay-3",
     name: "남산 힐링 레지던스 스테이",
+    naverPlaceName: "서울특별시 중구 퇴계로 18길 32",
     address: "서울특별시 중구 퇴계로 18길 32",
     description: "남산 둘레길 진입로 바로 앞, 독립 주방과 저온 약물 냉장고를 구비한 조용한 숲세권 힐링 숙소",
     latitude: 37.5588,
@@ -504,6 +507,7 @@ export const INITIAL_WELLNESS_STAYS: WellnessStay[] = [
   {
     id: "stay-4",
     name: "그랜드 앰배서더 웰니스 호텔",
+    naverPlaceName: "앰배서더 서울 풀만 호텔",
     address: "서울특별시 중구 동호로 287",
     description: "전문 트레이너 상주 메디컬 피트니스와 실내 보행 트랙, 약물 냉장 보관 컨시어지 서비스 제공",
     latitude: 37.5601,
@@ -523,6 +527,7 @@ export const INITIAL_WELLNESS_QUESTS: WellnessQuest[] = [
     title: "남산 N서울타워 & 솔숲길 30분 안심 완보 퀘스트",
     description: "피톤치드 가득한 남산 소나무 자락길을 30분간 여유롭게 완보하여 식후 혈당을 안정화하세요.",
     landmarkName: "남산 서울타워 & 솔숲길",
+    naverPlaceName: "N서울타워",
     category: "산책로/자연",
     address: "서울특별시 중구 남산공원길 105",
     latitude: 37.5512,
@@ -538,6 +543,7 @@ export const INITIAL_WELLNESS_QUESTS: WellnessQuest[] = [
     title: "덕수궁 돌담길 & 정동 역사문화 20분 힐링 산책",
     description: "식사 후 계단 없는 완벽한 평지 돌담길을 20분간 산책하여 기립성 어지럼증을 예방하고 활력을 충전하세요.",
     landmarkName: "덕수궁 돌담길 & 정동길",
+    naverPlaceName: "덕수궁 돌담길",
     category: "역사문화/도심",
     address: "서울특별시 중구 정동 덕수궁길 24",
     latitude: 37.5662,
@@ -553,6 +559,7 @@ export const INITIAL_WELLNESS_QUESTS: WellnessQuest[] = [
     title: "청계천 무장애 수변길 25분 활력 걷기",
     description: "물소리를 들으며 스트레스를 낮추고 수변 데크길을 25분간 걸어 모세혈관 순환을 촉진합니다.",
     landmarkName: "청계천 수변 산책로",
+    naverPlaceName: "청계광장",
     category: "수변/도심",
     address: "서울특별시 중구 태평로1가 청계광장",
     latitude: 37.5691,
