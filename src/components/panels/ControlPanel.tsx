@@ -46,6 +46,7 @@ export function ControlPanel() {
     setIsPinningHome,
     courseMode,
     setCourseMode,
+    openSettingsModal,
   } = useWellnessStore();
 
   const { flyToPlace } = useMapStore();
@@ -182,9 +183,19 @@ export function ControlPanel() {
                 VitalRoot
               </h1>
             </div>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
-              네이버 지도 연동
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => openSettingsModal("health")}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-gray-800/90 hover:bg-gray-700 border border-gray-700 text-gray-200 hover:text-white transition-colors shadow-sm"
+                title="통합 환경 설정 및 건강 프로필 관리"
+              >
+                <span>⚙️</span>
+                <span>설정</span>
+              </button>
+              <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
+                네이버 지도 연동
+              </span>
+            </div>
           </div>
           <p className="text-xs text-gray-400 mt-1">
             만성질환 맞춤 안심식당 + 힐링 산책로 + 안심 숙소 & 퀘스트
@@ -952,9 +963,55 @@ export function ControlPanel() {
                 </div>
               </div>
 
+              {/* 복용 중인 의약품 및 식약처 DUR 요약 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-gray-300">
+                    2. 복용 의약품 & 식약처 DUR 분석
+                  </label>
+                  <button
+                    onClick={() => openSettingsModal("health")}
+                    className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold"
+                  >
+                    + 약물 관리/추가 ➔
+                  </button>
+                </div>
+
+                {profile.hasNoMedications ? (
+                  <div className="p-2.5 bg-gray-900/60 rounded-xl border border-gray-800 text-xs text-gray-400">
+                    ✓ 복용 중인 약물이 없습니다 (식단·운동 맞춤 케어)
+                  </div>
+                ) : (profile.medications && profile.medications.length > 0) ? (
+                  <div className="space-y-1.5">
+                    {profile.medications.map((m) => (
+                      <div
+                        key={m.id}
+                        className="p-2.5 bg-gray-900/60 rounded-xl border border-gray-800 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white">• {m.name}</span>
+                          <span className="text-[10px] text-gray-400">{m.timing}</span>
+                        </div>
+                        <p className="text-[11px] text-amber-300">{m.cautionNote}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-amber-950/20 rounded-xl border border-amber-500/30 text-xs text-amber-300 flex items-center justify-between">
+                    <span>⚠️ 등록된 복용 약물이 없습니다.</span>
+                    <button
+                      onClick={() => openSettingsModal("health")}
+                      className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-gray-950 rounded text-[10px] font-bold"
+                    >
+                      DUR 등록
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-gray-300 mb-2">
-                  2. 여행자 건강 프로필
+                  3. 여행자 건강 프로필
                 </label>
                 <div className="space-y-2 text-xs bg-gray-900/60 p-3 rounded-xl border border-gray-800">
                   <div className="flex justify-between">
@@ -970,13 +1027,22 @@ export function ControlPanel() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">오늘의 컨디션:</span>
-                    <span className="text-teal-300 font-medium">
-                      {profile.conditionToday}
+                    <span className="text-gray-400">보행 체력 수준:</span>
+                    <span className="text-teal-300 font-medium truncate ml-2">
+                      {profile.walkFitnessLevel || profile.conditionToday}
                     </span>
                   </div>
                 </div>
               </div>
+
+              {/* 설정 열기 버튼 */}
+              <button
+                onClick={() => openSettingsModal("health")}
+                className="w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white rounded-xl text-xs font-bold border border-gray-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+              >
+                <span>⚙️</span>
+                <span>상세 건강 프로필 & DUR 의약품 설정 열기</span>
+              </button>
 
               {/* 기저질환별 스마트 알고리즘 가이드 안내 */}
               <div className="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-xs space-y-1.5 text-emerald-300/90 leading-relaxed">

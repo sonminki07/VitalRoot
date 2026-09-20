@@ -61,6 +61,21 @@ function getSavedQuests(): { completedIds: string[]; earnedTitles: string[] } {
 }
 
 // 기저질환 조건에 따른 코스 실시간 필터링 함수 (저혈압 식후산책, 고혈압 쉼터, 당뇨 저당)
+export function checkIsOnboardingComplete(profile: UserProfile): boolean {
+  // 1. 기저질환 지표 1개 이상 선택
+  const hasConditions = Boolean(profile.chronicConditions && profile.chronicConditions.length > 0);
+  // 2. 복용 의약품 1개 이상 등록 또는 '복용 약물 없음' 명시적 체크
+  const hasMedicationInfo = Boolean(
+    profile.hasNoMedications || (profile.medications && profile.medications.length > 0)
+  );
+  // 3. 보행 체력 및 산책 필수 인프라 선호 1개 이상 선택
+  const hasFitnessOrInfra = Boolean(
+    profile.walkFitnessLevel || (profile.requiredInfra && profile.requiredInfra.length > 0)
+  );
+
+  return hasConditions && hasMedicationInfo && hasFitnessOrInfra;
+}
+
 export function filterCoursesByConditions(
   courses: WellnessCourseSet[],
   conditions: ChronicCondition[]
@@ -184,11 +199,21 @@ interface WellnessState {
   isLocationModalOpen: boolean;
   isPinningHome: boolean;
 
+  // 온보딩 및 설정 모달
+  isOnboardingModalOpen: boolean;
+  isSettingsModalOpen: boolean;
+  settingsInitialTab: "health" | "travel" | "system";
+
   isSupabaseConnected: boolean;
   isLoading: boolean;
 
   // 액션
   setProfile: (updates: Partial<UserProfile>) => void;
+  updateProfile: (updates: Partial<UserProfile>) => void;
+  openOnboardingModal: () => void;
+  closeOnboardingModal: () => void;
+  openSettingsModal: (tab?: "health" | "travel" | "system") => void;
+  closeSettingsModal: () => void;
   toggleCondition: (condition: ChronicCondition) => void;
   setCourseMode: (mode: "local" | "theme") => void;
   setActiveCourseId: (id: string) => void;
@@ -241,11 +266,48 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   userLocation: initialSavedLoc,
   isLocationModalOpen: false,
   isPinningHome: false,
+
+  isOnboardingModalOpen: false,
+  isSettingsModalOpen: false,
+  settingsInitialTab: "health",
+
   isSupabaseConnected: false,
   isLoading: false,
 
+  openOnboardingModal: () => set({ isOnboardingModalOpen: true }),
+  closeOnboardingModal: () => set({ isOnboardingModalOpen: false }),
+  openSettingsModal: (tab = "health") =>
+    set({ isSettingsModalOpen: true, settingsInitialTab: tab }),
+  closeSettingsModal: () => set({ isSettingsModalOpen: false }),
+
   setIsLocationModalOpen: (open) => set({ isLocationModalOpen: open }),
   setIsPinningHome: (pinning) => set({ isPinningHome: pinning }),
+
+  updateProfile: (updates) => {
+    const current = get().profile;
+    const updated: UserProfile = { ...current, ...updates };
+    try {
+      localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    const { courses, userLocation, courseMode } = get();
+    const filtered = computeFilteredCourses(
+      courses,
+      updated.chronicConditions,
+      userLocation,
+      courseMode
+    );
+    set({
+      profile: updated,
+      filteredCourses: filtered,
+    });
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        get().saveProfileToDb(user.id, updated);
+      }
+    });
+  },
 
   setCourseMode: (mode) => {
     const { courses, profile, userLocation } = get();
@@ -410,9 +472,13 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
         const loadedProfile: UserProfile = {
           userName: data.user_name || "웰니스 여행자",
           chronicConditions: (data.chronic_conditions as ChronicCondition[]) || ["당뇨"],
+          medications: data.medications || [],
+          hasNoMedications: data.has_no_medications ?? false,
           allergies: data.allergies || [],
-          dietaryPreference: data.dietary_preference || "저염/저탄수",
-          conditionToday: data.condition_today || "평지 산책 희망",
+          dietaryPreference: data.dietary_preference || "저염/저탄수화물",
+          conditionToday: data.condition_today || "식후 30분 가벼운 평지 산책 희망",
+          walkFitnessLevel: data.walk_fitness_level || "식후 30분 가벼운 평지 산책 희망",
+          requiredInfra: data.required_infra || ["중간 화장실 필수", "완만한 평지/쉼터 필수"],
         };
         try {
           localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(loadedProfile));
@@ -436,14 +502,31 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   // 프로필 변경 시 Supabase DB에 저장 (upsert)
   saveProfileToDb: async (userId: string, profileToSave: UserProfile) => {
     try {
-      await supabase.from("user_profiles").upsert({
+      // 1. 신규 확장 컬럼 포함 저장 시도
+      const { error } = await supabase.from("user_profiles").upsert({
         id: userId,
         user_name: profileToSave.userName,
         chronic_conditions: profileToSave.chronicConditions,
         allergies: profileToSave.allergies,
         dietary_preference: profileToSave.dietaryPreference,
         condition_today: profileToSave.conditionToday,
+        medications: profileToSave.medications,
+        has_no_medications: profileToSave.hasNoMedications,
+        walk_fitness_level: profileToSave.walkFitnessLevel,
+        required_infra: profileToSave.requiredInfra,
       });
+
+      // 2. 만약 DB에 신규 컬럼이 아직 없어서 에러 발생 시, 기존 기본 스키마 컬럼만으로 세이프티 폴백 저장
+      if (error) {
+        await supabase.from("user_profiles").upsert({
+          id: userId,
+          user_name: profileToSave.userName,
+          chronic_conditions: profileToSave.chronicConditions,
+          allergies: profileToSave.allergies,
+          dietary_preference: profileToSave.dietaryPreference,
+          condition_today: profileToSave.conditionToday,
+        });
+      }
     } catch (err) {
       console.warn("Failed to save profile to DB:", err);
     }

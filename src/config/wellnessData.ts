@@ -7,11 +7,34 @@ import {
 } from "../types/wellness.types";
 
 export const INITIAL_USER_PROFILE: UserProfile = {
-  userName: "관광 여행자",
+  userName: "웰니스 여행자",
   chronicConditions: ["당뇨", "고혈압"],
+  medications: [
+    {
+      id: "init-med-1",
+      name: "다이아벡스정 500mg",
+      ingredientName: "메트포르민염산염",
+      timing: "아침 식후",
+      cautionNote: "⚠️ 식후 30분 규칙적 완보 권장 / 식사 거름 방지",
+      durWarningTags: ["용량주의", "노인주의"],
+      inferredCondition: "당뇨",
+    },
+    {
+      id: "init-med-2",
+      name: "코자엑스큐정 5/50mg",
+      ingredientName: "로사르탄/암로디핀",
+      timing: "아침 식후",
+      cautionNote: "⚠️ 탈수 주의 / 산책로 화장실 인프라 자동 확보",
+      durWarningTags: ["임부금기", "노인주의"],
+      inferredCondition: "고혈압",
+    },
+  ],
+  hasNoMedications: false,
   allergies: ["갑각류", "땅콩"],
   dietaryPreference: "저염/저탄수화물",
   conditionToday: "식후 30분 가벼운 평지 산책 희망",
+  walkFitnessLevel: "식후 30분 가벼운 평지 산책 희망",
+  requiredInfra: ["중간 화장실 필수", "완만한 평지/쉼터 필수"],
 };
 
 export const INITIAL_WELLNESS_COURSES: WellnessCourseSet[] = [

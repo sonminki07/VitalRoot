@@ -1,12 +1,28 @@
 export type ChronicCondition = '당뇨' | '고혈압' | '저혈압' | '이상지질혈증' | '신장질환' | '관절/근골격계';
 
+// 식약처 DUR 및 복용 의약품 정보
+export interface MedicationItem {
+  id: string;
+  name: string;                   // 약품명 (예: 다이아벡스정 500mg)
+  ingredientName: string;         // 주요 성분명 (예: 메트포르민)
+  timing: string;                 // 복용 시점 (예: 아침 식후, 식전 30분)
+  cautionNote: string;            // 여행/보행 가이드 (예: 식후 30분 규칙적 완보 권장 / 식사 거름 방지)
+  durWarningTags: string[];       // 식약처 DUR 7대 주의 태그 (예: ['노인주의', '용량주의'])
+  inferredCondition?: ChronicCondition; // 약물 기반 추론 질환
+}
+
 export interface UserProfile {
   id?: string;
   userName: string;
   chronicConditions: ChronicCondition[];
+  medications?: MedicationItem[];
+  hasNoMedications?: boolean;     // 복용 중인 약물이 없음 명시적 체크
   allergies: string[];
   dietaryPreference: string;
   conditionToday: string;
+  walkFitnessLevel?: string;      // 보행 체력 수준
+  requiredInfra?: string[];       // 산책 필수 인프라 (화장실, 쉼터 등)
+  isOnboardingDismissed?: boolean;
 }
 
 // 식약처 공공데이터 기반 영양성분 정보
