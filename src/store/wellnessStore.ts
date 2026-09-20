@@ -21,6 +21,19 @@ export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어�
 
 const STORAGE_KEY_PROFILE = "vitalroot_user_profile";
 const STORAGE_KEY_QUESTS = "vitalroot_user_quests";
+const STORAGE_KEY_LOCATION = "vitalroot_user_location";
+
+function getSavedLocation(): { latitude: number; longitude: number } | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_LOCATION);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
 
 // 로컬 스토리지에서 초기 프로필 불러오기 (새로고침 시 유지)
 function getSavedProfile(): UserProfile {
@@ -169,6 +182,7 @@ interface WellnessState {
   // 사용자 위치(GPS) 관련
   userLocation: { latitude: number; longitude: number } | null;
   isLocationModalOpen: boolean;
+  isPinningHome: boolean;
 
   isSupabaseConnected: boolean;
   isLoading: boolean;
@@ -186,16 +200,18 @@ interface WellnessState {
   completeQuest: (questId: string) => void;
   setUserLocation: (loc: { latitude: number; longitude: number } | null) => void;
   setIsLocationModalOpen: (open: boolean) => void;
+  setIsPinningHome: (pinning: boolean) => void;
   fetchSupabaseData: () => Promise<void>;
   syncProfileWithDb: (userId: string) => Promise<void>;
   saveProfileToDb: (userId: string, profile: UserProfile) => Promise<void>;
 }
 
 const initialProfile = getSavedProfile();
+const initialSavedLoc = getSavedLocation();
 const initialFiltered = computeFilteredCourses(
   INITIAL_WELLNESS_COURSES,
   initialProfile.chronicConditions,
-  null,
+  initialSavedLoc,
   "local"
 );
 const initialQuestData = getSavedQuests();
@@ -222,12 +238,14 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   })),
   activeQuestId: INITIAL_WELLNESS_QUESTS[0]?.id ?? null,
   earnedTitles: initialQuestData.earnedTitles,
-  userLocation: null,
+  userLocation: initialSavedLoc,
   isLocationModalOpen: false,
+  isPinningHome: false,
   isSupabaseConnected: false,
   isLoading: false,
 
   setIsLocationModalOpen: (open) => set({ isLocationModalOpen: open }),
+  setIsPinningHome: (pinning) => set({ isPinningHome: pinning }),
 
   setCourseMode: (mode) => {
     const { courses, profile, userLocation } = get();
@@ -240,10 +258,20 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   },
 
   setUserLocation: (loc) => {
+    try {
+      if (loc) {
+        localStorage.setItem(STORAGE_KEY_LOCATION, JSON.stringify(loc));
+      } else {
+        localStorage.removeItem(STORAGE_KEY_LOCATION);
+      }
+    } catch {
+      // ignore
+    }
     const { courses, profile, courseMode } = get();
     const updated = computeFilteredCourses(courses, profile.chronicConditions, loc, courseMode);
     set({
       userLocation: loc,
+      isPinningHome: false,
       filteredCourses: updated,
       activeCourseId: updated[0]?.id || "course-1",
     });

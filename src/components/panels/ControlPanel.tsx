@@ -43,6 +43,7 @@ export function ControlPanel() {
     toggleCondition,
     userLocation,
     setIsLocationModalOpen,
+    setIsPinningHome,
     courseMode,
     setCourseMode,
   } = useWellnessStore();
@@ -263,12 +264,21 @@ export function ControlPanel() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setIsLocationModalOpen(true)}
-                    className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-xs rounded-lg transition-all shadow shrink-0 active:scale-95"
-                  >
-                    위치 연동
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => setIsPinningHome(true)}
+                      className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-[11px] rounded-lg transition-all shadow shrink-0 active:scale-95"
+                      title="지도 화면을 직접 클릭하여 집 위치를 지정합니다."
+                    >
+                      🎯 집 찍기
+                    </button>
+                    <button
+                      onClick={() => setIsLocationModalOpen(true)}
+                      className="px-2 py-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-[11px] rounded-lg transition-all shadow shrink-0 active:scale-95"
+                    >
+                      위치 연동
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="p-2.5 bg-sky-950/50 border border-sky-500/40 rounded-xl flex items-center justify-between gap-2 shadow-sm text-xs">
@@ -278,12 +288,20 @@ export function ControlPanel() {
                       내 위치 기준 가까운 순 정렬 중
                     </span>
                   </div>
-                  <button
-                    onClick={() => setIsLocationModalOpen(true)}
-                    className="text-[11px] text-sky-400 hover:text-sky-300 underline font-medium shrink-0"
-                  >
-                    위치 재설정
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => setIsPinningHome(true)}
+                      className="text-[10px] text-amber-300 hover:text-amber-200 font-bold px-2 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 shrink-0"
+                    >
+                      🎯 집 핀 찍기
+                    </button>
+                    <button
+                      onClick={() => setIsLocationModalOpen(true)}
+                      className="text-[11px] text-sky-400 hover:text-sky-300 underline font-medium shrink-0"
+                    >
+                      동네 변경
+                    </button>
+                  </div>
                 </div>
               )}
 

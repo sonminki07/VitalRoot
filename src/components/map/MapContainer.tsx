@@ -38,10 +38,13 @@ export function MapContainer() {
     quests,
     activeQuestId,
     userLocation,
+    setUserLocation,
     setIsLocationModalOpen,
+    isPinningHome,
+    setIsPinningHome,
   } = useWellnessStore();
 
-  const { center, zoom, setSelectedPlace } = useMapStore();
+  const { center, zoom, setSelectedPlace, flyToPlace } = useMapStore();
 
   const activeCourse =
     filteredCourses.find((c) => c.id === activeCourseId) || filteredCourses[0];
@@ -54,6 +57,41 @@ export function MapContainer() {
   const [actualWalkDistance, setActualWalkDistance] = useState<number>(
     activeCourse?.distanceMeters || 750
   );
+
+  // 지도 클릭 이벤트 (내 집 핀 찍기 모드)
+  useEffect(() => {
+    if (!mapRef.current || !window.naver?.maps) return;
+    const map = mapRef.current;
+
+    const clickListener = window.naver.maps.Event.addListener(
+      map,
+      "click",
+      (e: any) => {
+        if (isPinningHome) {
+          const lat = e.coord.lat();
+          const lng = e.coord.lng();
+          setUserLocation({ latitude: lat, longitude: lng });
+          setIsPinningHome(false);
+          flyToPlace(lng, lat, 15);
+        }
+      }
+    );
+
+    if (mapElementRef.current) {
+      mapElementRef.current.style.cursor = isPinningHome ? "crosshair" : "default";
+    }
+
+    return () => {
+      window.naver.maps.Event.removeListener(clickListener);
+    };
+  }, [isPinningHome, isMapLoaded]);
+
+  // 커스텀 이벤트 (팝업에서 재핀 찍기 요청 시)
+  useEffect(() => {
+    const handleRepin = () => setIsPinningHome(true);
+    window.addEventListener("vital-repin-home", handleRepin);
+    return () => window.removeEventListener("vital-repin-home", handleRepin);
+  }, []);
 
   // 1. 네이버 지도 스크립트 대기 및 지도 인스턴스 초기화
   useEffect(() => {
@@ -269,15 +307,19 @@ export function MapContainer() {
       userMarkerRef.current = null;
     }
 
-    // 📍 (0) 사용자 현재 위치 GPS 펄스 마커
+    // 📍 (0) 1단계: 사용자 출발지 캡슐 뱃지
     if (userLocation) {
       const userContent = document.createElement("div");
-      userContent.className = "vital-marker-wrapper cursor-pointer relative flex items-center justify-center";
+      userContent.className = "vital-journey-marker cursor-pointer flex flex-col items-center select-none";
       userContent.innerHTML = `
-        <span class="animate-ping absolute inline-flex h-9 w-9 rounded-full bg-sky-400 opacity-75"></span>
-        <div class="relative w-8 h-8 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-400 border-2 border-white shadow-2xl flex items-center justify-center text-sm text-white font-bold">
-          📍
+        <div class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/95 border-2 border-sky-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap hover:scale-105 transition-transform">
+          <span class="w-4 h-4 rounded-full bg-sky-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">1</span>
+          <span class="text-sky-300 font-extrabold text-[11px]">출발</span>
+          <span class="text-[11px] text-gray-200">내 위치</span>
+          <span class="animate-ping absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-sky-400 opacity-75"></span>
         </div>
+        <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-slate-900 border-r-2 border-b-2 border-sky-400"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-sky-400 shadow-lg -mt-0.5"></div>
       `;
 
       const userMarker = new window.naver.maps.Marker({
@@ -285,17 +327,27 @@ export function MapContainer() {
         position: new window.naver.maps.LatLng(userLocation.latitude, userLocation.longitude),
         icon: {
           content: userContent,
-          anchor: new window.naver.maps.Point(16, 16),
+          anchor: new window.naver.maps.Point(45, 34),
         },
-        zIndex: 120,
+        zIndex: 150,
       });
 
       window.naver.maps.Event.addListener(userMarker, "click", () => {
         const popupContent = `
-          <div class="text-gray-900 p-3 max-w-[220px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-sky-500/50">
-            <span class="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full">실시간 GPS</span>
-            <h4 class="font-bold text-xs text-gray-900 mt-1">📍 내 현재 위치</h4>
-            <p class="text-[11px] text-gray-600 mt-0.5">이 위치를 기준으로 가장 가까운 안심식당과 산책로가 추천되었습니다.</p>
+          <div class="text-gray-900 p-3 max-w-[240px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-sky-500/50">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full">① 출발 지점</span>
+            </div>
+            <h4 class="font-bold text-xs text-gray-900 mt-1">📍 내 위치 (출발지)</h4>
+            <p class="text-[11px] text-gray-600 mt-0.5">이 위치에서 출발하여 안심식당으로 이동하는 보행 코스입니다.</p>
+            <div class="mt-2.5 pt-2 border-t border-gray-100">
+              <button
+                onclick="window.dispatchEvent(new CustomEvent('vital-repin-home'))"
+                class="w-full py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold text-center shadow transition-all"
+              >
+                🎯 내 집 핀 위치 변경하기
+              </button>
+            </div>
           </div>
         `;
         infoWindowRef.current?.setContent(popupContent);
@@ -309,18 +361,31 @@ export function MapContainer() {
     filteredCourses.forEach((course) => {
       const isSelected = course.id === activeCourse?.id;
 
-      // 안심식당 마커
+      // 2단계: 안심식당 캡슐 뱃지
       const restContent = document.createElement("div");
-      restContent.className = "vital-marker-wrapper cursor-pointer";
-      restContent.innerHTML = `
-        <div class="w-9 h-9 flex items-center justify-center rounded-full shadow-2xl transition-transform duration-200 ${
-          isSelected
-            ? "bg-emerald-500 ring-4 ring-emerald-300 ring-offset-2 ring-offset-gray-900 scale-125 z-30"
-            : "bg-emerald-600/95 hover:scale-110"
-        }">
-          <span class="text-base select-none">🍽️</span>
-        </div>
-      `;
+      restContent.className = "vital-journey-marker cursor-pointer flex flex-col items-center select-none";
+      
+      const restStepNum = userLocation ? "2" : "1";
+      const restStepLabel = userLocation ? "식사" : "출발";
+
+      if (isSelected) {
+        restContent.innerHTML = `
+          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
+            <span class="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${restStepNum}</span>
+            <span class="text-emerald-300 font-extrabold text-[11px]">${restStepLabel} 🥗</span>
+            <span class="text-[11px] text-white truncate max-w-[130px]">${course.restaurant.name}</span>
+          </div>
+          <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-emerald-950 border-r-2 border-b-2 border-emerald-400"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-lg -mt-0.5"></div>
+        `;
+      } else {
+        restContent.innerHTML = `
+          <div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-900/90 border border-emerald-500/50 shadow-lg text-[11px] text-emerald-200 opacity-80 hover:opacity-100 hover:scale-105 transition-all">
+            <span>🥗</span>
+            <span class="truncate max-w-[100px]">${course.restaurant.name}</span>
+          </div>
+        `;
+      }
 
       const restMarker = new window.naver.maps.Marker({
         map,
@@ -330,9 +395,9 @@ export function MapContainer() {
         ),
         icon: {
           content: restContent,
-          anchor: new window.naver.maps.Point(18, 18),
+          anchor: new window.naver.maps.Point(isSelected ? 55 : 35, isSelected ? 34 : 12),
         },
-        zIndex: isSelected ? 100 : 20,
+        zIndex: isSelected ? 120 : 30,
       });
 
       window.naver.maps.Event.addListener(restMarker, "click", () => {
@@ -396,18 +461,30 @@ export function MapContainer() {
 
       markersRef.current.push(restMarker);
 
-      // 완만 산책로 마커
+      // 3단계: 완만 산책로 캡슐 뱃지
       const trailContent = document.createElement("div");
-      trailContent.className = "vital-marker-wrapper cursor-pointer";
-      trailContent.innerHTML = `
-        <div class="w-9 h-9 flex items-center justify-center rounded-full shadow-2xl transition-transform duration-200 ${
-          isSelected
-            ? "bg-teal-500 ring-4 ring-teal-300 ring-offset-2 ring-offset-gray-900 scale-125 z-30"
-            : "bg-teal-600/95 hover:scale-110"
-        }">
-          <span class="text-base select-none">🚶</span>
-        </div>
-      `;
+      trailContent.className = "vital-journey-marker cursor-pointer flex flex-col items-center select-none";
+
+      const trailStepNum = userLocation ? "3" : "2";
+
+      if (isSelected) {
+        trailContent.innerHTML = `
+          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/95 border-2 border-rose-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
+            <span class="w-4 h-4 rounded-full bg-rose-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${trailStepNum}</span>
+            <span class="text-rose-300 font-extrabold text-[11px]">도착 🏁</span>
+            <span class="text-[11px] text-white truncate max-w-[130px]">${course.trail.name}</span>
+          </div>
+          <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-rose-950 border-r-2 border-b-2 border-rose-400"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-lg -mt-0.5"></div>
+        `;
+      } else {
+        trailContent.innerHTML = `
+          <div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-900/90 border border-teal-500/50 shadow-lg text-[11px] text-teal-200 opacity-80 hover:opacity-100 hover:scale-105 transition-all">
+            <span>👟</span>
+            <span class="truncate max-w-[100px]">${course.trail.name}</span>
+          </div>
+        `;
+      }
 
       const trailMarker = new window.naver.maps.Marker({
         map,
@@ -417,9 +494,9 @@ export function MapContainer() {
         ),
         icon: {
           content: trailContent,
-          anchor: new window.naver.maps.Point(18, 18),
+          anchor: new window.naver.maps.Point(isSelected ? 55 : 35, isSelected ? 34 : 12),
         },
-        zIndex: isSelected ? 100 : 20,
+        zIndex: isSelected ? 120 : 30,
       });
 
       window.naver.maps.Event.addListener(trailMarker, "click", () => {
@@ -705,8 +782,25 @@ export function MapContainer() {
 
   return (
     <div className="relative w-full h-full">
+      {/* 지도 핀 찍기 가이드 플로팅 배너 */}
+      {isPinningHome && (
+        <div className="absolute top-16 sm:top-5 left-1/2 -translate-x-1/2 z-50 bg-gray-950/95 border-2 border-amber-400 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top duration-200">
+          <span className="text-xl animate-bounce">🎯</span>
+          <div className="text-left">
+            <p className="font-bold text-amber-300 text-xs sm:text-sm">지도에서 내 집(출발지) 위치를 클릭하세요</p>
+            <p className="text-[10px] text-gray-300">클릭하신 위치가 새로운 출발지로 즉시 설정됩니다.</p>
+          </div>
+          <button
+            onClick={() => setIsPinningHome(false)}
+            className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-semibold ml-1 shrink-0"
+          >
+            취소
+          </button>
+        </div>
+      )}
+
       {/* 우측 상단 컨트롤 바 (내 위치 찾기 + 인증 버튼 + 일반/위성 전환 스위치) */}
-      <div className="absolute top-4 right-4 sm:right-16 z-20 flex items-center gap-2">
+      <div className="absolute top-4 right-4 sm:right-16 z-20 flex items-center gap-1.5 sm:gap-2">
         {/* 내 위치 기반 찾기 버튼 */}
         <button
           onClick={() => setIsLocationModalOpen(true)}
@@ -718,9 +812,26 @@ export function MapContainer() {
         >
           <span>📍</span>
           <span className="hidden sm:inline">
-            {userLocation ? "내 위치 활성화됨" : "내 위치 코스 찾기"}
+            {userLocation ? "내 위치 재설정" : "내 위치 코스 찾기"}
           </span>
           <span className="sm:hidden">내 위치</span>
+        </button>
+
+        {/* 내 집 핀 찍기 버튼 */}
+        <button
+          onClick={() => setIsPinningHome(!isPinningHome)}
+          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 border ${
+            isPinningHome
+              ? "bg-amber-500 text-gray-950 border-amber-300 animate-pulse ring-2 ring-amber-400"
+              : "bg-gray-900/90 text-amber-300 hover:text-white border-amber-500/40 hover:bg-gray-800"
+          }`}
+          title="지도 화면을 직접 클릭하여 내 집(출발지) 위치를 지정합니다."
+        >
+          <span>🎯</span>
+          <span className="hidden sm:inline">
+            {isPinningHome ? "지도 클릭 대기중..." : "집 핀 찍기"}
+          </span>
+          <span className="sm:hidden">집 찍기</span>
         </button>
 
         <AuthButton />
