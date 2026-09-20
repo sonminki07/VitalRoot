@@ -3,7 +3,9 @@ import { useWellnessStore, checkIsOnboardingComplete } from "../../store/wellnes
 
 export function HealthProfileAlertBanner() {
   const { profile, openOnboardingModal } = useWellnessStore();
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(
+    typeof window !== "undefined" && window.innerWidth < 1280
+  );
 
   const isComplete = checkIsOnboardingComplete(profile);
 
@@ -22,7 +24,7 @@ export function HealthProfileAlertBanner() {
   const completedCount = [hasConditions, hasMeds, hasFitness].filter(Boolean).length;
 
   return (
-    <div className="fixed bottom-20 sm:bottom-6 right-4 z-40 max-w-sm animate-in slide-in-from-bottom-5 duration-300">
+    <div className="fixed bottom-20 sm:bottom-4 right-3 sm:right-4 z-40 max-w-sm animate-in slide-in-from-bottom-5 duration-300">
       {isMinimized ? (
         // 최소화된 펄스 뱃지 (지도 조작 방해 최소화하면서도 눈에 띄게 지속 유지)
         <button

@@ -67,7 +67,9 @@ declare namespace naver.maps {
     setZoom(level: number, effect?: boolean): void;
     getZoom(): number;
     panTo(target: LatLng, options?: any): void;
-    morph(target: LatLng, zoom?: number): void;
+    morph(target: LatLng, zoom?: number, options?: any): void;
+    fitBounds(bounds: LatLngBounds, margin?: any): void;
+    panToBounds(bounds: LatLngBounds, margin?: any): void;
     setMapTypeId(typeId: MapTypeId): void;
     getMapTypeId(): MapTypeId;
     destroy(): void;

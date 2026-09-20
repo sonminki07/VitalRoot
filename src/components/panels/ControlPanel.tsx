@@ -135,7 +135,7 @@ export function ControlPanel() {
     <div
       className={`fixed sm:absolute z-40 sm:z-20 transition-all duration-300 ease-in-out flex flex-col bg-gray-900/95 sm:bg-gray-900/90 backdrop-blur-md border border-gray-700/60 shadow-2xl text-white overflow-hidden
         bottom-0 left-0 right-0 rounded-t-3xl sm:rounded-2xl
-        sm:top-3 sm:left-3 sm:right-auto sm:bottom-auto sm:w-96 sm:max-h-[calc(100vh-1.5rem)]
+        sm:top-3 sm:left-3 sm:right-auto sm:bottom-auto sm:w-[350px] lg:w-96 sm:max-h-[calc(100vh-1.5rem)]
         ${isMobileExpanded ? "h-[85vh] sm:h-auto" : "h-14 sm:h-auto"}
       `}
     >

@@ -118,6 +118,52 @@ export function MapContainer() {
     return () => window.removeEventListener("vital-repin-home", handleRepin);
   }, []);
 
+  // 🗺️ 내 위치(출발지) + 식당 + 산책로 전체 경로 맞춤 포커스 (fitBounds)
+  const fitCourseAndHomeBounds = (animate = true) => {
+    if (!mapRef.current || !window.naver?.maps || !activeCourse) return;
+    const map = mapRef.current;
+
+    const baseLat = userLocation ? userLocation.latitude : activeCourse.restaurant.latitude;
+    const baseLng = userLocation ? userLocation.longitude : activeCourse.restaurant.longitude;
+    const bounds = new window.naver.maps.LatLngBounds(
+      new window.naver.maps.LatLng(baseLat, baseLng),
+      new window.naver.maps.LatLng(baseLat, baseLng)
+    );
+
+    bounds.extend(new window.naver.maps.LatLng(activeCourse.restaurant.latitude, activeCourse.restaurant.longitude));
+    bounds.extend(new window.naver.maps.LatLng(activeCourse.trail.latitude, activeCourse.trail.longitude));
+
+    if (userLocation) {
+      bounds.extend(new window.naver.maps.LatLng(userLocation.latitude, userLocation.longitude));
+    }
+
+    if (roadRouteCoords && roadRouteCoords.length > 0) {
+      roadRouteCoords.forEach(([lng, lat]) => {
+        bounds.extend(new window.naver.maps.LatLng(lat, lng));
+      });
+    }
+
+    if (userToRestCoords && userToRestCoords.length > 0) {
+      userToRestCoords.forEach(([lng, lat]) => {
+        bounds.extend(new window.naver.maps.LatLng(lat, lng));
+      });
+    }
+
+    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
+    const padding = {
+      top: 80,
+      right: 60,
+      bottom: 140,
+      left: isDesktop ? (window.innerWidth >= 1024 ? 420 : 370) : 30,
+    };
+
+    if (animate && typeof (map as any).panToBounds === "function") {
+      (map as any).panToBounds(bounds, padding);
+    } else {
+      map.fitBounds(bounds, padding);
+    }
+  };
+
   // 1. 네이버 지도 스크립트 대기 및 지도 인스턴스 초기화
   useEffect(() => {
     let checkInterval: number | undefined;
@@ -125,7 +171,18 @@ export function MapContainer() {
     const initNaverMap = () => {
       if (!window.naver || !window.naver.maps || !mapElementRef.current) return;
 
-      const initialCenter = new window.naver.maps.LatLng(center[1], center[0]);
+      const initialLat = userLocation
+        ? userLocation.latitude
+        : activeCourse
+        ? activeCourse.restaurant.latitude
+        : center[1];
+      const initialLng = userLocation
+        ? userLocation.longitude
+        : activeCourse
+        ? activeCourse.restaurant.longitude
+        : center[0];
+      const initialCenter = new window.naver.maps.LatLng(initialLat, initialLng);
+
       const map = new window.naver.maps.Map(mapElementRef.current, {
         center: initialCenter,
         zoom: Math.round(zoom || 14),
@@ -154,6 +211,10 @@ export function MapContainer() {
 
       mapRef.current = map;
       setIsMapLoaded(true);
+
+      setTimeout(() => {
+        fitCourseAndHomeBounds(false);
+      }, 200);
     };
 
     if (window.naver && window.naver.maps) {
@@ -175,6 +236,15 @@ export function MapContainer() {
       }
     };
   }, []);
+
+  // 코스 또는 내 위치 변경 시 지도 뷰포트 자동 맞춤
+  useEffect(() => {
+    if (!isMapLoaded) return;
+    const timer = setTimeout(() => {
+      fitCourseAndHomeBounds(true);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [activeCourse?.id, userLocation?.latitude, userLocation?.longitude]);
 
   // 2. 일반 지도 / 위성 지도(HYBRID) 전환 (스토어 및 로컬스토리지 영속화)
   const handleChangeMapType = (type: "satellite" | "street") => {
@@ -879,28 +949,39 @@ export function MapContainer() {
         </div>
       )}
 
-      {/* 우측 상단 컨트롤 바 (내 위치 찾기 + 인증 버튼 + 일반/위성 전환 스위치) */}
-      <div className="absolute top-4 right-4 sm:right-16 z-20 flex items-center gap-1.5 sm:gap-2">
+      {/* 우측 상단 컨트롤 바 (전체 경로 맞춤 + 내 위치 찾기 + 집 핀 찍기 + 인증 버튼 + 일반/위성 전환 스위치) */}
+      <div className="absolute top-4 right-3 sm:right-14 z-20 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 max-w-[calc(100vw-420px)]">
+        {/* 전체 경로 한눈에 보기 맞춤 버튼 */}
+        <button
+          onClick={() => fitCourseAndHomeBounds(true)}
+          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 bg-gray-900/90 hover:bg-gray-800 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40"
+          title="내 위치와 선택된 코스 전체를 화면 한눈에 포커스합니다."
+        >
+          <span>⛶</span>
+          <span className="hidden xl:inline">전체 경로 맞춤</span>
+          <span className="xl:hidden">맞춤</span>
+        </button>
+
         {/* 내 위치 기반 찾기 버튼 */}
         <button
           onClick={() => setIsLocationModalOpen(true)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 ${
+          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 ${
             userLocation
               ? "bg-sky-600 hover:bg-sky-500 text-white border border-sky-400/50"
               : "bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50 animate-pulse"
           }`}
         >
           <span>📍</span>
-          <span className="hidden sm:inline">
+          <span className="hidden xl:inline">
             {userLocation ? "내 위치 재설정" : "내 위치 코스 찾기"}
           </span>
-          <span className="sm:hidden">내 위치</span>
+          <span className="xl:hidden">내 위치</span>
         </button>
 
         {/* 내 집 핀 찍기 버튼 */}
         <button
           onClick={() => setIsPinningHome(!isPinningHome)}
-          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 border ${
+          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 border ${
             isPinningHome
               ? "bg-amber-500 text-gray-950 border-amber-300 animate-pulse ring-2 ring-amber-400"
               : "bg-gray-900/90 text-amber-300 hover:text-white border-amber-500/40 hover:bg-gray-800"
@@ -908,40 +989,40 @@ export function MapContainer() {
           title="지도 화면을 직접 클릭하여 내 집(출발지) 위치를 지정합니다."
         >
           <span>🎯</span>
-          <span className="hidden sm:inline">
+          <span className="hidden xl:inline">
             {isPinningHome ? "지도 클릭 대기중..." : "집 핀 찍기"}
           </span>
-          <span className="sm:hidden">집 찍기</span>
+          <span className="xl:hidden">집 핀</span>
         </button>
 
         <AuthButton />
 
-        <div className="flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-1 shadow-2xl">
+        <div className="flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-0.5 sm:p-1 shadow-2xl">
           <button
             onClick={() => handleChangeMapType("street")}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
               storeMapType === "NORMAL"
                 ? "bg-emerald-600 text-white shadow-sm"
                 : "text-gray-400 hover:text-white"
             }`}
           >
-            🗺️ <span className="hidden sm:inline">일반 도로</span>
+            🗺️ <span className="hidden xl:inline">일반 도로</span>
           </button>
           <button
             onClick={() => handleChangeMapType("satellite")}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
               storeMapType === "HYBRID"
                 ? "bg-emerald-600 text-white shadow-sm"
                 : "text-gray-400 hover:text-white"
             }`}
           >
-            🛰️ <span className="hidden sm:inline">위성 지도</span>
+            🛰️ <span className="hidden xl:inline">위성 지도</span>
           </button>
         </div>
       </div>
 
-      {/* 상단 중앙: 경로 3~5분 공공 편의시설 레이더 필터 칩 */}
-      <div className="absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-gray-900/95 backdrop-blur-md border border-gray-700/80 rounded-2xl p-1 sm:p-1.5 shadow-2xl max-w-[95vw] overflow-x-auto">
+      {/* 상단 편의시설 레이더 필터 칩 (데스크톱에서는 사이드바 우측 sm:left-[368px] lg:left-[412px]에 안전하게 위치) */}
+      <div className="absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-20 flex items-center gap-1 bg-gray-900/95 backdrop-blur-md border border-gray-700/80 rounded-2xl p-1 sm:p-1.5 shadow-2xl max-w-[95vw] sm:max-w-none overflow-x-auto">
         <div className="hidden sm:flex items-center gap-1 px-2 text-[11px] text-gray-400 font-semibold border-r border-gray-700/80 mr-1 shrink-0">
           <span>🧭</span>
           <span>편의 레이더:</span>
@@ -962,9 +1043,9 @@ export function MapContainer() {
         ))}
       </div>
 
-      {/* 지도 하단: 실제 도로 보행로 길찾기 바 */}
+      {/* 지도 하단: 실제 도로 보행로 길찾기 바 (사이드바 우측 sm:left-[368px] lg:left-[412px]에 격리하여 겹침 원천 차단) */}
       {activeCourse && (
-        <div className="absolute bottom-16 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 bg-gray-900/95 backdrop-blur-md border border-emerald-500/60 rounded-2xl px-4 py-2.5 sm:py-3 shadow-2xl flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[92vw]">
+        <div className="absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 sm:max-w-[calc(100vw-390px)] lg:max-w-[calc(100vw-430px)] z-30 bg-gray-900/95 backdrop-blur-md border border-emerald-500/60 rounded-2xl px-3.5 py-2 sm:py-2.5 shadow-2xl flex flex-col xl:flex-row items-center justify-between gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw]">
           <div className="flex items-center gap-2.5 text-center sm:text-left">
             <span className="text-xl shrink-0">
               {userLocation ? "📍" : "🌿"}

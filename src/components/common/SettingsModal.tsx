@@ -5,6 +5,11 @@ import { ChronicCondition, MedicationItem } from "../../types/wellness.types";
 import {
   searchMedications,
 } from "../../utils/durService";
+import {
+  getTmapApiKey,
+  setTmapApiKey,
+  testTmapApiKey,
+} from "../../utils/pedestrianRouter";
 
 const ALL_CONDITIONS: ChronicCondition[] = [
   "당뇨",
@@ -63,6 +68,14 @@ export function SettingsModal() {
 
   // 닉네임 로컬 수정 상태
   const [userName, setUserName] = useState(profile.userName || "웰니스 여행자");
+
+  // Tmap 보행자 API 키 상태
+  const [tmapInputKey, setTmapInputKey] = useState(getTmapApiKey() || "");
+  const [tmapTestStatus, setTmapTestStatus] = useState<{ loading: boolean; message: string | null; success: boolean | null }>({
+    loading: false,
+    message: null,
+    success: null,
+  });
 
   if (!isSettingsModalOpen) return null;
 
@@ -432,6 +445,72 @@ export function SettingsModal() {
                   >
                     🎯 지도에서 직접 핀 찍기
                   </button>
+                </div>
+              </div>
+
+              {/* Tmap 보행자 정밀 경로 API 연동 설정 */}
+              <div className="p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>🗺️</span>
+                    <span>Tmap 보행자 정밀 경로 API 설정</span>
+                  </span>
+                  {getTmapApiKey() ? (
+                    <span className="text-[11px] text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                      ✓ Tmap 활성화됨
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-amber-400 font-medium bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-full">
+                      기본 안전 도로망 작동 중
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-300">
+                  SK Open API에서 발급받은 Tmap <strong>AppKey</strong>를 등록하시면, 횡단보도, 육교, 인도, 골목길을 100% 정밀 인식하는 도보 경로가 실시간 연동됩니다.
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={tmapInputKey}
+                    onChange={(e) => setTmapInputKey(e.target.value)}
+                    placeholder="SK Open API AppKey를 입력하세요"
+                    className="flex-1 px-3 py-1.5 bg-gray-950 border border-gray-700 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTmapApiKey(tmapInputKey.trim());
+                      if (!tmapInputKey.trim()) {
+                        setTmapTestStatus({ loading: false, message: "키가 삭제되었습니다. 기본 안전 도로망으로 전환됩니다.", success: true });
+                        return;
+                      }
+                      setTmapTestStatus({ loading: true, message: "Tmap API 연결 테스트 중...", success: null });
+                      const res = await testTmapApiKey(tmapInputKey.trim());
+                      setTmapTestStatus({ loading: false, message: res.message, success: res.success });
+                    }}
+                    disabled={tmapTestStatus.loading}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 text-white font-bold text-xs rounded-lg shadow-sm shrink-0 transition-all"
+                  >
+                    {tmapTestStatus.loading ? "검증 중..." : "저장 & 테스트"}
+                  </button>
+                </div>
+                {tmapTestStatus.message && (
+                  <div className={`p-2 rounded-lg text-xs font-medium ${
+                    tmapTestStatus.success ? "bg-emerald-950/60 border border-emerald-500/40 text-emerald-300" : "bg-rose-950/60 border border-rose-500/40 text-rose-300"
+                  }`}>
+                    {tmapTestStatus.message}
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5">
+                  <span>* 키가 없어도 공공 도로망 안전 라우터가 가동되어 산/물 관통이 차단됩니다.</span>
+                  <a
+                    href="https://openapi.sk.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sky-400 hover:underline flex items-center gap-0.5"
+                  >
+                    <span>SK Open API 바로가기 ↗</span>
+                  </a>
                 </div>
               </div>
 
