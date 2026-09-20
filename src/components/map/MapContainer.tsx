@@ -55,6 +55,7 @@ export function MapContainer() {
     saveCustomCourse,
     isOnboardingModalOpen,
     isSettingsModalOpen,
+    activeWalkSession,
   } = useWellnessStore();
 
   const isModalActive = isOnboardingModalOpen || isSettingsModalOpen;
@@ -1020,6 +1021,34 @@ export function MapContainer() {
           </button>
         ))}
       </div>
+
+      {/* 실시간 도보 완보 세션 플로팅 배너 */}
+      {activeWalkSession && (
+        <div className="absolute top-28 sm:top-16 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-20 flex items-center gap-2.5 bg-gray-950/95 border border-purple-500/80 backdrop-blur-md px-3.5 py-1.5 rounded-2xl shadow-2xl text-xs text-white animate-in slide-in-from-top-2 duration-200">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+          <span className="font-bold text-purple-200">
+            🏃 {activeWalkSession.targetName}
+          </span>
+          <span className="font-mono font-bold text-amber-300">
+            {Math.floor(activeWalkSession.elapsedSeconds / 60)}:{(activeWalkSession.elapsedSeconds % 60).toString().padStart(2, "0")} / {Math.floor(activeWalkSession.targetSeconds / 60)}:00
+          </span>
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              activeWalkSession.isEligible
+                ? "bg-amber-500 text-gray-950 animate-bounce"
+                : activeWalkSession.isGpsValid
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                : "bg-red-500/20 text-red-300 border border-red-500/40"
+            }`}
+          >
+            {activeWalkSession.isEligible
+              ? "🏅 완보 자격 획득!"
+              : activeWalkSession.isGpsValid
+              ? "현장 체류 정상"
+              : "500m 이탈"}
+          </span>
+        </div>
+      )}
 
       {/* 지도 하단: 실제 도로 보행로 길찾기 바 (사이드바 우측 sm:left-[368px] lg:left-[412px]에 격리하여 겹침 원천 차단) */}
       {activeCourse && (

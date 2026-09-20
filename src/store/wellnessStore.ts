@@ -9,6 +9,7 @@ import {
   FontSizeSetting,
   AppThemeMode,
   SavedCustomCourse,
+  ActiveWalkSession,
 } from "../types/wellness.types";
 import {
   INITIAL_USER_PROFILE,
@@ -31,6 +32,15 @@ const STORAGE_KEY_FONT_SIZE = "vitalroot_font_size";
 const STORAGE_KEY_MAP_TYPE = "vitalroot_map_type";
 const STORAGE_KEY_DISTANCE_UNIT = "vitalroot_distance_unit";
 const STORAGE_KEY_SAVED_COURSES = "vitalroot_saved_courses";
+const STORAGE_KEY_EQUIPPED_TITLE = "vitalroot_equipped_title";
+
+function getSavedEquippedTitle(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY_EQUIPPED_TITLE);
+  } catch {
+    return null;
+  }
+}
 
 function getSavedLocation(): { latitude: number; longitude: number } | null {
   try {
@@ -245,10 +255,12 @@ interface WellnessState {
   stays: WellnessStay[];
   activeStayId: string | null;
   stayFilter: StayFilterOptions;
-  // 퀘스트 관련
+  // 퀘스트 및 칭호 관련
   quests: WellnessQuest[];
   activeQuestId: string | null;
   earnedTitles: string[];
+  equippedTitle: string | null;
+  activeWalkSession: ActiveWalkSession | null;
   // 사용자 위치(GPS) 관련
   userLocation: { latitude: number; longitude: number } | null;
   isLocationModalOpen: boolean;
@@ -292,6 +304,12 @@ interface WellnessState {
   setActiveStayId: (id: string | null) => void;
   toggleStayFilter: (key: keyof StayFilterOptions) => void;
   setActiveQuestId: (id: string | null) => void;
+  startWalkSession: (questId: string) => void;
+  updateWalkSessionTick: () => void;
+  cancelWalkSession: () => void;
+  claimQuestTitle: (questId: string) => Promise<void>;
+  equipTitle: (title: string | null) => void;
+  fastForwardWalkSession: () => void;
   completeQuest: (questId: string) => void;
   setUserLocation: (loc: { latitude: number; longitude: number } | null) => void;
   setIsLocationModalOpen: (open: boolean) => void;
@@ -338,6 +356,8 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   })),
   activeQuestId: INITIAL_WELLNESS_QUESTS[0]?.id ?? null,
   earnedTitles: initialQuestData.earnedTitles,
+  equippedTitle: getSavedEquippedTitle(),
+  activeWalkSession: null,
   userLocation: initialSavedLoc,
   isLocationModalOpen: false,
   isPinningHome: false,
@@ -490,8 +510,100 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
 
   setActiveQuestId: (id) => set({ activeQuestId: id }),
 
-  completeQuest: async (questId) => {
-    // 1. 로그인 여부 검증
+  startWalkSession: (questId: string) => {
+    const targetQuest = get().quests.find((q) => q.id === questId);
+    if (!targetQuest) return;
+
+    const { userLocation } = get();
+    let dist = 0;
+    if (userLocation) {
+      dist = calculateDistanceMeters(
+        userLocation.latitude,
+        userLocation.longitude,
+        targetQuest.latitude,
+        targetQuest.longitude
+      );
+      if (dist > 500) {
+        const proceed = confirm(
+          `📍 현재 위치가 퀘스트 명소(${targetQuest.landmarkName})로부터 약 ${Math.round(dist)}m 떨어져 있습니다.\n(현장 반경 500m 이내 체류 원칙)\n\n[개발/시연 모드] 현장 이동 시뮬레이션으로 완보 도전을 시작하시겠습니까?`
+        );
+        if (!proceed) return;
+      }
+    }
+
+    const targetSeconds = (targetQuest.targetDurationMinutes || 15) * 60;
+    const isGpsValid = !userLocation || dist <= 500;
+    const session: ActiveWalkSession = {
+      questId,
+      targetName: targetQuest.landmarkName,
+      targetCoords: { latitude: targetQuest.latitude, longitude: targetQuest.longitude },
+      startTime: Date.now(),
+      targetSeconds,
+      elapsedSeconds: 0,
+      isEligible: false,
+      isGpsValid,
+      distanceMeters: Math.round(dist || 0),
+    };
+
+    set({ activeWalkSession: session, activeQuestId: questId });
+  },
+
+  updateWalkSessionTick: () => {
+    const { activeWalkSession, userLocation } = get();
+    if (!activeWalkSession) return;
+
+    const now = Date.now();
+    const elapsed = Math.min(
+      activeWalkSession.targetSeconds,
+      Math.max(0, Math.floor((now - activeWalkSession.startTime) / 1000))
+    );
+
+    let dist = activeWalkSession.distanceMeters;
+    let isGpsValid = true;
+    if (userLocation) {
+      dist = Math.round(
+        calculateDistanceMeters(
+          userLocation.latitude,
+          userLocation.longitude,
+          activeWalkSession.targetCoords.latitude,
+          activeWalkSession.targetCoords.longitude
+        )
+      );
+      isGpsValid = dist <= 500;
+    }
+
+    const isEligible = elapsed >= activeWalkSession.targetSeconds && isGpsValid;
+
+    set({
+      activeWalkSession: {
+        ...activeWalkSession,
+        elapsedSeconds: elapsed,
+        distanceMeters: dist,
+        isGpsValid,
+        isEligible,
+      },
+    });
+  },
+
+  cancelWalkSession: () => {
+    set({ activeWalkSession: null });
+  },
+
+  /* === [DEMO_ACCELERATOR: 시연/심사용 임시 가속 기능 - 차후 즉시 삭제 가능] === */
+  fastForwardWalkSession: () => {
+    const { activeWalkSession } = get();
+    if (!activeWalkSession) return;
+    set({
+      activeWalkSession: {
+        ...activeWalkSession,
+        elapsedSeconds: activeWalkSession.targetSeconds,
+        isEligible: true,
+        isGpsValid: true,
+      },
+    });
+  },
+
+  claimQuestTitle: async (questId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       alert("🏅 칭호 획득 및 퀘스트 완보 인증은 로그인 회원만 가능합니다.\n로그인 창으로 이동합니다.");
@@ -500,35 +612,30 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
       return;
     }
 
-    const targetQuest = get().quests.find((q) => q.id === questId);
-    if (!targetQuest || targetQuest.isCompleted) return;
-
-    // 2. 현재 GPS/핀 위치와 퀘스트 명소 간 거리 검증 (300m 반경)
-    const { userLocation } = get();
-    if (userLocation) {
-      const dist = calculateDistanceMeters(
-        userLocation.latitude,
-        userLocation.longitude,
-        targetQuest.latitude,
-        targetQuest.longitude
-      );
-      if (dist > 300) {
-        const proceed = confirm(
-          `📍 현재 위치가 퀘스트 명소(${targetQuest.landmarkName})로부터 약 ${Math.round(dist)}m 떨어져 있습니다.\n(현장 반경 300m 이내 실시간 인증 원칙)\n\n[개발/시연 모드] 모의 현장 체류 인증(15분 완보)으로 칭호를 획득하시겠습니까?`
-        );
-        if (!proceed) return;
-      }
+    const { activeWalkSession, quests, earnedTitles, equippedTitle } = get();
+    if (!activeWalkSession || activeWalkSession.questId !== questId) {
+      alert("도보 완보 도전을 먼저 시작해주세요.");
+      return;
     }
 
-    const newQuests = get().quests.map((q) =>
+    if (!activeWalkSession.isEligible) {
+      const remainingSec = activeWalkSession.targetSeconds - activeWalkSession.elapsedSeconds;
+      alert(
+        `⚠️ 아직 완보 목표 시간이 충족되지 않았거나 현장 반경을 벗어났습니다.\n(남은 시간: 약 ${Math.ceil(
+          remainingSec / 60
+        )}분)`
+      );
+      return;
+    }
+
+    const targetQuest = quests.find((q) => q.id === questId);
+    if (!targetQuest) return;
+
+    const newQuests = quests.map((q) =>
       q.id === questId ? { ...q, isCompleted: true } : q
     );
-    const newEarnedTitles = Array.from(new Set([...get().earnedTitles, targetQuest.titleReward]));
-
-    set({
-      quests: newQuests,
-      earnedTitles: newEarnedTitles,
-    });
+    const newEarnedTitles = Array.from(new Set([...earnedTitles, targetQuest.titleReward]));
+    const nextEquipped = equippedTitle || targetQuest.titleReward;
 
     try {
       localStorage.setItem(
@@ -538,10 +645,40 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
           earnedTitles: newEarnedTitles,
         })
       );
+      if (nextEquipped) {
+        localStorage.setItem(STORAGE_KEY_EQUIPPED_TITLE, nextEquipped);
+      }
     } catch {
       // ignore
     }
-    alert(`🎉 축하합니다! [${targetQuest.titleReward}] 웰니스 칭호를 성공적으로 획득하셨습니다!`);
+
+    set({
+      quests: newQuests,
+      earnedTitles: newEarnedTitles,
+      equippedTitle: nextEquipped,
+      activeWalkSession: null,
+    });
+
+    alert(
+      `🎉 축하합니다! [${targetQuest.titleReward}] 웰니스 칭호를 성공적으로 획득하셨습니다!\n'${nextEquipped}' 칭호가 즉시 프로필에 장착되었습니다.`
+    );
+  },
+
+  equipTitle: (title: string | null) => {
+    const current = get().equippedTitle;
+    const next = current === title ? null : title;
+    try {
+      if (next) {
+        localStorage.setItem(STORAGE_KEY_EQUIPPED_TITLE, next);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_EQUIPPED_TITLE);
+      }
+    } catch {}
+    set({ equippedTitle: next });
+  },
+
+  completeQuest: async (questId) => {
+    return get().claimQuestTitle(questId);
   },
 
   setProfile: (updates) => {

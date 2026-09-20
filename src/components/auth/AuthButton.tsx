@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "../../store/authStore";
+import { useWellnessStore } from "../../store/wellnessStore";
 
 export function AuthButton() {
   const { user, isInitializing, openModal, signOut } = useAuthStore();
+  const { equippedTitle } = useWellnessStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +50,7 @@ export function AuthButton() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center gap-2 px-2.5 py-1 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md text-white text-xs rounded-xl border border-gray-700/70 shadow-xl transition-all"
+        className="flex items-center gap-2 px-2.5 py-1 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md text-white text-xs rounded-xl border border-gray-700/70 shadow-xl transition-all shrink-0"
       >
         {userAvatar ? (
           <img
@@ -61,7 +63,13 @@ export function AuthButton() {
             {displayName[0]?.toUpperCase() || "U"}
           </div>
         )}
-        <span className="max-w-[100px] truncate font-medium text-gray-200">
+        {equippedTitle && (
+          <span className="hidden xl:inline-flex items-center gap-1 text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded-md font-bold shrink-0">
+            <span>🏅</span>
+            <span className="max-w-[90px] truncate">{equippedTitle}</span>
+          </span>
+        )}
+        <span className="max-w-[80px] truncate font-medium text-gray-200">
           {displayName}
         </span>
         <svg
@@ -82,6 +90,12 @@ export function AuthButton() {
           <div className="px-2 py-1.5 border-b border-gray-800 mb-1">
             <p className="font-semibold text-white truncate">{displayName}</p>
             <p className="text-[11px] text-gray-400 truncate">{user.email}</p>
+            {equippedTitle && (
+              <div className="mt-1 px-1.5 py-0.5 bg-amber-500/15 border border-amber-500/30 rounded text-[10px] text-amber-300 flex items-center gap-1 font-bold">
+                <span>🏅</span>
+                <span className="truncate">장착: {equippedTitle}</span>
+              </div>
+            )}
           </div>
 
           <div className="px-2 py-1 text-[11px] text-emerald-400 flex items-center gap-1.5">

@@ -41,6 +41,7 @@ export interface UserProfile {
   fontSizePreference?: FontSizeSetting;
   themePreference?: AppThemeMode;
   savedCourses?: SavedCustomCourse[];
+  equippedTitle?: string | null;
 }
 
 // 식약처 공공데이터 기반 영양성분 정보
@@ -155,4 +156,17 @@ export interface WellnessQuest {
   isCompleted: boolean;
   progressMinutes?: number;
   naverPlaceName?: string;
+}
+
+// 실시간 GPS 완보 세션 상태
+export interface ActiveWalkSession {
+  questId: string;
+  targetName: string;
+  targetCoords: { latitude: number; longitude: number };
+  startTime: number;          // 세션 시작 절대 타임스탬프 (ms)
+  targetSeconds: number;      // 완보 목표 시간 (초)
+  elapsedSeconds: number;     // 현재 누적 경과 시간 (초)
+  isEligible: boolean;        // 목표 시간 충족 및 완보 자격 획득 여부
+  isGpsValid: boolean;        // 현장 반경(500m) 체류 정상 여부
+  distanceMeters: number;     // 현재 위치에서 명소까지의 거리 (m)
 }

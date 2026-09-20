@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 import { ChronicCondition } from "../../types/wellness.types";
@@ -13,6 +13,12 @@ const ALL_CONDITIONS: ChronicCondition[] = [
   "신장질환",
   "관절/근골격계",
 ];
+
+function formatTimerSeconds(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
 
 export function ControlPanel() {
   const [activeTab, setActiveTab] = useState<
@@ -38,8 +44,15 @@ export function ControlPanel() {
     quests,
     activeQuestId,
     setActiveQuestId,
-    completeQuest,
     earnedTitles,
+    equippedTitle,
+    equipTitle,
+    activeWalkSession,
+    startWalkSession,
+    updateWalkSessionTick,
+    cancelWalkSession,
+    claimQuestTitle,
+    fastForwardWalkSession,
     toggleCondition,
     userLocation,
     setIsLocationModalOpen,
@@ -48,6 +61,15 @@ export function ControlPanel() {
     setCourseMode,
     openSettingsModal,
   } = useWellnessStore();
+
+  // 완보 세션 실시간 타이머 틱
+  useEffect(() => {
+    if (!activeWalkSession) return;
+    const interval = setInterval(() => {
+      updateWalkSessionTick();
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeWalkSession, updateWalkSessionTick]);
 
   const { flyToPlace } = useMapStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -852,31 +874,52 @@ export function ControlPanel() {
           {/* TAB 4: 웰니스 퀘스트 & 칭호 리워드 */}
           {activeTab === "quests" && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              {/* 내 획득 칭호 보관함 */}
-              <div className="p-3 bg-gradient-to-r from-amber-950/40 to-emerald-950/30 border border-amber-500/30 rounded-xl space-y-1.5">
+              {/* 내 획득 칭호 보관함 및 칭호 장착(Equip) 영역 */}
+              <div className="p-3.5 bg-gradient-to-r from-amber-950/40 via-emerald-950/30 to-purple-950/30 border border-amber-500/30 rounded-2xl space-y-2 shadow-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                     <span>👑</span>
                     <span>내 획득 웰니스 칭호</span>
                   </span>
-                  <span className="text-[10px] font-mono text-amber-400">
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                     {earnedTitles.length}개 보유
                   </span>
                 </div>
+
                 {earnedTitles.length === 0 ? (
                   <p className="text-[11px] text-gray-400">
                     아직 획득한 칭호가 없습니다. 명소 산책 퀘스트를 완보해보세요!
                   </p>
                 ) : (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {earnedTitles.map((title, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[11px] bg-amber-500/20 text-amber-200 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold shadow-sm"
-                      >
-                        {title}
-                      </span>
-                    ))}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {earnedTitles.map((title, idx) => {
+                      const isEquipped = equippedTitle === title;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => equipTitle(title)}
+                          className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-xl font-bold transition-all active:scale-95 border ${
+                            isEquipped
+                              ? "bg-emerald-600 text-white border-emerald-300 shadow-md ring-2 ring-emerald-400/50 scale-105"
+                              : "bg-gray-900/80 hover:bg-gray-800 text-amber-200 border-amber-500/40 hover:border-amber-300"
+                          }`}
+                          title={isEquipped ? "클릭하여 칭호 장착 해제" : "클릭하여 이 칭호 장착"}
+                        >
+                          <span>🏅</span>
+                          <span>{title}</span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                              isEquipped
+                                ? "bg-emerald-950 text-emerald-200"
+                                : "bg-gray-800 text-gray-400"
+                            }`}
+                          >
+                            {isEquipped ? "장착 중 ✓" : "장착"}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -892,13 +935,15 @@ export function ControlPanel() {
 
                 {quests.map((q) => {
                   const isSelected = q.id === activeQuestId;
+                  const isCurrentSession = activeWalkSession?.questId === q.id;
+
                   return (
                     <div
                       key={q.id}
                       onClick={() => handleSelectQuest(q.id)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-2.5 ${
+                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer space-y-2.5 ${
                         isSelected
-                          ? "bg-purple-950/30 border-purple-500/80 shadow-lg shadow-purple-950/50"
+                          ? "bg-purple-950/30 border-purple-500/80 shadow-lg shadow-purple-950/50 ring-1 ring-purple-400/30"
                           : "bg-gray-800/40 border-gray-700/50 hover:bg-gray-800/80"
                       }`}
                     >
@@ -913,10 +958,16 @@ export function ControlPanel() {
                           className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                             q.isCompleted
                               ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                              : isCurrentSession
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
                               : "bg-purple-500/20 text-purple-300 border border-purple-500/40"
                           }`}
                         >
-                          {q.isCompleted ? "완보 완료 ✅" : "도전 가능 🏃"}
+                          {q.isCompleted
+                            ? "완보 완료 ✅"
+                            : isCurrentSession
+                            ? "완보 진행 중 🚶"
+                            : "도전 가능 🏃"}
                         </span>
                       </div>
 
@@ -924,39 +975,164 @@ export function ControlPanel() {
                         {q.description}
                       </p>
 
-                      <div className="flex items-center justify-between text-[11px] p-2 bg-gray-900/60 rounded-lg border border-gray-800">
-                        <span className="text-gray-400">목표: 도보 {q.targetDurationMinutes}분 완보</span>
+                      <div className="flex items-center justify-between text-[11px] p-2 bg-gray-900/60 rounded-xl border border-gray-800">
+                        <span className="text-gray-400">
+                          목표: 도보 {q.targetDurationMinutes}분 완보
+                        </span>
                         <span className="text-amber-300 font-bold">
                           🏅 {q.titleReward}
                         </span>
                       </div>
 
-                      <div className="pt-1 flex items-center justify-between gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectQuest(q.id);
-                          }}
-                          className="text-xs text-purple-400 hover:text-purple-300 font-medium"
-                        >
-                          명소 위치 ➔
-                        </button>
+                      {/* 실시간 진행 중 위젯 */}
+                      {isCurrentSession && (
+                        <div className="p-2.5 rounded-xl bg-purple-950/50 border border-purple-500/40 space-y-2 animate-in fade-in duration-200">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-purple-300 font-bold flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                              실시간 완보 시간 측정 중
+                            </span>
+                            <span className="font-mono font-bold text-amber-300">
+                              {formatTimerSeconds(activeWalkSession.elapsedSeconds)} /{" "}
+                              {formatTimerSeconds(activeWalkSession.targetSeconds)}
+                            </span>
+                          </div>
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            completeQuest(q.id);
-                          }}
-                          disabled={q.isCompleted}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                            q.isCompleted
-                              ? "bg-gray-800 text-gray-500 cursor-not-allowed"
-                              : "bg-gradient-to-r from-purple-600 to-emerald-600 hover:brightness-110 text-white shadow-md active:scale-95"
-                          }`}
-                        >
-                          {q.isCompleted ? "칭호 획득 완료" : "완보 퀘스트 인증 🏅"}
-                        </button>
-                      </div>
+                          {/* 타이머 진행바 */}
+                          <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-purple-500 via-teal-400 to-emerald-400 transition-all duration-300"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  (activeWalkSession.elapsedSeconds /
+                                    activeWalkSession.targetSeconds) *
+                                    100
+                                )}%`,
+                              }}
+                            />
+                          </div>
+
+                          {/* GPS 상태 & 시연용 임시 가속 버튼 */}
+                          <div className="flex items-center justify-between text-[10px] pt-0.5">
+                            <span
+                              className={
+                                activeWalkSession.isGpsValid
+                                  ? "text-emerald-300 font-medium"
+                                  : "text-amber-300 font-medium"
+                              }
+                            >
+                              {activeWalkSession.isGpsValid
+                                ? `🟢 현장 체류 인증 완료 (${activeWalkSession.distanceMeters}m)`
+                                : `⚠️ 현장 500m 이탈 (${activeWalkSession.distanceMeters}m)`}
+                            </span>
+
+                            {/* === [DEMO_ACCELERATOR: 시연/심사용 임시 가속 버튼 - 차후 즉시 삭제 가능] === */}
+                            {!activeWalkSession.isEligible && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  fastForwardWalkSession();
+                                }}
+                                className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/40 border border-amber-400/40 font-bold transition-colors"
+                                title="심사 및 시연용: 1분 목표 완보 시간을 즉시 충족합니다"
+                              >
+                                ⚡ 시연용 1분 가속
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 퀘스트 하단 액션 버튼 */}
+                      {isCurrentSession ? (
+                        activeWalkSession.isEligible ? (
+                          <div className="pt-1 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelWalkSession();
+                              }}
+                              className="text-xs text-gray-400 hover:text-gray-200 px-2"
+                            >
+                              취소
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                claimQuestTitle(q.id);
+                              }}
+                              className="w-full py-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:brightness-110 text-gray-950 font-black text-xs rounded-xl shadow-xl animate-bounce border-2 border-amber-300 transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                            >
+                              <span>🏅</span>
+                              <span>완보 자격 획득! 칭호 획득하기</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="pt-1 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelWalkSession();
+                              }}
+                              className="text-xs text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded-lg hover:bg-red-500/10"
+                            >
+                              도전 취소 ✕
+                            </button>
+                            <span className="text-[11px] text-gray-400 font-medium animate-pulse">
+                              목표 시간까지 현장 완보 진행 중...
+                            </span>
+                          </div>
+                        )
+                      ) : q.isCompleted ? (
+                        <div className="pt-1 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectQuest(q.id);
+                            }}
+                            className="text-xs text-purple-400 hover:text-purple-300 font-medium"
+                          >
+                            명소 위치 ➔
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-gray-800 text-emerald-400/80 cursor-default border border-emerald-500/30"
+                          >
+                            완보 완료 ✅ (칭호 보유)
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="pt-1 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectQuest(q.id);
+                            }}
+                            className="text-xs text-purple-400 hover:text-purple-300 font-medium"
+                          >
+                            명소 위치 ➔
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startWalkSession(q.id);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-950/50 transition-all active:scale-95 flex items-center gap-1"
+                          >
+                            <span>⏱️</span>
+                            <span>도보 완보 시작 ({q.targetDurationMinutes}분)</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
