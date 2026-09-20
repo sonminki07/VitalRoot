@@ -314,7 +314,7 @@ export function MapContainer() {
       });
     }
 
-    // (B) 사용자 위치 ➔ 식당 연결 보행로 (스카이블루 점선)
+    // (B) 사용자 위치 ➔ 식당 연결 보행로 (스카이블루 실선 도로망 길찾기)
     if (userConnectorPolylineRef.current) {
       userConnectorPolylineRef.current.setMap(null);
       userConnectorPolylineRef.current = null;
@@ -329,10 +329,10 @@ export function MapContainer() {
         map,
         path: userPath,
         strokeColor: "#0284c7",
-        strokeWeight: 5,
-        strokeOpacity: 0.9,
-        strokeStyle: "shortdash",
+        strokeWeight: 6,
+        strokeOpacity: 0.95,
         strokeLineCap: "round",
+        strokeLineJoin: "round",
       });
     }
   }, [isMapLoaded, roadRouteCoords, userToRestCoords]);
@@ -824,14 +824,25 @@ export function MapContainer() {
   // 도보 5분(400m) 초과 여부 -> 대중교통 권장
   const isTransitRecommended = distFromUserToRest !== null && distFromUserToRest > 400;
 
-  // 단일 네이버 도보 길찾기 완성형 URL (내 위치가 있으면 내 위치 ➔ 식당, 없으면 식당 ➔ 산책로)
-  const naverCourseUrl = userLocation && activeCourse
+  // 1) 네이버 완성형 전체 코스 도보 길찾기 (내 위치가 있으면 [내 위치(출발) ➔ 식당(식사) ➔ 산책로(도착)])
+  const naverFullCourseUrl = userLocation && activeCourse
     ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
-        "내 위치"
+        "내 위치(출발)"
       )}/${activeCourse.restaurant.longitude},${activeCourse.restaurant.latitude},${encodeURIComponent(
-        activeCourse.restaurant.name
+        activeCourse.restaurant.name + "(식사)"
+      )}/${activeCourse.trail.longitude},${activeCourse.trail.latitude},${encodeURIComponent(
+        activeCourse.trail.name + "(도착)"
       )}/-/walk?c=15.00,0,0,0,dh`
     : activeCourse
+    ? `https://map.naver.com/p/directions/${activeCourse.restaurant.longitude},${activeCourse.restaurant.latitude},${encodeURIComponent(
+        activeCourse.restaurant.name + "(출발)"
+      )}/${activeCourse.trail.longitude},${activeCourse.trail.latitude},${encodeURIComponent(
+        activeCourse.trail.name + "(도착)"
+      )}/-/walk?c=15.00,0,0,0,dh`
+    : "#";
+
+  // 2) 식당 ➔ 산책로 코스 도보 길찾기 (검증된 웰니스 완보 구간)
+  const naverRestToTrailUrl = activeCourse
     ? `https://map.naver.com/p/directions/${activeCourse.restaurant.longitude},${activeCourse.restaurant.latitude},${encodeURIComponent(
         activeCourse.restaurant.name
       )}/${activeCourse.trail.longitude},${activeCourse.trail.latitude},${encodeURIComponent(
@@ -839,7 +850,16 @@ export function MapContainer() {
       )}/-/walk?c=15.00,0,0,0,dh`
     : "#";
 
-  // 네이버 대중교통 길찾기 완성형 URL (내 위치가 있고 400m 초과 시 제공)
+  // 3) 내 위치 ➔ 식당 도보 길찾기
+  const naverUserToRestWalkUrl = userLocation && activeCourse
+    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
+        "내 위치"
+      )}/${activeCourse.restaurant.longitude},${activeCourse.restaurant.latitude},${encodeURIComponent(
+        activeCourse.restaurant.name
+      )}/-/walk?c=15.00,0,0,0,dh`
+    : "#";
+
+  // 4) 내 위치 ➔ 식당 대중교통 길찾기 (400m 초과 시 제공)
   const naverTransitUrl = userLocation && activeCourse
     ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
         "내 위치"
@@ -1048,43 +1068,66 @@ export function MapContainer() {
               <span className="hidden sm:inline">코스 저장</span>
             </button>
 
-            {userLocation && isTransitRecommended ? (
+            {userLocation ? (
               <>
+                {/* 1. 전체 완성형 길찾기 (출발: 내 집 ➔ 경유: 식당 ➔ 도착: 산책로) */}
                 <a
-                  href={naverTransitUrl}
+                  href={naverFullCourseUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
-                  title="네이버 지도 대중교통(버스/지하철) 길찾기로 연결"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0 border border-emerald-400/40"
+                  title="출발(내 집)부터 경유(식당), 도착(산책로)까지 네이버 지도 전체 코스 길찾기"
                 >
-                  <span className="text-sm">🚌</span>
-                  <span>대중교통 길찾기</span>
+                  <span className="text-sm">🟢</span>
+                  <span>전체 길찾기 (출발➔도착)</span>
                 </a>
+
+                {/* 2. 400m 초과 시 식당까지 대중교통 길찾기 */}
+                {isTransitRecommended ? (
+                  <a
+                    href={naverTransitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+                    title="내 위치에서 식당까지 네이버 대중교통(버스/지하철) 길찾기로 연결"
+                  >
+                    <span className="text-sm">🚌</span>
+                    <span>식당 대중교통</span>
+                  </a>
+                ) : (
+                  <a
+                    href={naverUserToRestWalkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+                    title="내 위치에서 식당까지 도보 길찾기"
+                  >
+                    <span className="text-sm">🚶</span>
+                    <span>식당 도보</span>
+                  </a>
+                )}
+
+                {/* 3. 식당 ➔ 산책로 코스 보행 길찾기 */}
                 <a
-                  href={naverCourseUrl}
+                  href={naverRestToTrailUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
-                  title="네이버 지도 도보 길찾기로 연결"
+                  className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-gray-800 hover:bg-gray-700 text-emerald-300 hover:text-white font-bold text-xs rounded-xl border border-emerald-500/40 shadow-lg transition-all active:scale-95 shrink-0"
+                  title="식당에서 산책로까지 도보 길찾기"
                 >
-                  <span className="text-sm">🚶</span>
-                  <span>도보 길찾기</span>
+                  <span className="text-sm">👟</span>
+                  <span>식당➔산책로</span>
                 </a>
               </>
             ) : (
               <a
-                href={naverCourseUrl}
+                href={naverFullCourseUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
               >
                 <span className="text-sm">🟢</span>
-                <span>
-                  {userLocation ? "내 위치에서 도보 길찾기" : "네이버 도보 길찾기"}
-                </span>
-                <span className="text-[10px] opacity-80">
-                  {userLocation ? "(5분 이내)" : "(출발·도착 자동)"}
-                </span>
+                <span>네이버 도보 길찾기 (출발 ➔ 도착)</span>
               </a>
             )}
           </div>
