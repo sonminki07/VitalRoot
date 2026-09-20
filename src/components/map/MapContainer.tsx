@@ -22,19 +22,19 @@ try {
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 
-// 무료/공공 오픈 래스터 지도 타일 소스 정의
+// 100% 무료/공공 오픈 래스터 지도 타일 소스 정의 (API 키 에러 원천 차단)
 const MAP_SOURCES = {
+  // 1. 고해상도 위성 지도 (Esri World Imagery)
   satellite: {
     tiles: [
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     ],
     tileSize: 256,
   },
+  // 2. 일반 도로 지도 (Esri World Street Map - 전세계/한국 고화질 도로망 및 한글 완벽 지원, 키 불필요)
   street: {
     tiles: [
-      "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-      "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-      "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
     ],
     tileSize: 256,
   },
@@ -77,7 +77,7 @@ export function MapContainer() {
   const { center, zoom, bearing, setSelectedPlace } = useMapStore();
   const { color, fillOpacity } = useCircleStore();
   const {
-    courses,
+    filteredCourses,
     activeCourseId,
     activeWaypointFilter,
     setActiveWaypointFilter,
@@ -85,7 +85,7 @@ export function MapContainer() {
   } = useWellnessStore();
 
   const { circleFeatures, radialLines, distanceLabels } = useCircleData();
-  const activeCourse = courses.find((c) => c.id === activeCourseId) || courses[0];
+  const activeCourse = filteredCourses.find((c) => c.id === activeCourseId) || filteredCourses[0];
 
   // 1. 지도 초기화
   useEffect(() => {
@@ -221,7 +221,7 @@ export function MapContainer() {
     };
   }, []);
 
-  // 2. 위성 지도 / 일반 도로 지도 전환
+  // 2. 위성 지도 / 일반 도로 지도 전환 (Esri World Street Map 적용으로 에러 제거)
   const handleChangeMapType = (type: "satellite" | "street") => {
     setMapType(type);
     const map = mapRef.current;
@@ -297,7 +297,7 @@ export function MapContainer() {
     });
   }, [center, zoom]);
 
-  // 5. 마커 (안심식당, 산책로, 3~5분 공공 편의시설 핀) 및 경로선 렌더링
+  // 5. 조건 필터링된 코스(filteredCourses) 마커 및 실제 보행 경로선 렌더링
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -308,16 +308,18 @@ export function MapContainer() {
 
     const routeFeatures: GeoJSON.Feature<GeoJSON.LineString>[] = [];
 
-    const getKakaoLink = (name: string, lat: number, lng: number) =>
-      `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
-    const getNaverLink = (name: string, lat: number, lng: number) =>
-      `https://map.naver.com/v5/directions/-/${lng},${lat},${encodeURIComponent(name)},,/walk`;
+    const getNaverPlaceSearchUrl = (name: string) =>
+      `https://map.naver.com/p/search/${encodeURIComponent(name)}`;
 
-    courses.forEach((course) => {
+    const getKakaoPlaceLink = (name: string, lat: number, lng: number) =>
+      `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+
+    // 필터링된 코스만 지도에 렌더링
+    filteredCourses.forEach((course) => {
       const isSelected = course.id === activeCourseId;
 
       // -------------------------------------------------------------
-      // (A) 안심식당 마커 (식약처 3색 영양 신호등 팝업 포함)
+      // (A) 안심식당 마커
       // -------------------------------------------------------------
       const restWrapper = document.createElement("div");
       restWrapper.className = "vital-marker-wrapper";
@@ -357,7 +359,7 @@ export function MapContainer() {
               <span>나트륨: <strong>${course.restaurant.nutrition.sodium}mg</strong> (${course.restaurant.nutrition.sodiumGrade})</span>
             </div>
           </div>
-          <p class="text-[9px] text-gray-500 mt-1">식품의약품안전처 영양성분 공공데이터 검증 완료</p>
+          <p class="text-[9px] text-gray-500 mt-1">식품의약품안전처 영양성분 공공데이터 검증</p>
         </div>
       `
         : "";
@@ -373,22 +375,22 @@ export function MapContainer() {
           ${nutritionHtml}
           <div class="mt-2.5 pt-2 border-t border-gray-100 flex items-center gap-1.5">
             <a
-              href="${getKakaoLink(course.restaurant.name, course.restaurant.latitude, course.restaurant.longitude)}"
+              href="${getKakaoPlaceLink(course.restaurant.name, course.restaurant.latitude, course.restaurant.longitude)}"
               target="_blank"
               rel="noopener noreferrer"
               class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
             >
               <span>🟡</span>
-              <span>카카오 길찾기</span>
+              <span>카카오맵</span>
             </a>
             <a
-              href="${getNaverLink(course.restaurant.name, course.restaurant.latitude, course.restaurant.longitude)}"
+              href="${getNaverPlaceSearchUrl(course.restaurant.name)}"
               target="_blank"
               rel="noopener noreferrer"
               class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
             >
               <span>🟢</span>
-              <span>네이버 길찾기</span>
+              <span>네이버 지도</span>
             </a>
           </div>
         </div>
@@ -438,22 +440,22 @@ export function MapContainer() {
           </div>
           <div class="mt-3 pt-2 border-t border-gray-100 flex items-center gap-1.5">
             <a
-              href="${getKakaoLink(course.trail.name, course.trail.latitude, course.trail.longitude)}"
+              href="${getKakaoPlaceLink(course.trail.name, course.trail.latitude, course.trail.longitude)}"
               target="_blank"
               rel="noopener noreferrer"
               class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
             >
               <span>🟡</span>
-              <span>카카오 길찾기</span>
+              <span>카카오맵</span>
             </a>
             <a
-              href="${getNaverLink(course.trail.name, course.trail.latitude, course.trail.longitude)}"
+              href="${getNaverPlaceSearchUrl(course.trail.name)}"
               target="_blank"
               rel="noopener noreferrer"
               class="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all shadow-sm active:scale-95"
             >
               <span>🟢</span>
-              <span>네이버 길찾기</span>
+              <span>네이버 지도</span>
             </a>
           </div>
         </div>
@@ -553,7 +555,7 @@ export function MapContainer() {
                 </div>
                 <div class="mt-2.5 pt-2 border-t border-gray-100 flex items-center gap-1.5">
                   <a
-                    href="${getKakaoLink(wp.name, wp.latitude, wp.longitude)}"
+                    href="${getKakaoPlaceLink(wp.name, wp.latitude, wp.longitude)}"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[9px] rounded-lg transition-all shadow-sm"
@@ -561,7 +563,7 @@ export function MapContainer() {
                     <span>🟡 카카오</span>
                   </a>
                   <a
-                    href="${getNaverLink(wp.name, wp.latitude, wp.longitude)}"
+                    href="${getNaverPlaceSearchUrl(wp.name)}"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[9px] rounded-lg transition-all shadow-sm"
@@ -606,48 +608,57 @@ export function MapContainer() {
         });
       }
     }
-  }, [courses, activeCourseId, activeWaypointFilter, distanceLabels]);
+  }, [filteredCourses, activeCourseId, activeWaypointFilter, distanceLabels]);
+
+  // 길찾기 완성형 URL
+  const naverCourseUrl = activeCourse
+    ? `https://map.naver.com/p/directions/${activeCourse.restaurant.longitude},${activeCourse.restaurant.latitude},${encodeURIComponent(activeCourse.restaurant.name)}/${activeCourse.trail.longitude},${activeCourse.trail.latitude},${encodeURIComponent(activeCourse.trail.name)}/-/walk?c=15.00,0,0,0,dh`
+    : "#";
+
+  const kakaoCourseUrl = activeCourse
+    ? `https://map.kakao.com/?sName=${encodeURIComponent(activeCourse.restaurant.name)}&eName=${encodeURIComponent(activeCourse.trail.name)}`
+    : "#";
 
   return (
     <div className="relative w-full h-full">
       {/* 우측 상단 컨트롤 바 (인증 버튼 + 지도 전환 스위치) */}
-      <div className="absolute top-4 right-16 z-20 flex items-center gap-2.5">
+      <div className="absolute top-4 right-4 sm:right-16 z-20 flex items-center gap-2">
         <AuthButton />
         <div className="flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-1 shadow-2xl">
           <button
             onClick={() => handleChangeMapType("satellite")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               mapType === "satellite"
                 ? "bg-emerald-600 text-white shadow-sm"
                 : "text-gray-400 hover:text-white"
             }`}
           >
-            🛰️ 위성 지도
+            🛰️ <span className="hidden sm:inline">위성 지도</span>
           </button>
           <button
             onClick={() => handleChangeMapType("street")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               mapType === "street"
                 ? "bg-emerald-600 text-white shadow-sm"
                 : "text-gray-400 hover:text-white"
             }`}
           >
-            🗺️ 일반 도로
+            🗺️ <span className="hidden sm:inline">일반 도로</span>
           </button>
         </div>
       </div>
 
       {/* 상단 중앙: 경로 3~5분 공공 편의시설(Waypoint Radar) 필터 칩 */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-gray-900/95 backdrop-blur-md border border-gray-700/80 rounded-2xl p-1.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
-        <div className="flex items-center gap-1 px-2 text-[11px] text-gray-400 font-semibold border-r border-gray-700/80 mr-1">
+      <div className="absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-gray-900/95 backdrop-blur-md border border-gray-700/80 rounded-2xl p-1 sm:p-1.5 shadow-2xl max-w-[95vw] overflow-x-auto">
+        <div className="hidden sm:flex items-center gap-1 px-2 text-[11px] text-gray-400 font-semibold border-r border-gray-700/80 mr-1 shrink-0">
           <span>🧭</span>
-          <span className="hidden sm:inline">경로 3~5분 편의:</span>
+          <span>편의 레이더:</span>
         </div>
         {RADAR_CATEGORIES.map((cat) => (
           <button
             key={cat.type}
             onClick={() => setActiveWaypointFilter(cat.type)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium transition-all ${
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium shrink-0 transition-all ${
               activeWaypointFilter === cat.type
                 ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40 scale-102"
                 : "text-gray-400 hover:text-white hover:bg-gray-800/60"
@@ -659,13 +670,13 @@ export function MapContainer() {
         ))}
       </div>
 
-      {/* 지도 하단 보행 경로 요약 및 카카오/네이버 다이렉트 길찾기 바 */}
+      {/* 지도 하단 완성형 카카오/네이버 길찾기 바 (노트북/모바일 높이 오프셋 확보, z-30 배치로 가림 완전 제거) */}
       {activeCourse && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 bg-gray-900/95 backdrop-blur-md border border-emerald-500/50 rounded-2xl px-4 py-2.5 shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="flex items-center gap-2">
-            <span className="text-base">🚶</span>
+        <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 bg-gray-900/95 backdrop-blur-md border border-emerald-500/60 rounded-2xl px-4 py-2.5 sm:py-3 shadow-2xl flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[92vw]">
+          <div className="flex items-center gap-2 text-center sm:text-left">
+            <span className="text-base shrink-0">🚶</span>
             <div>
-              <div className="font-bold text-white flex items-center gap-1.5">
+              <div className="font-bold text-white flex items-center justify-center sm:justify-start gap-1.5 text-xs sm:text-sm">
                 <span>{activeCourse.restaurant.name}</span>
                 <span className="text-emerald-400">➔</span>
                 <span>{activeCourse.trail.name}</span>
@@ -676,24 +687,24 @@ export function MapContainer() {
             </div>
           </div>
 
-          <div className="h-6 w-px bg-gray-700/80 mx-1" />
+          <div className="hidden sm:block h-7 w-px bg-gray-700/80 mx-1" />
 
-          {/* 원클릭 길찾기 앱 버튼 그룹 */}
-          <div className="flex items-center gap-1.5">
+          {/* 출발지 ➔ 도착지 자동 완성형 길찾기 버튼 */}
+          <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <a
-              href={`https://map.kakao.com/link/to/${encodeURIComponent(activeCourse.trail.name)},${activeCourse.trail.latitude},${activeCourse.trail.longitude}`}
+              href={kakaoCourseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[11px] rounded-xl shadow-sm transition-all active:scale-95"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
             >
               <span>🟡</span>
               <span>카카오맵 길찾기</span>
             </a>
             <a
-              href={`https://map.naver.com/v5/directions/-/${activeCourse.trail.longitude},${activeCourse.trail.latitude},${encodeURIComponent(activeCourse.trail.name)},,/walk`}
+              href={naverCourseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[11px] rounded-xl shadow-sm transition-all active:scale-95"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
             >
               <span>🟢</span>
               <span>네이버 길찾기</span>

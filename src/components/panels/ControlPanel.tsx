@@ -14,11 +14,13 @@ const ALL_CONDITIONS: ChronicCondition[] = [
 
 export function ControlPanel() {
   const [activeTab, setActiveTab] = useState<"courses" | "multiday" | "profile" | "map">("courses");
+  const [isMobileExpanded, setIsMobileExpanded] = useState(false);
 
   // 스토어 구독
   const {
     profile,
     courses,
+    filteredCourses,
     activeCourseId,
     setActiveCourseId,
     multiDayCourses,
@@ -52,6 +54,10 @@ export function ControlPanel() {
     if (target) {
       flyToPlace(target.restaurant.longitude, target.restaurant.latitude, 14);
     }
+    // 모바일에서는 선택 시 지도가 보이도록 바텀시트 접기
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsMobileExpanded(false);
+    }
   };
 
   // 장기 코스 선택 핸들러
@@ -61,179 +67,266 @@ export function ControlPanel() {
     if (target) {
       flyToPlace(target.stay.longitude, target.stay.latitude, 14);
     }
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setIsMobileExpanded(false);
+    }
   };
 
   return (
-    <div className="absolute top-4 left-4 z-20 w-96 max-h-[calc(100vh-2rem)] flex flex-col bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-2xl shadow-2xl text-white overflow-hidden">
-      {/* 상단 헤더 */}
-      <div className="p-4 border-b border-gray-800 bg-gradient-to-r from-emerald-900/40 to-teal-900/20">
-        <div className="flex items-center justify-between">
+    <div
+      className={`fixed sm:absolute z-40 sm:z-20 transition-all duration-300 ease-in-out flex flex-col bg-gray-900/95 sm:bg-gray-900/90 backdrop-blur-md border border-gray-700/60 shadow-2xl text-white overflow-hidden
+        bottom-0 left-0 right-0 rounded-t-3xl sm:rounded-2xl
+        sm:top-4 sm:left-4 sm:right-auto sm:bottom-auto sm:w-96 sm:max-h-[calc(100vh-2rem)]
+        ${isMobileExpanded ? "h-[82vh] sm:h-auto" : "h-14 sm:h-auto"}
+      `}
+    >
+      {/* 모바일 접힘 상태 퀵 바 (sm:hidden) */}
+      {!isMobileExpanded && (
+        <div
+          onClick={() => setIsMobileExpanded(true)}
+          className="sm:hidden flex items-center justify-between px-4 h-14 cursor-pointer select-none"
+        >
           <div className="flex items-center gap-2">
-            <span className="text-xl">🌿</span>
-            <h1 className="font-bold text-lg tracking-tight bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
+            <span className="text-lg">🌿</span>
+            <span className="font-bold text-sm bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
               VitalRoot
-            </h1>
+            </span>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-medium">
+              추천 {filteredCourses.length}개
+            </span>
           </div>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
-            관광데이터 시각화
-          </span>
+          <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-950/70 px-3 py-1.5 rounded-xl border border-emerald-500/40">
+            <span>코스·필터 보기</span>
+            <span>▲</span>
+          </div>
         </div>
-        <p className="text-xs text-gray-400 mt-1">
-          만성질환 맞춤 안심식당 + 힐링 산책로 + 편의시설 레이더
-        </p>
-      </div>
+      )}
 
-      {/* 4분할 탭 네비게이션 */}
-      <div className="grid grid-cols-4 border-b border-gray-800 text-[11px] font-medium bg-gray-950/50">
-        <button
-          onClick={() => setActiveTab("courses")}
-          className={`py-2.5 transition-colors ${
-            activeTab === "courses"
-              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
-              : "text-gray-400 hover:text-gray-200"
-          }`}
-        >
-          추천 코스
-        </button>
-        <button
-          onClick={() => setActiveTab("multiday")}
-          className={`py-2.5 transition-colors ${
-            activeTab === "multiday"
-              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
-              : "text-gray-400 hover:text-gray-200"
-          }`}
-        >
-          장기 코스
-        </button>
-        <button
-          onClick={() => setActiveTab("profile")}
-          className={`py-2.5 transition-colors ${
-            activeTab === "profile"
-              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
-              : "text-gray-400 hover:text-gray-200"
-          }`}
-        >
-          조건 필터
-        </button>
-        <button
-          onClick={() => setActiveTab("map")}
-          className={`py-2.5 transition-colors ${
-            activeTab === "map"
-              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
-              : "text-gray-400 hover:text-gray-200"
-          }`}
-        >
-          동심원 설정
-        </button>
-      </div>
+      {/* 내부 콘텐츠 (모바일 펼침 시 또는 데스크톱에서 항상 표시) */}
+      <div
+        className={
+          !isMobileExpanded
+            ? "hidden sm:flex flex-col flex-1 overflow-hidden"
+            : "flex flex-col flex-1 overflow-hidden"
+        }
+      >
+        {/* 모바일 상단 드래그 핸들 및 닫기 버튼 */}
+        <div className="sm:hidden relative flex items-center justify-center pt-2.5 pb-2 border-b border-gray-800 bg-gray-950/60">
+          <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
+          <button
+            onClick={() => setIsMobileExpanded(false)}
+            className="absolute right-3 top-2 text-[11px] text-gray-300 hover:text-white px-2.5 py-1 rounded-lg bg-gray-800/80 border border-gray-700 font-medium"
+          >
+            ▼ 지도 보기
+          </button>
+        </div>
 
-      {/* 탭 본문 영역 (스크롤 지원) */}
-      <div className="p-4 overflow-y-auto space-y-4 flex-1 text-sm">
-        {/* TAB 1: 추천 세트 3선 (당일 코스) */}
-        {activeTab === "courses" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>내 질환 맞춤 당일 힐링 코스</span>
-              <span className="text-emerald-400 font-semibold">{courses.length}개 세트</span>
+        {/* 상단 헤더 */}
+        <div className="p-4 border-b border-gray-800 bg-gradient-to-r from-emerald-900/40 to-teal-900/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🌿</span>
+              <h1 className="font-bold text-lg tracking-tight bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
+                VitalRoot
+              </h1>
             </div>
-
-            {courses.map((course) => {
-              const isActive = course.id === activeCourseId;
-              return (
-                <div
-                  key={course.id}
-                  onClick={() => handleSelectCourse(course.id)}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-emerald-950/30 border-emerald-500/70 shadow-lg shadow-emerald-950/50"
-                      : "bg-gray-800/40 border-gray-700/50 hover:bg-gray-800/80"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-semibold text-white text-xs leading-snug">
-                      {course.title}
-                    </h3>
-                  </div>
-
-                  <p className="text-[11px] text-emerald-400 mt-1 font-medium">
-                    🎯 {course.targetCondition}
-                  </p>
-
-                  <div className="mt-2.5 space-y-1.5 bg-gray-900/60 p-2.5 rounded-lg text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">🍽️ 안심식당:</span>
-                      <span className="text-gray-200 font-medium">{course.restaurant.name}</span>
-                    </div>
-
-                    {/* 식약처 영양성분 뱃지 */}
-                    {course.restaurant.nutrition && (
-                      <div className="p-1.5 bg-emerald-950/40 rounded border border-emerald-500/20 text-[10px] flex items-center justify-between">
-                        <span className="text-emerald-300 font-medium truncate">
-                          🥗 {course.restaurant.nutrition.menuName}
-                        </span>
-                        <span className="text-emerald-400 font-mono shrink-0 ml-1">
-                          당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨 {course.restaurant.nutrition.sodium}mg 🟢
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-400">🚶 힐링산책:</span>
-                      <span className="text-gray-200 font-medium">{course.trail.name}</span>
-                    </div>
-
-                    {/* 경로 3~5분 공공 편의시설 보유 안내 */}
-                    {course.waypoints && (
-                      <div className="text-[10px] text-sky-400 flex items-center gap-1">
-                        <span>🧭</span>
-                        <span>경로 인근 화장실·쉼터 {course.waypoints.length}곳 (3~5분 레이더 연동)</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-800">
-                      <span>보행로 {course.distanceMeters || 720}m • 도보 {course.walkMinutes}분</span>
-                      <span className="text-teal-300 font-medium">{course.slopeGrade}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-2.5 flex items-center justify-between gap-1.5 pt-1.5 border-t border-gray-800/80">
-                    <div className="flex items-center gap-1.5">
-                      <a
-                        href={`https://map.kakao.com/link/to/${encodeURIComponent(course.trail.name)},${course.trail.latitude},${course.trail.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-1 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
-                      >
-                        <span>🟡</span>
-                        <span>카카오 길찾기</span>
-                      </a>
-                      <a
-                        href={`https://map.naver.com/v5/directions/-/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(course.trail.name)},,/walk`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
-                      >
-                        <span>🟢</span>
-                        <span>네이버 길찾기</span>
-                      </a>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectCourse(course.id);
-                      }}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
-                    >
-                      경로 ➔
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
+              관광데이터 시각화
+            </span>
           </div>
-        )}
+          <p className="text-xs text-gray-400 mt-1">
+            만성질환 맞춤 안심식당 + 힐링 산책로 + 편의시설 레이더
+          </p>
+        </div>
+
+        {/* 4분할 탭 네비게이션 */}
+        <div className="grid grid-cols-4 border-b border-gray-800 text-[11px] font-medium bg-gray-950/50">
+          <button
+            onClick={() => setActiveTab("courses")}
+            className={`py-2.5 transition-colors ${
+              activeTab === "courses"
+                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            추천 코스
+          </button>
+          <button
+            onClick={() => setActiveTab("multiday")}
+            className={`py-2.5 transition-colors ${
+              activeTab === "multiday"
+                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            장기 코스
+          </button>
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`py-2.5 transition-colors ${
+              activeTab === "profile"
+                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            조건 필터
+          </button>
+          <button
+            onClick={() => setActiveTab("map")}
+            className={`py-2.5 transition-colors ${
+              activeTab === "map"
+                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            동심원 설정
+          </button>
+        </div>
+
+        {/* 탭 본문 영역 (스크롤 지원) */}
+        <div className="p-4 overflow-y-auto space-y-4 flex-1 text-sm">
+          {/* TAB 1: 추천 세트 (당일 코스, filteredCourses 바인딩) */}
+          {activeTab === "courses" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>내 질환 맞춤 당일 힐링 코스</span>
+                <span className="text-emerald-400 font-semibold">
+                  {filteredCourses.length}개 세트
+                </span>
+              </div>
+
+              {filteredCourses.length === 0 ? (
+                <div className="p-4 bg-gray-800/40 rounded-xl border border-gray-700/50 text-center text-xs text-gray-400 space-y-2">
+                  <p className="text-gray-300 font-semibold">
+                    🔍 조건에 맞는 추천 코스가 없습니다.
+                  </p>
+                  <p className="text-[11px]">기저질환 필터를 조정해보세요.</p>
+                  <button
+                    onClick={() => setActiveTab("profile")}
+                    className="mt-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold"
+                  >
+                    조건 필터 변경하기
+                  </button>
+                </div>
+              ) : (
+                filteredCourses.map((course) => {
+                  const isActive = course.id === activeCourseId;
+                  const kakaoUrl = `https://map.kakao.com/?sName=${encodeURIComponent(
+                    course.restaurant.name
+                  )}&eName=${encodeURIComponent(course.trail.name)}`;
+                  const naverUrl = `https://map.naver.com/p/directions/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                    course.restaurant.name
+                  )}/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(
+                    course.trail.name
+                  )}/-/walk?c=15.00,0,0,0,dh`;
+
+                  return (
+                    <div
+                      key={course.id}
+                      onClick={() => handleSelectCourse(course.id)}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                        isActive
+                          ? "bg-emerald-950/30 border-emerald-500/70 shadow-lg shadow-emerald-950/50"
+                          : "bg-gray-800/40 border-gray-700/50 hover:bg-gray-800/80"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold text-white text-xs leading-snug">
+                          {course.title}
+                        </h3>
+                      </div>
+
+                      <p className="text-[11px] text-emerald-400 mt-1 font-medium">
+                        🎯 {course.targetCondition}
+                      </p>
+
+                      <div className="mt-2.5 space-y-1.5 bg-gray-900/60 p-2.5 rounded-lg text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400">🍽️ 안심식당:</span>
+                          <span className="text-gray-200 font-medium">
+                            {course.restaurant.name}
+                          </span>
+                        </div>
+
+                        {/* 식약처 영양성분 뱃지 */}
+                        {course.restaurant.nutrition && (
+                          <div className="p-1.5 bg-emerald-950/40 rounded border border-emerald-500/20 text-[10px] flex items-center justify-between">
+                            <span className="text-emerald-300 font-medium truncate">
+                              🥗 {course.restaurant.nutrition.menuName}
+                            </span>
+                            <span className="text-emerald-400 font-mono shrink-0 ml-1">
+                              당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨{" "}
+                              {course.restaurant.nutrition.sodium}mg 🟢
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400">🚶 힐링산책:</span>
+                          <span className="text-gray-200 font-medium">
+                            {course.trail.name}
+                          </span>
+                        </div>
+
+                        {/* 경로 3~5분 공공 편의시설 보유 안내 */}
+                        {course.waypoints && (
+                          <div className="text-[10px] text-sky-400 flex items-center gap-1">
+                            <span>🧭</span>
+                            <span>
+                              경로 인근 화장실·쉼터 {course.waypoints.length}곳 (3~5분 레이더 연동)
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-800">
+                          <span>
+                            보행로 {course.distanceMeters || 720}m • 도보 {course.walkMinutes}분
+                          </span>
+                          <span className="text-teal-300 font-medium">
+                            {course.slopeGrade}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between gap-1.5 pt-1.5 border-t border-gray-800/80">
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={kakaoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2 py-1 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                          >
+                            <span>🟡</span>
+                            <span>카카오 길찾기</span>
+                          </a>
+                          <a
+                            href={naverUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                          >
+                            <span>🟢</span>
+                            <span>네이버 길찾기</span>
+                          </a>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectCourse(course.id);
+                          }}
+                          className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
+                        >
+                          경로 ➔
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
 
         {/* TAB 2: 장기 코스 (1박 2일 다일정 및 안심 숙소 연계) */}
         {activeTab === "multiday" && (
@@ -503,6 +596,7 @@ export function ControlPanel() {
           <span>{isSupabaseConnected ? "Supabase DB 동기화 완료" : "스마트 폴백 시드 데이터 연동"}</span>
         </div>
         <span className="text-gray-500">한국관광공사 Tour API 연계</span>
+      </div>
       </div>
     </div>
   );

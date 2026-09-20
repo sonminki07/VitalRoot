@@ -289,6 +289,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitializing: false,
       });
 
+      if (session?.user) {
+        import("./wellnessStore").then(({ useWellnessStore }) => {
+          useWellnessStore.getState().syncProfileWithDb(session.user.id);
+        });
+      }
+
       if (window.location.search.includes("code=") || window.location.hash.includes("access_token=")) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -303,8 +309,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitializing: false,
       });
 
-      if (event === "SIGNED_IN") {
+      if (event === "SIGNED_IN" && session?.user) {
         set({ isModalOpen: false, errorMessage: null });
+        import("./wellnessStore").then(({ useWellnessStore }) => {
+          useWellnessStore.getState().syncProfileWithDb(session.user.id);
+        });
         if (window.location.search.includes("code=") || window.location.hash.includes("access_token=")) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }

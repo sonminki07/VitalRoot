@@ -2,7 +2,6 @@
 import { useEffect } from "react";
 import { MapContainer } from "./components/map/MapContainer";
 import { ControlPanel } from "./components/panels/ControlPanel";
-import { InfoBar } from "./components/common/InfoBar";
 import { AuthModal } from "./components/auth/AuthModal";
 import { useAuthStore } from "./store/authStore";
 
@@ -17,10 +16,12 @@ function App() {
 
   return (
     <div className="relative w-screen h-screen bg-gray-900 overflow-hidden">
-      <ControlPanel /> {/* 왼쪽 상단 패널 */}
-      <MapContainer /> {/* 지도 컴포넌트 & 우측 상단 인증/지도 전환 바 */}
-      <InfoBar /> {/* 하단 정보 바 */}
-      <AuthModal /> {/* 로그인 / 회원가입 오버레이 모달 */}
+      {/* 반응형 컨트롤 패널 (데스크톱: 좌측 플로팅 / 모바일: 하단 바텀 시트) */}
+      <ControlPanel />
+      {/* 지도 컴포넌트 & 상단 유틸 바 & 하단 코스 요약/길찾기 바 */}
+      <MapContainer />
+      {/* 로그인 / 회원가입 오버레이 모달 */}
+      <AuthModal />
     </div>
   );
 }
