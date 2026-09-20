@@ -10,9 +10,9 @@ import { getNaverMapDetailUrl } from "../../utils/naverMapUtils";
 
 const RADAR_CATEGORIES: { type: WaypointFilterType; label: string; icon: string }[] = [
   { type: "전체", label: "전체", icon: "🌐" },
-  { type: "화장실", label: "안심 화장실", icon: "🚻" },
-  { type: "쉼터", label: "완만 쉼터", icon: "🪑" },
-  { type: "배리어프리", label: "무장애 시설", icon: "♿" },
+  { type: "화장실", label: "화장실", icon: "🚻" },
+  { type: "쉼터", label: "쉼터", icon: "🪑" },
+  { type: "배리어프리", label: "무장애", icon: "♿" },
 ];
 
 function formatDistance(meters: number, unit: "auto" | "km" | "m"): string {
@@ -940,39 +940,39 @@ export function MapContainer() {
         </div>
       )}
 
-      {/* 우측 상단 컨트롤 바 (전체 경로 맞춤 + 내 위치 찾기 + 집 핀 찍기 + 인증 버튼 + 일반/위성 전환 스위치) */}
-      <div className="absolute top-4 right-3 sm:right-14 z-20 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 max-w-[calc(100vw-420px)]">
+      {/* 우측 상단 컨트롤 바 (전체 경로 맞춤 + 내 위치 찾기 + 집 핀 찍기 + 인증 버튼 + 일반/위성 단일 토글) */}
+      <div className="absolute top-4 right-3 sm:right-14 z-20 flex items-center justify-end gap-1.5 sm:gap-2">
         {/* 전체 경로 한눈에 보기 맞춤 버튼 */}
         <button
           onClick={() => fitCourseAndHomeBounds(true)}
-          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 bg-gray-900/90 hover:bg-gray-800 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40"
+          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 bg-gray-900/90 hover:bg-gray-800 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 shrink-0"
           title="내 위치와 선택된 코스 전체를 화면 한눈에 포커스합니다."
         >
           <span>⛶</span>
-          <span className="hidden xl:inline">전체 경로 맞춤</span>
-          <span className="xl:hidden">맞춤</span>
+          <span className="hidden 2xl:inline">전체 경로 맞춤</span>
         </button>
 
         {/* 내 위치 기반 찾기 버튼 */}
         <button
           onClick={() => setIsLocationModalOpen(true)}
-          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 ${
+          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 shrink-0 ${
             userLocation
               ? "bg-sky-600 hover:bg-sky-500 text-white border border-sky-400/50"
               : "bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50 animate-pulse"
           }`}
+          title={userLocation ? "내 위치 재설정" : "내 위치 코스 찾기"}
         >
           <span>📍</span>
-          <span className="hidden xl:inline">
+          <span className="hidden 2xl:inline">
             {userLocation ? "내 위치 재설정" : "내 위치 코스 찾기"}
           </span>
-          <span className="xl:hidden">내 위치</span>
+          <span className="2xl:hidden">{userLocation ? "재설정" : "내 위치"}</span>
         </button>
 
         {/* 내 집 핀 찍기 버튼 */}
         <button
           onClick={() => setIsPinningHome(!isPinningHome)}
-          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 border ${
+          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 border shrink-0 ${
             isPinningHome
               ? "bg-amber-500 text-gray-950 border-amber-300 animate-pulse ring-2 ring-amber-400"
               : "bg-gray-900/90 text-amber-300 hover:text-white border-amber-500/40 hover:bg-gray-800"
@@ -980,41 +980,28 @@ export function MapContainer() {
           title="지도 화면을 직접 클릭하여 내 집(출발지) 위치를 지정합니다."
         >
           <span>🎯</span>
-          <span className="hidden xl:inline">
+          <span className="hidden 2xl:inline">
             {isPinningHome ? "지도 클릭 대기중..." : "집 핀 찍기"}
           </span>
-          <span className="xl:hidden">집 핀</span>
+          <span className="2xl:hidden">{isPinningHome ? "대기중" : "집 핀"}</span>
         </button>
 
         <AuthButton />
 
-        <div className="flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-0.5 sm:p-1 shadow-2xl">
-          <button
-            onClick={() => handleChangeMapType("street")}
-            className={`px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              storeMapType === "NORMAL"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            🗺️ <span className="hidden xl:inline">일반 도로</span>
-          </button>
-          <button
-            onClick={() => handleChangeMapType("satellite")}
-            className={`px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              storeMapType === "HYBRID"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            🛰️ <span className="hidden xl:inline">위성 지도</span>
-          </button>
-        </div>
+        {/* 일반 / 위성 단일 토글 스위치 버튼 (공간 낭비 제거) */}
+        <button
+          onClick={() => handleChangeMapType(storeMapType === "NORMAL" ? "satellite" : "street")}
+          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gray-900/90 hover:bg-gray-800 text-gray-300 hover:text-white border border-gray-700/60 text-xs font-medium shadow-xl transition-all active:scale-95 shrink-0"
+          title={storeMapType === "NORMAL" ? "위성 지도로 변경" : "일반 도로 지도로 변경"}
+        >
+          <span>{storeMapType === "NORMAL" ? "🛰️" : "🗺️"}</span>
+          <span>{storeMapType === "NORMAL" ? "위성" : "일반"}</span>
+        </button>
       </div>
 
       {/* 상단 편의시설 레이더 필터 칩 (데스크톱에서는 사이드바 우측 sm:left-[368px] lg:left-[412px]에 안전하게 위치) */}
       <div className="absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-20 flex items-center gap-1 bg-gray-900/95 backdrop-blur-md border border-gray-700/80 rounded-2xl p-1 sm:p-1.5 shadow-2xl max-w-[95vw] sm:max-w-none overflow-x-auto">
-        <div className="hidden sm:flex items-center gap-1 px-2 text-[11px] text-gray-400 font-semibold border-r border-gray-700/80 mr-1 shrink-0">
+        <div className="hidden 2xl:flex items-center gap-1 px-2 text-[11px] text-gray-400 font-semibold border-r border-gray-700/80 mr-1 shrink-0">
           <span>🧭</span>
           <span>편의 레이더:</span>
         </div>
