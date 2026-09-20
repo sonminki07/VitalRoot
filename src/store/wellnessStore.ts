@@ -3,17 +3,24 @@ import {
   UserProfile,
   WellnessCourseSet,
   ChronicCondition,
+  MultiDayCourseSet,
 } from "../types/wellness.types";
 import {
   INITIAL_USER_PROFILE,
   INITIAL_WELLNESS_COURSES,
+  INITIAL_MULTI_DAY_COURSES,
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
+
+export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리";
 
 interface WellnessState {
   profile: UserProfile;
   courses: WellnessCourseSet[];
   activeCourseId: string;
+  multiDayCourses: MultiDayCourseSet[];
+  activeMultiDayCourseId: string;
+  activeWaypointFilter: WaypointFilterType;
   isSupabaseConnected: boolean;
   isLoading: boolean;
 
@@ -21,6 +28,8 @@ interface WellnessState {
   setProfile: (profile: Partial<UserProfile>) => void;
   toggleCondition: (condition: ChronicCondition) => void;
   setActiveCourseId: (id: string) => void;
+  setActiveMultiDayCourseId: (id: string) => void;
+  setActiveWaypointFilter: (filter: WaypointFilterType) => void;
   fetchSupabaseData: () => Promise<void>;
 }
 
@@ -28,6 +37,9 @@ export const useWellnessStore = create<WellnessState>((set) => ({
   profile: INITIAL_USER_PROFILE,
   courses: INITIAL_WELLNESS_COURSES,
   activeCourseId: INITIAL_WELLNESS_COURSES[0]?.id ?? "course-1",
+  multiDayCourses: INITIAL_MULTI_DAY_COURSES,
+  activeMultiDayCourseId: INITIAL_MULTI_DAY_COURSES[0]?.id ?? "multi-course-1",
+  activeWaypointFilter: "전체",
   isSupabaseConnected: false,
   isLoading: false,
 
@@ -46,6 +58,10 @@ export const useWellnessStore = create<WellnessState>((set) => ({
     }),
 
   setActiveCourseId: (activeCourseId) => set({ activeCourseId }),
+
+  setActiveMultiDayCourseId: (activeMultiDayCourseId) => set({ activeMultiDayCourseId }),
+
+  setActiveWaypointFilter: (activeWaypointFilter) => set({ activeWaypointFilter }),
 
   fetchSupabaseData: async () => {
     set({ isLoading: true });

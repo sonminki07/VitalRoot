@@ -3,11 +3,11 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useMapStore } from "../../store/mapStore";
 import { useCircleStore } from "../../store/circleStore";
-import { useWellnessStore } from "../../store/wellnessStore";
+import { useWellnessStore, WaypointFilterType } from "../../store/wellnessStore";
 import { useCircleData } from "../../hooks/useCircleData";
 import { AuthButton } from "../auth/AuthButton";
 
-// Mapbox GL JS v3 내부 인증/토큰 만료 에러 무력화 (공공 래스터 타일 사용 환경 보장)
+// Mapbox GL JS v3 내부 인증/토큰 만료 에러 무력화
 try {
   const proto = mapboxgl.Map?.prototype as unknown as Record<string, unknown>;
   if (proto && typeof proto._authenticate === "function") {
@@ -24,14 +24,12 @@ mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || "";
 
 // 무료/공공 오픈 래스터 지도 타일 소스 정의
 const MAP_SOURCES = {
-  // 1. 고해상도 위성 지도 (Esri World Imagery)
   satellite: {
     tiles: [
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     ],
     tileSize: 256,
   },
-  // 2. 일반 도로 지도 (CartoDB Voyager - 선명한 한글/도로망 지원)
   street: {
     tiles: [
       "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
@@ -42,7 +40,6 @@ const MAP_SOURCES = {
   },
 };
 
-// Mapbox GL 기본 스타일 스키마 (배경 래스터 타일)
 const BASE_STYLE: mapboxgl.Style = {
   version: 8,
   sources: {
@@ -63,6 +60,13 @@ const BASE_STYLE: mapboxgl.Style = {
   ],
 };
 
+const RADAR_CATEGORIES: { type: WaypointFilterType; icon: string; label: string }[] = [
+  { type: "전체", icon: "✨", label: "전체 스팟" },
+  { type: "화장실", icon: "🚻", label: "안심 화장실" },
+  { type: "쉼터", icon: "🪑", label: "완만 쉼터" },
+  { type: "배리어프리", icon: "♿", label: "무장애 시설" },
+];
+
 export function MapContainer() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -72,12 +76,15 @@ export function MapContainer() {
   // 스토어 구독
   const { center, zoom, bearing, setSelectedPlace } = useMapStore();
   const { color, fillOpacity } = useCircleStore();
-  const { courses, activeCourseId, fetchSupabaseData } = useWellnessStore();
+  const {
+    courses,
+    activeCourseId,
+    activeWaypointFilter,
+    setActiveWaypointFilter,
+    fetchSupabaseData,
+  } = useWellnessStore();
 
-  // 커스텀 훅: 동심원 및 방사선 GeoJSON 연산 (useMemo 캐싱)
   const { circleFeatures, radialLines, distanceLabels } = useCircleData();
-
-  // 현재 선택된 활성 코스
   const activeCourse = courses.find((c) => c.id === activeCourseId) || courses[0];
 
   // 1. 지도 초기화
@@ -99,7 +106,7 @@ export function MapContainer() {
     map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
 
     map.on("load", () => {
-      // (1) 동심원 GeoJSON 소스 & 레이어 등록
+      // (1) 동심원 GeoJSON 등록
       map.addSource("concentric-circles", {
         type: "geojson",
         data: circleFeatures,
@@ -126,7 +133,7 @@ export function MapContainer() {
         },
       });
 
-      // (2) 360도 방사선 소스 & 레이어 등록
+      // (2) 360도 방사선 소스 등록
       const allLines = [...radialLines.normalLines, ...radialLines.majorLines];
       map.addSource("radial-lines", {
         type: "geojson",
@@ -148,7 +155,7 @@ export function MapContainer() {
         },
       });
 
-      // (3) 실제 도로망 보행 경로(Routing Polyline) 소스 등록
+      // (3) 보행 경로선 소스 등록
       map.addSource("course-routes", {
         type: "geojson",
         data: {
@@ -157,7 +164,6 @@ export function MapContainer() {
         },
       });
 
-      // 보행 경로 외곽 글로우 효과
       map.addLayer({
         id: "course-routes-glow",
         type: "line",
@@ -174,7 +180,6 @@ export function MapContainer() {
         },
       });
 
-      // 보행 경로 메인 선
       map.addLayer({
         id: "course-routes-line",
         type: "line",
@@ -191,7 +196,7 @@ export function MapContainer() {
       });
     });
 
-    // 줌 레벨에 따라 1km, 2km 거리 라벨 가시성 제어 (중앙 뭉침 완벽 방지)
+    // 줌 레벨에 따른 1km/2km 라벨 동적 제어
     const handleZoomVisibility = () => {
       const currentZoom = map.getZoom();
       document.querySelectorAll<HTMLElement>(".distance-label-1").forEach((el) => {
@@ -246,7 +251,7 @@ export function MapContainer() {
     }
   };
 
-  // 3. 동심원 데이터 및 스타일 실시간 업데이트
+  // 3. 동심원 데이터 실시간 업데이트
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
@@ -277,7 +282,7 @@ export function MapContainer() {
     }
   }, [circleFeatures, radialLines, color, fillOpacity]);
 
-  // 4. 지도 중심 및 줌 이동 반응
+  // 4. 지도 중심 이동
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -292,7 +297,7 @@ export function MapContainer() {
     });
   }, [center, zoom]);
 
-  // 5. 마커 렌더링 (래퍼 분리하여 줌아웃 위치 흔들림 완벽 차단) 및 실제 도로망 경로선
+  // 5. 마커 (안심식당, 산책로, 3~5분 공공 편의시설 핀) 및 경로선 렌더링
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -303,17 +308,16 @@ export function MapContainer() {
 
     const routeFeatures: GeoJSON.Feature<GeoJSON.LineString>[] = [];
 
+    const getKakaoLink = (name: string, lat: number, lng: number) =>
+      `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+    const getNaverLink = (name: string, lat: number, lng: number) =>
+      `https://map.naver.com/v5/directions/-/${lng},${lat},${encodeURIComponent(name)},,/walk`;
+
     courses.forEach((course) => {
       const isSelected = course.id === activeCourseId;
 
-      // 카카오맵 & 네이버 지도 길찾기 URL 생성 유틸
-      const getKakaoLink = (name: string, lat: number, lng: number) =>
-        `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
-      const getNaverLink = (name: string, lat: number, lng: number) =>
-        `https://map.naver.com/v5/directions/-/${lng},${lat},${encodeURIComponent(name)},,/walk`;
-
       // -------------------------------------------------------------
-      // (A) 안심식당 마커: 래퍼(위치 고정) + 이너(비주얼 & 애니메이션) 분리
+      // (A) 안심식당 마커 (식약처 3색 영양 신호등 팝업 포함)
       // -------------------------------------------------------------
       const restWrapper = document.createElement("div");
       restWrapper.className = "vital-marker-wrapper";
@@ -332,18 +336,42 @@ export function MapContainer() {
       restInner.innerHTML = `<span class="text-base select-none">🍽️</span>`;
       restWrapper.appendChild(restInner);
 
+      const nutritionHtml = course.restaurant.nutrition
+        ? `
+        <div class="mt-2.5 p-2 bg-emerald-950/20 border border-emerald-500/30 rounded-lg text-xs">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-bold text-emerald-800 text-[11px]">🥗 ${course.restaurant.nutrition.menuName}</span>
+            <span class="text-[10px] text-gray-500 font-mono">${course.restaurant.nutrition.calories} kcal</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 text-[10px] pt-1 border-t border-emerald-500/20">
+            <div class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full ${
+                course.restaurant.nutrition.sugarGrade === '안심' ? 'bg-emerald-500' : 'bg-amber-500'
+              }"></span>
+              <span>당류: <strong>${course.restaurant.nutrition.sugars}g</strong> (${course.restaurant.nutrition.sugarGrade})</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full ${
+                course.restaurant.nutrition.sodiumGrade === '안심' ? 'bg-emerald-500' : 'bg-amber-500'
+              }"></span>
+              <span>나트륨: <strong>${course.restaurant.nutrition.sodium}mg</strong> (${course.restaurant.nutrition.sodiumGrade})</span>
+            </div>
+          </div>
+          <p class="text-[9px] text-gray-500 mt-1">식품의약품안전처 영양성분 공공데이터 검증 완료</p>
+        </div>
+      `
+        : "";
+
       const restPopup = new mapboxgl.Popup({ offset: 20, closeButton: true }).setHTML(`
-        <div class="text-gray-900 p-2.5 max-w-[240px] font-sans">
+        <div class="text-gray-900 p-2.5 max-w-[250px] font-sans">
           <div class="flex items-center justify-between gap-1 mb-1">
             <span class="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">안심식당</span>
             <span class="text-[10px] text-gray-500">${course.targetCondition.split(" ")[0]}</span>
           </div>
           <h4 class="font-bold text-sm text-gray-900">${course.restaurant.name}</h4>
           <p class="text-[11px] text-gray-600 mt-1 line-clamp-2">${course.restaurant.description}</p>
-          <div class="mt-2 p-1.5 bg-emerald-50 rounded text-[10px] text-emerald-800 font-medium">
-            💡 ${course.restaurant.healthBenefit}
-          </div>
-          <div class="mt-3 pt-2 border-t border-gray-100 flex items-center gap-1.5">
+          ${nutritionHtml}
+          <div class="mt-2.5 pt-2 border-t border-gray-100 flex items-center gap-1.5">
             <a
               href="${getKakaoLink(course.restaurant.name, course.restaurant.latitude, course.restaurant.longitude)}"
               target="_blank"
@@ -378,7 +406,7 @@ export function MapContainer() {
       markersRef.current.push(restMarker);
 
       // -------------------------------------------------------------
-      // (B) 완만 산책로 마커: 래퍼(위치 고정) + 이너(비주얼 & 애니메이션) 분리
+      // (B) 산책로 마커
       // -------------------------------------------------------------
       const trailWrapper = document.createElement("div");
       trailWrapper.className = "vital-marker-wrapper";
@@ -465,12 +493,97 @@ export function MapContainer() {
             coordinates: routeCoords,
           },
         });
+
+        // -------------------------------------------------------------
+        // (D) 선택된 코스의 이동 동선 3~5분 공공 편의시설 (Waypoint Radar) 핀
+        // -------------------------------------------------------------
+        if (course.waypoints) {
+          const filteredWaypoints =
+            activeWaypointFilter === "전체"
+              ? course.waypoints
+              : course.waypoints.filter((wp) => wp.category === activeWaypointFilter);
+
+          filteredWaypoints.forEach((wp) => {
+            const wpWrapper = document.createElement("div");
+            wpWrapper.className = "vital-marker-wrapper";
+            wpWrapper.style.width = "30px";
+            wpWrapper.style.height = "30px";
+            wpWrapper.style.display = "flex";
+            wpWrapper.style.alignItems = "center";
+            wpWrapper.style.justifyContent = "center";
+
+            const wpInner = document.createElement("div");
+            const badgeBg =
+              wp.category === "화장실"
+                ? "bg-sky-600 border-sky-300"
+                : wp.category === "쉼터"
+                ? "bg-amber-600 border-amber-300"
+                : "bg-purple-600 border-purple-300";
+
+            wpInner.className = `w-7 h-7 cursor-pointer flex items-center justify-center rounded-full shadow-lg border-2 ${badgeBg} hover:scale-125 transition-transform duration-200 z-10`;
+
+            const iconText =
+              wp.category === "화장실" ? "🚻" : wp.category === "쉼터" ? "🪑" : "♿";
+            wpInner.innerHTML = `<span class="text-xs select-none">${iconText}</span>`;
+            wpWrapper.appendChild(wpInner);
+
+            const featureBadges = wp.features
+              .map(
+                (f) =>
+                  `<span class="text-[9px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">${f}</span>`
+              )
+              .join(" ");
+
+            const wpPopup = new mapboxgl.Popup({ offset: 15, closeButton: true }).setHTML(`
+              <div class="text-gray-900 p-2.5 max-w-[230px] font-sans">
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    wp.category === '화장실'
+                      ? 'bg-sky-100 text-sky-800'
+                      : wp.category === '쉼터'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-purple-100 text-purple-800'
+                  }">안심 ${wp.category}</span>
+                  <span class="text-[10px] font-semibold text-emerald-700">도보 ${wp.walkingMinutesFromRoute}분 (${wp.distanceMetersFromRoute}m)</span>
+                </div>
+                <h4 class="font-bold text-xs text-gray-900">${wp.name}</h4>
+                <p class="text-[10px] text-gray-600 mt-1">${wp.description}</p>
+                <div class="flex flex-wrap gap-1 mt-2">
+                  ${featureBadges}
+                </div>
+                <div class="mt-2.5 pt-2 border-t border-gray-100 flex items-center gap-1.5">
+                  <a
+                    href="${getKakaoLink(wp.name, wp.latitude, wp.longitude)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[9px] rounded-lg transition-all shadow-sm"
+                  >
+                    <span>🟡 카카오</span>
+                  </a>
+                  <a
+                    href="${getNaverLink(wp.name, wp.latitude, wp.longitude)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[9px] rounded-lg transition-all shadow-sm"
+                  >
+                    <span>🟢 네이버</span>
+                  </a>
+                </div>
+              </div>
+            `);
+
+            const wpMarker = new mapboxgl.Marker({ element: wpWrapper, anchor: "center" })
+              .setLngLat([wp.longitude, wp.latitude])
+              .setPopup(wpPopup)
+              .addTo(map);
+
+            markersRef.current.push(wpMarker);
+          });
+        }
       }
     });
 
-    // -------------------------------------------------------------
-    // (D) 거리 라벨 마커 (4대 방위, 줌아웃 시 뭉침 방지 클래스 적용)
-    // -------------------------------------------------------------
+    // 거리 라벨 마커 (4대 방위)
     distanceLabels.forEach((dl) => {
       const labelEl = document.createElement("div");
       labelEl.className = `distance-label-${dl.distance} text-[10px] bg-black/85 text-white px-1.5 py-0.5 rounded font-mono border border-emerald-500/50 shadow-md pointer-events-none transition-opacity duration-200`;
@@ -483,7 +596,7 @@ export function MapContainer() {
       markersRef.current.push(labelMarker);
     });
 
-    // 경로선 레이어 데이터 업데이트
+    // 경로선 레이어 업데이트
     if (map.isStyleLoaded()) {
       const routeSource = map.getSource("course-routes") as mapboxgl.GeoJSONSource;
       if (routeSource) {
@@ -493,7 +606,7 @@ export function MapContainer() {
         });
       }
     }
-  }, [courses, activeCourseId, distanceLabels]);
+  }, [courses, activeCourseId, activeWaypointFilter, distanceLabels]);
 
   return (
     <div className="relative w-full h-full">
@@ -522,6 +635,28 @@ export function MapContainer() {
             🗺️ 일반 도로
           </button>
         </div>
+      </div>
+
+      {/* 상단 중앙: 경로 3~5분 공공 편의시설(Waypoint Radar) 필터 칩 */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-gray-900/95 backdrop-blur-md border border-gray-700/80 rounded-2xl p-1.5 shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="flex items-center gap-1 px-2 text-[11px] text-gray-400 font-semibold border-r border-gray-700/80 mr-1">
+          <span>🧭</span>
+          <span className="hidden sm:inline">경로 3~5분 편의:</span>
+        </div>
+        {RADAR_CATEGORIES.map((cat) => (
+          <button
+            key={cat.type}
+            onClick={() => setActiveWaypointFilter(cat.type)}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium transition-all ${
+              activeWaypointFilter === cat.type
+                ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40 scale-102"
+                : "text-gray-400 hover:text-white hover:bg-gray-800/60"
+            }`}
+          >
+            <span>{cat.icon}</span>
+            <span>{cat.label}</span>
+          </button>
+        ))}
       </div>
 
       {/* 지도 하단 보행 경로 요약 및 카카오/네이버 다이렉트 길찾기 바 */}

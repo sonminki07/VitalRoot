@@ -13,7 +13,7 @@ const ALL_CONDITIONS: ChronicCondition[] = [
 ];
 
 export function ControlPanel() {
-  const [activeTab, setActiveTab] = useState<"courses" | "profile" | "map">("courses");
+  const [activeTab, setActiveTab] = useState<"courses" | "multiday" | "profile" | "map">("courses");
 
   // 스토어 구독
   const {
@@ -21,6 +21,9 @@ export function ControlPanel() {
     courses,
     activeCourseId,
     setActiveCourseId,
+    multiDayCourses,
+    activeMultiDayCourseId,
+    setActiveMultiDayCourseId,
     toggleCondition,
     isSupabaseConnected,
   } = useWellnessStore();
@@ -51,6 +54,15 @@ export function ControlPanel() {
     }
   };
 
+  // 장기 코스 선택 핸들러
+  const handleSelectMultiDayCourse = (courseId: string) => {
+    setActiveMultiDayCourseId(courseId);
+    const target = multiDayCourses.find((c) => c.id === courseId);
+    if (target) {
+      flyToPlace(target.stay.longitude, target.stay.latitude, 14);
+    }
+  };
+
   return (
     <div className="absolute top-4 left-4 z-20 w-96 max-h-[calc(100vh-2rem)] flex flex-col bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-2xl shadow-2xl text-white overflow-hidden">
       {/* 상단 헤더 */}
@@ -67,27 +79,37 @@ export function ControlPanel() {
           </span>
         </div>
         <p className="text-xs text-gray-400 mt-1">
-          만성질환 맞춤 안심식당 + 힐링 산책로 라우팅
+          만성질환 맞춤 안심식당 + 힐링 산책로 + 편의시설 레이더
         </p>
       </div>
 
-      {/* 탭 네비게이션 */}
-      <div className="grid grid-cols-3 border-b border-gray-800 text-xs font-medium bg-gray-950/50">
+      {/* 4분할 탭 네비게이션 */}
+      <div className="grid grid-cols-4 border-b border-gray-800 text-[11px] font-medium bg-gray-950/50">
         <button
           onClick={() => setActiveTab("courses")}
           className={`py-2.5 transition-colors ${
             activeTab === "courses"
-              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20"
+              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
               : "text-gray-400 hover:text-gray-200"
           }`}
         >
           추천 코스
         </button>
         <button
+          onClick={() => setActiveTab("multiday")}
+          className={`py-2.5 transition-colors ${
+            activeTab === "multiday"
+              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
+              : "text-gray-400 hover:text-gray-200"
+          }`}
+        >
+          장기 코스
+        </button>
+        <button
           onClick={() => setActiveTab("profile")}
           className={`py-2.5 transition-colors ${
             activeTab === "profile"
-              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20"
+              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
               : "text-gray-400 hover:text-gray-200"
           }`}
         >
@@ -97,7 +119,7 @@ export function ControlPanel() {
           onClick={() => setActiveTab("map")}
           className={`py-2.5 transition-colors ${
             activeTab === "map"
-              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20"
+              ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/20 font-semibold"
               : "text-gray-400 hover:text-gray-200"
           }`}
         >
@@ -107,11 +129,11 @@ export function ControlPanel() {
 
       {/* 탭 본문 영역 (스크롤 지원) */}
       <div className="p-4 overflow-y-auto space-y-4 flex-1 text-sm">
-        {/* TAB 1: 추천 세트 3선 */}
+        {/* TAB 1: 추천 세트 3선 (당일 코스) */}
         {activeTab === "courses" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>내 질환 맞춤 큐레이션 코스</span>
+              <span>내 질환 맞춤 당일 힐링 코스</span>
               <span className="text-emerald-400 font-semibold">{courses.length}개 세트</span>
             </div>
 
@@ -142,10 +164,32 @@ export function ControlPanel() {
                       <span className="text-gray-400">🍽️ 안심식당:</span>
                       <span className="text-gray-200 font-medium">{course.restaurant.name}</span>
                     </div>
+
+                    {/* 식약처 영양성분 뱃지 */}
+                    {course.restaurant.nutrition && (
+                      <div className="p-1.5 bg-emerald-950/40 rounded border border-emerald-500/20 text-[10px] flex items-center justify-between">
+                        <span className="text-emerald-300 font-medium truncate">
+                          🥗 {course.restaurant.nutrition.menuName}
+                        </span>
+                        <span className="text-emerald-400 font-mono shrink-0 ml-1">
+                          당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨 {course.restaurant.nutrition.sodium}mg 🟢
+                        </span>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">🚶 힐링산책:</span>
                       <span className="text-gray-200 font-medium">{course.trail.name}</span>
                     </div>
+
+                    {/* 경로 3~5분 공공 편의시설 보유 안내 */}
+                    {course.waypoints && (
+                      <div className="text-[10px] text-sky-400 flex items-center gap-1">
+                        <span>🧭</span>
+                        <span>경로 인근 화장실·쉼터 {course.waypoints.length}곳 (3~5분 레이더 연동)</span>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-800">
                       <span>보행로 {course.distanceMeters || 720}m • 도보 {course.walkMinutes}분</span>
                       <span className="text-teal-300 font-medium">{course.slopeGrade}</span>
@@ -159,7 +203,7 @@ export function ControlPanel() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-1 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1"
+                        className="px-2 py-1 bg-[#FEE500] hover:bg-[#FDD835] text-[#191919] font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
                       >
                         <span>🟡</span>
                         <span>카카오 길찾기</span>
@@ -169,7 +213,7 @@ export function ControlPanel() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1"
+                        className="px-2 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
                       >
                         <span>🟢</span>
                         <span>네이버 길찾기</span>
@@ -191,7 +235,104 @@ export function ControlPanel() {
           </div>
         )}
 
-        {/* TAB 2: 조건 필터링 */}
+        {/* TAB 2: 장기 코스 (1박 2일 다일정 및 안심 숙소 연계) */}
+        {activeTab === "multiday" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>국가 공인 & 검증 1박 2일 웰니스 코스</span>
+              <span className="text-emerald-400 font-semibold">{multiDayCourses.length}개 프로그램</span>
+            </div>
+
+            {multiDayCourses.map((mc) => {
+              const isSelected = mc.id === activeMultiDayCourseId;
+              return (
+                <div
+                  key={mc.id}
+                  onClick={() => handleSelectMultiDayCourse(mc.id)}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-emerald-500/70 bg-emerald-950/30 shadow-lg shadow-emerald-950/50"
+                      : "border-emerald-500/30 bg-emerald-950/10 hover:bg-emerald-950/20"
+                  } space-y-3`}
+                >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
+                      {mc.duration} 프로그램
+                    </span>
+                    <span className="text-[11px] text-gray-400">{mc.targetCondition}</span>
+                  </div>
+                  <h3 className="font-bold text-sm text-white leading-snug">{mc.title}</h3>
+                </div>
+
+                {/* 연계 안심 숙소 카드 */}
+                <div className="p-3 rounded-xl bg-gray-900/80 border border-teal-500/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-teal-300 flex items-center gap-1">
+                      <span>🏨</span>
+                      <span>연계 안심 숙박 (취사 & 인슐린 보관)</span>
+                    </span>
+                  </div>
+                  <h4 className="font-semibold text-xs text-white">{mc.stay.name}</h4>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">{mc.stay.description}</p>
+                  
+                  {/* 숙소 안심 뱃지 3종 */}
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {mc.stay.safeBadges.map((badge, idx) => (
+                      <span
+                        key={idx}
+                        className="text-[10px] bg-teal-950/60 border border-teal-500/30 text-teal-200 px-1.5 py-0.5 rounded"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-800 flex items-center justify-between text-[11px]">
+                    <span className="text-gray-500">문의: {mc.stay.contact}</span>
+                    <a
+                      href={`https://map.kakao.com/link/to/${encodeURIComponent(mc.stay.name)},${mc.stay.latitude},${mc.stay.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-emerald-400 hover:underline font-semibold flex items-center gap-0.5"
+                    >
+                      숙소 위치 보기 ➔
+                    </a>
+                  </div>
+                </div>
+
+                {/* 1일차 & 2일차 스텝 타임라인 */}
+                <div className="space-y-2.5 pt-1">
+                  <h4 className="text-xs font-bold text-gray-300">일정별 세부 코스 브레이크다운</h4>
+                  {mc.days.map((day) => (
+                    <div key={day.day} className="bg-gray-900/50 p-2.5 rounded-lg border border-gray-800 space-y-2">
+                      <div className="font-semibold text-xs text-emerald-400 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-emerald-600/40 flex items-center justify-center text-[10px] text-white font-bold">
+                          {day.day}
+                        </span>
+                        <span>{day.title}</span>
+                      </div>
+                      <div className="space-y-1.5 pl-2 border-l-2 border-emerald-800/50 ml-2">
+                        {day.steps.map((step, sIdx) => (
+                          <div key={sIdx} className="text-xs">
+                            <div className="flex items-center gap-1.5 text-gray-200 font-medium">
+                              <span className="text-[11px] text-gray-400">[{step.type}]</span>
+                              <span>{step.name}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 pl-4">{step.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          </div>
+        )}
+
+        {/* TAB 3: 조건 필터링 */}
         {activeTab === "profile" && (
           <div className="space-y-4">
             <div>
@@ -221,41 +362,41 @@ export function ControlPanel() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-2">
-                2. 선호 식단 성향
+                2. 여행자 건강 프로필
               </label>
-              <input
-                type="text"
-                value={profile.dietaryPreference}
-                readOnly
-                className="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none"
-              />
+              <div className="space-y-2 text-xs bg-gray-900/60 p-3 rounded-xl border border-gray-800">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">식단 선호:</span>
+                  <span className="text-emerald-400 font-medium">{profile.dietaryPreference}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">알레르기 주의:</span>
+                  <span className="text-gray-200 font-medium">{profile.allergies.join(", ")}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">오늘의 컨디션:</span>
+                  <span className="text-teal-300 font-medium">{profile.conditionToday}</span>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-2">
-                3. 당일 희망 활동
-              </label>
-              <input
-                type="text"
-                value={profile.conditionToday}
-                readOnly
-                className="w-full bg-gray-800/80 border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none"
-              />
-            </div>
-
-            <div className="p-3 rounded-lg bg-emerald-950/20 border border-emerald-800/40 text-xs text-emerald-300">
-              ℹ️ 선택한 건강 지표 조건에 맞는 안심식당과 산책로를 지도의 반경 내에서 즉각 매칭합니다.
+            <div className="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-xs text-emerald-300/90 leading-relaxed">
+              💡 <strong>스마트 필터 작동 중</strong>: 선택하신 질환에 최적화된 저염·저당 안심식당과 완경사 무장애 산책로가 지도에 우선 추천됩니다.
             </div>
           </div>
         )}
 
-        {/* TAB 3: 동심원 및 지도 제어 */}
+        {/* TAB 4: 동심원 시각화 설정 */}
         {activeTab === "map" && (
           <div className="space-y-4">
             <div>
-              <div className="flex justify-between text-xs text-gray-300 mb-1.5">
-                <span>안심 탐색 반경</span>
-                <span className="font-bold text-emerald-400">{radiusKm} km</span>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-gray-300">
+                  동심원 반경 (현재: {radiusKm}km)
+                </label>
+                <span className="text-xs text-emerald-400 font-mono font-bold">
+                  {radiusKm} km
+                </span>
               </div>
               <input
                 type="range"
@@ -266,22 +407,25 @@ export function ControlPanel() {
                 onChange={(e) => setRadiusKm(Number(e.target.value))}
                 className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
-              <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+              <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
                 <span>1km</span>
+                <span>2km</span>
                 <span>3km</span>
-                <span>5km (최대)</span>
+                <span>4km</span>
+                <span>5km</span>
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs text-gray-300 mb-1.5">
-                <span>채우기 투명도 (Opacity)</span>
-                <span className="font-bold text-emerald-400">{Math.round(fillOpacity * 100)}%</span>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-gray-300">
+                  구역 투명도 ({Math.round(fillOpacity * 100)}%)
+                </label>
               </div>
               <input
                 type="range"
                 min="0.05"
-                max="0.5"
+                max="0.4"
                 step="0.05"
                 value={fillOpacity}
                 onChange={(e) => setFillOpacity(Number(e.target.value))}
@@ -291,48 +435,56 @@ export function ControlPanel() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-300 mb-2">
-                동심원 테마 색상
+                테마 컬러
               </label>
               <div className="flex gap-2">
-                {["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"].map((c) => (
+                {[
+                  { name: "웰니스 에메랄드", hex: "#10b981" },
+                  { name: "힐링 틸", hex: "#14b8a6" },
+                  { name: "스카이 블루", hex: "#0ea5e9" },
+                  { name: "포레스트 그린", hex: "#22c55e" },
+                ].map((c) => (
                   <button
-                    key={c}
-                    onClick={() => setColor(c)}
-                    className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                      color === c ? "scale-110 border-white" : "border-transparent"
+                    key={c.hex}
+                    onClick={() => setColor(c.hex)}
+                    style={{ backgroundColor: c.hex }}
+                    className={`w-7 h-7 rounded-full transition-transform ${
+                      color === c.hex
+                        ? "scale-125 ring-2 ring-white ring-offset-2 ring-offset-gray-900"
+                        : "hover:scale-110"
                     }`}
-                    style={{ backgroundColor: c }}
+                    title={c.name}
                   />
                 ))}
               </div>
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-gray-800">
-              <label className="flex items-center justify-between text-xs cursor-pointer">
-                <span className="text-gray-300">4대 방위 거리 라벨 표시</span>
+            <div className="pt-2 border-t border-gray-800 space-y-2 text-xs">
+              <label className="flex items-center justify-between cursor-pointer py-1">
+                <span className="text-gray-300">거리 라벨 (km) 표시</span>
                 <input
                   type="checkbox"
                   checked={showDistanceLabels}
                   onChange={toggleDistanceLabels}
-                  className="accent-emerald-500 rounded"
+                  className="rounded bg-gray-800 border-gray-700 text-emerald-500 focus:ring-0 cursor-pointer"
                 />
               </label>
-              <label className="flex items-center justify-between text-xs cursor-pointer">
-                <span className="text-gray-300">30° 각도 라벨 표시</span>
+              <label className="flex items-center justify-between cursor-pointer py-1">
+                <span className="text-gray-300">방위각 라벨 (30° 간격) 표시</span>
                 <input
                   type="checkbox"
                   checked={showAngleLabels}
                   onChange={toggleAngleLabels}
-                  className="accent-emerald-500 rounded"
+                  className="rounded bg-gray-800 border-gray-700 text-emerald-500 focus:ring-0 cursor-pointer"
                 />
               </label>
-              <label className="flex items-center justify-between text-xs cursor-pointer">
-                <span className="text-gray-300">360° 방사선 표시</span>
+              <label className="flex items-center justify-between cursor-pointer py-1">
+                <span className="text-gray-300">360도 방사선 보조 그리드</span>
                 <input
                   type="checkbox"
                   checked={showRadialLines}
                   onChange={toggleRadialLines}
-                  className="accent-emerald-500 rounded"
+                  className="rounded bg-gray-800 border-gray-700 text-emerald-500 focus:ring-0 cursor-pointer"
                 />
               </label>
             </div>
@@ -340,13 +492,17 @@ export function ControlPanel() {
         )}
       </div>
 
-      {/* 하단 Supabase 및 배포 상태 바 */}
-      <div className="p-2.5 bg-gray-950 border-t border-gray-800 text-[11px] flex justify-between items-center text-gray-400">
-        <span className="flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${isSupabaseConnected ? "bg-emerald-400" : "bg-teal-400"}`} />
-          <span>{isSupabaseConnected ? "Supabase DB 동기화됨" : "스마트 폴백 가동 중"}</span>
-        </span>
-        <span className="text-gray-500">Vercel Ready</span>
+      {/* 하단 Supabase 연동 상태 */}
+      <div className="p-3 border-t border-gray-800/80 bg-gray-950/70 text-[11px] flex items-center justify-between text-gray-400">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isSupabaseConnected ? "bg-emerald-400 animate-pulse" : "bg-teal-400"
+            }`}
+          />
+          <span>{isSupabaseConnected ? "Supabase DB 동기화 완료" : "스마트 폴백 시드 데이터 연동"}</span>
+        </div>
+        <span className="text-gray-500">한국관광공사 Tour API 연계</span>
       </div>
     </div>
   );
