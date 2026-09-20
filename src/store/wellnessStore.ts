@@ -334,6 +334,15 @@ const initialMapType = getSavedMapType();
 const initialDistUnit = getSavedDistanceUnit();
 const initialSavedCourses = getSavedCustomCourses();
 
+if (typeof document !== "undefined") {
+  try {
+    document.documentElement.classList.remove("dark", "light");
+    document.documentElement.classList.add(initialTheme);
+    document.documentElement.setAttribute("data-theme", initialTheme);
+    document.documentElement.setAttribute("data-font-size", initialFontSize);
+  } catch {}
+}
+
 export const useWellnessStore = create<WellnessState>((set, get) => ({
   profile: initialProfile,
   courses: INITIAL_WELLNESS_COURSES,
@@ -385,13 +394,9 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   setThemeMode: (themeMode) => {
     try {
       localStorage.setItem(STORAGE_KEY_THEME, themeMode);
-      if (themeMode === "dark") {
-        document.documentElement.classList.add("dark");
-        document.documentElement.classList.remove("light");
-      } else {
-        document.documentElement.classList.remove("dark");
-        document.documentElement.classList.add("light");
-      }
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(themeMode);
+      document.documentElement.setAttribute("data-theme", themeMode);
     } catch {}
     set({ themeMode });
   },
@@ -572,7 +577,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
       isGpsValid = dist <= 500;
     }
 
-    const isEligible = elapsed >= activeWalkSession.targetSeconds && isGpsValid;
+    const isEligible = (elapsed >= activeWalkSession.targetSeconds && isGpsValid) || activeWalkSession.isEligible;
 
     set({
       activeWalkSession: {
@@ -593,9 +598,12 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   fastForwardWalkSession: () => {
     const { activeWalkSession } = get();
     if (!activeWalkSession) return;
+    // 시작 시간을 과거로 이동시켜 목표 시간을 100% 충족시키고 즉시 완보 자격을 부여 (타이머 틱에도 유지)
+    const newStartTime = Date.now() - (activeWalkSession.targetSeconds * 1000);
     set({
       activeWalkSession: {
         ...activeWalkSession,
+        startTime: newStartTime,
         elapsedSeconds: activeWalkSession.targetSeconds,
         isEligible: true,
         isGpsValid: true,

@@ -56,6 +56,7 @@ export function MapContainer() {
     isOnboardingModalOpen,
     isSettingsModalOpen,
     activeWalkSession,
+    cancelWalkSession,
   } = useWellnessStore();
 
   const isModalActive = isOnboardingModalOpen || isSettingsModalOpen;
@@ -71,6 +72,12 @@ export function MapContainer() {
   const [actualWalkDistance, setActualWalkDistance] = useState<number>(
     activeCourse?.distanceMeters || 750
   );
+  // 하단 코스 길찾기 바 닫기(X) 상태
+  const [isCourseBarDismissed, setIsCourseBarDismissed] = useState(false);
+
+  useEffect(() => {
+    setIsCourseBarDismissed(false);
+  }, [activeCourseId]);
 
   // 전역 인포윈도우 닫기 함수 바인딩
   useEffect(() => {
@@ -122,8 +129,8 @@ export function MapContainer() {
     if (!mapRef.current || !window.naver?.maps || !activeCourse) return;
     const map = mapRef.current;
 
-    const baseLat = userLocation ? userLocation.latitude : activeCourse.restaurant.latitude;
-    const baseLng = userLocation ? userLocation.longitude : activeCourse.restaurant.longitude;
+    const baseLat = activeCourse.restaurant.latitude;
+    const baseLng = activeCourse.restaurant.longitude;
     const bounds = new window.naver.maps.LatLngBounds(
       new window.naver.maps.LatLng(baseLat, baseLng),
       new window.naver.maps.LatLng(baseLat, baseLng)
@@ -132,20 +139,18 @@ export function MapContainer() {
     bounds.extend(new window.naver.maps.LatLng(activeCourse.restaurant.latitude, activeCourse.restaurant.longitude));
     bounds.extend(new window.naver.maps.LatLng(activeCourse.trail.latitude, activeCourse.trail.longitude));
 
+    // 집 위치가 코스와 10km 이내(생활권)에 있을 때만 포함하여 전국 단위 과도한 줌아웃 방지
     if (userLocation) {
-      bounds.extend(new window.naver.maps.LatLng(userLocation.latitude, userLocation.longitude));
-    }
-
-    if (roadRouteCoords && roadRouteCoords.length > 0) {
-      roadRouteCoords.forEach(([lng, lat]) => {
-        bounds.extend(new window.naver.maps.LatLng(lat, lng));
-      });
-    }
-
-    if (userToRestCoords && userToRestCoords.length > 0) {
-      userToRestCoords.forEach(([lng, lat]) => {
-        bounds.extend(new window.naver.maps.LatLng(lat, lng));
-      });
+      const distKm =
+        calculateDistanceMeters(
+          userLocation.latitude,
+          userLocation.longitude,
+          activeCourse.restaurant.latitude,
+          activeCourse.restaurant.longitude
+        ) / 1000;
+      if (distKm <= 10) {
+        bounds.extend(new window.naver.maps.LatLng(userLocation.latitude, userLocation.longitude));
+      }
     }
 
     const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
@@ -285,6 +290,8 @@ export function MapContainer() {
 
   // 4. 활성 코스의 보행로 렌더링 (공공 도로망 라우터 100% 호출 - 건물/산/물 관통 원천 배제)
   useEffect(() => {
+    setRoadRouteCoords([]);
+    setUserToRestCoords([]);
     if (!activeCourse) return;
 
     let isMounted = true;
@@ -440,8 +447,9 @@ export function MapContainer() {
 
       window.naver.maps.Event.addListener(userMarker, "click", () => {
         const popupContent = `
-          <div class="text-gray-900 p-3 max-w-[240px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-sky-500/50">
-            <div class="flex items-center justify-between mb-1">
+          <div class="relative text-gray-900 p-3 max-w-[240px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-sky-500/50">
+            <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-900 p-1 rounded-lg hover:bg-gray-100 text-xs font-bold transition-colors">✕</button>
+            <div class="flex items-center justify-between mb-1 pr-6">
               <span class="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full">① 출발 지점</span>
             </div>
             <h4 class="font-bold text-xs text-gray-900 mt-1">📍 내 위치 (출발지)</h4>
@@ -794,6 +802,13 @@ export function MapContainer() {
         infoWindowRef.current?.open(map, stayMarker);
       });
 
+      // 사이드바에서 숙소 선택 시 마커가 자동으로 클릭된 상태로 팝업 오픈
+      if (isStayActive) {
+        setTimeout(() => {
+          (window.naver?.maps?.Event as any)?.trigger(stayMarker, "click");
+        }, 150);
+      }
+
       markersRef.current.push(stayMarker);
     });
 
@@ -832,8 +847,11 @@ export function MapContainer() {
         });
 
         const popupContent = `
-          <div class="text-gray-900 p-2.5 max-w-[240px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-purple-500/40">
-            <span class="text-[10px] bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">관광명소 퀘스트</span>
+          <div class="relative text-gray-900 p-3 max-w-[250px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-purple-500/40">
+            <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-900 p-1 rounded-lg hover:bg-gray-100 text-xs font-bold transition-colors">✕</button>
+            <div class="flex items-center justify-between gap-1 mb-1 pr-6">
+              <span class="text-[10px] bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">관광명소 퀘스트</span>
+            </div>
             <h4 class="font-bold text-xs text-gray-900 mt-1">${quest.landmarkName}</h4>
             <p class="text-[10px] text-gray-600 mt-0.5">${quest.description}</p>
             <div class="mt-2 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px] text-amber-900 font-bold flex items-center gap-1">
@@ -845,7 +863,7 @@ export function MapContainer() {
                 href="${naverSearchUrl}"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="w-full flex items-center justify-center gap-1 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all"
+                class="w-full flex items-center justify-center gap-1 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all"
               >
                 <span>🟢</span>
                 <span>네이버 지도 상세</span>
@@ -857,6 +875,13 @@ export function MapContainer() {
         infoWindowRef.current?.setContent(popupContent);
         infoWindowRef.current?.open(map, questMarker);
       });
+
+      // 사이드바에서 퀘스트 선택 시 마커가 자동으로 클릭된 상태로 팝업 오픈
+      if (isQuestActive) {
+        setTimeout(() => {
+          (window.naver?.maps?.Event as any)?.trigger(questMarker, "click");
+        }, 150);
+      }
 
       markersRef.current.push(questMarker);
     });
@@ -1047,11 +1072,19 @@ export function MapContainer() {
               ? "현장 체류 정상"
               : "500m 이탈"}
           </span>
+          <button
+            type="button"
+            onClick={cancelWalkSession}
+            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs shrink-0 ml-1 font-bold transition-colors"
+            title="도보 완보 세션 닫기/종료"
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {/* 지도 하단: 실제 도로 보행로 길찾기 바 (사이드바 우측 sm:left-[368px] lg:left-[412px]에 격리하여 겹침 원천 차단) */}
-      {activeCourse && (
+      {activeCourse && !isCourseBarDismissed && (
         <div className="absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 sm:max-w-[calc(100vw-390px)] lg:max-w-[calc(100vw-430px)] z-30 bg-gray-900/95 backdrop-blur-md border border-emerald-500/60 rounded-2xl px-3.5 py-2 sm:py-2.5 shadow-2xl flex flex-col xl:flex-row items-center justify-between gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw]">
           <div className="flex items-center gap-2.5 text-center sm:text-left">
             <span className="text-xl shrink-0">
@@ -1210,6 +1243,16 @@ export function MapContainer() {
                 <span>네이버 도보 길찾기 (식당 ➔ 산책로)</span>
               </a>
             )}
+
+            {/* 코스 바 닫기(X) 버튼 */}
+            <button
+              type="button"
+              onClick={() => setIsCourseBarDismissed(true)}
+              className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-gray-800 text-xs shrink-0 font-bold ml-1 transition-colors"
+              title="하단 코스 길찾기 바 닫기"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}

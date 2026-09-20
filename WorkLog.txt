@@ -241,3 +241,38 @@
 ### 3. 검증 결과
 - `npm run build` 빌드 성공 (0 에러, 타입스크립트 TS6133 미사용 변수 정리 및 번들 통과).
 - 도보 시작 ➔ GPS 반경 체크 ➔ 타이머 진행 / 1분 가속 ➔ 자격 획득 ➔ 칭호 수령 ➔ 장착/해제 ➔ 프로필 뱃지 반영 전 과정 무결점 작동 확인.
+
+## [2026-09-21] 화이트/다크 테마 전역 연동, 1분 가속기 영속화, 전 컴포넌트 닫기(X) 버튼, 숙소 자동 클릭 팝업 및 코스 포커스 이동 버그(스턴/바운싱) 원천 해결
+
+### 1. 작업 개요
+- **사용자 피드백 및 요청 사항**:
+  1. "테마는 화이트랑 다크를 골라도 바뀌질 않아": 화이트 네이버 테마 선택 시 전역 UI가 변경되지 않는 현상.
+  2. "1분 가속은 되지 않아 시간이 지나긴 하는데": 시연용 가속 버튼을 눌러도 1초 주기 틱 타이머가 원래 시작 시간 기준으로 경과 시간을 재계산하여 가속이 즉시 덮어씌워지던 버그.
+  3. "컴포넌트들 다 x 버튼 추가해서 끌 수 있게 하고": 지도 하단 코스 길찾기 바, 맞춤 건강 프로필 미완료 토스트/뱃지, 명소 퀘스트 팝업, 완보 세션 배너 등에 닫기(X) 버튼 부재.
+  4. "숙소 왼쪽 바에서 클릭하면 자동으로 아이콘 클릭 된 상태로 되게 하고": 사이드바에서 숙소 카드 클릭 시 지도 핀이 클릭되지 않아 상세 정보 팝업이 뜨지 않던 현상.
+  5. "추천 코스에서 코스 클릭하고 지도 포커스 이동 되는거 약간 매끄럽지 않아 A에서 B 누르면 b 갔다 a 갔다 b로 가려다 중간에 멈춰": 코스 전환 시 이전 코스의 잔여 경로 좌표가 바운딩 박스에 포함되고, `flyToPlace`와 `fitCourseAndHomeBounds`의 이중 카메라 애니메이션이 충돌하여 중간에 멈추던 버그.
+
+### 2. 주요 구현 내용
+1. **화이트 네이버 테마 전역 스타일 엔진 구축 (`src/index.css`, `src/store/wellnessStore.ts`)**:
+   - `html[data-theme="light"]`, `html.light`를 위한 포괄적 화이트 테마 CSS 작성 (패널, 모달, 카드, 텍스트, 스크롤바 일괄 전환).
+   - 앱 로드 시점 및 `setThemeMode` 호출 시 `document.documentElement`에 `data-theme` 및 `light/dark` 클래스를 즉각 반영.
+2. **1분 가속기/즉시 완보 자격 영속화 (`src/store/wellnessStore.ts`, `ControlPanel.tsx`)**:
+   - `fastForwardWalkSession` 호출 시 `startTime`을 목표 시간만큼 과거로 이동(`Date.now() - targetSeconds * 1000`)시켜, 1초마다 실행되는 `updateWalkSessionTick`에서도 경과 시간이 100% 충족된 상태를 영구 유지하도록 수정.
+   - `isEligible` 플래그의 래치(Latch) 처리로 틱 주기 동안 자격이 풀리지 않도록 보장.
+   - 버튼 명칭을 `⚡ 즉시 완보 자격 획득 (시연용 가속)`으로 명확화.
+3. **전역 플로팅 UI 및 팝업 닫기(X) 버튼 전면 탑재**:
+   - **하단 코스 길찾기 바 (`MapContainer.tsx`)**: `isCourseBarDismissed` 상태 추가 및 우측 `✕` 닫기 버튼 배치. 코스 변경 시 자동 재노출.
+   - **건강 프로필 미완료 위젯 (`HealthProfileAlertBanner.tsx`)**: `isDismissed` 상태 추가. 카드 형태 상단 헤더 및 최소화 펄스 뱃지 모두에 `✕` 닫기 버튼 탑재.
+   - **관광명소 퀘스트 인포윈도우 팝업 (`MapContainer.tsx`)**: 우측 상단 `✕` 닫기 버튼 추가.
+   - **사용자 출발지 인포윈도우 팝업 (`MapContainer.tsx`)**: 우측 상단 `✕` 닫기 버튼 추가.
+   - **도보 완보 세션 플로팅 배너 (`MapContainer.tsx`)**: 우측 `✕` 세션 취소/닫기 버튼 추가.
+4. **숙소 및 퀘스트 사이드바 클릭 시 지도 마커 자동 클릭 연동 (`src/components/map/MapContainer.tsx`)**:
+   - 사이드바에서 숙소 카드 선택(`activeStayId`) 시, 해당 마커에 `(window.naver.maps.Event as any).trigger(stayMarker, "click")`를 자동 발동하여 지도 상에서 숙소 팝업과 상세 정보가 자동으로 즉시 열리도록 구현. (퀘스트도 동일 연동 완료).
+5. **코스 전환 시 지도 카메라 충돌 및 스턴/바운싱 원천 해결 (`MapContainer.tsx`, `ControlPanel.tsx`)**:
+   - **이전 코스 잔여 좌표 누수 차단**: `activeCourseId` 변경 시 `roadRouteCoords`와 `userToRestCoords`를 즉시 빈 배열로 리셋하고, `fitCourseAndHomeBounds`에서 경로 좌표를 배제하여 순수 활성 코스의 식당과 산책로 좌표만으로 바운드를 계산.
+   - **원거리 줌아웃 방지**: `userLocation`과 코스 식당 간 거리가 10km 이내인 생활권일 때만 사용자 위치를 바운드에 포함하여, 원거리 코스 선택 시 전국 단위로 축소되는 문제 차단.
+   - **이중 애니메이션 충돌 제거**: `ControlPanel`의 `handleSelectCourse`에서 불필요한 `flyToPlace` 호출을 제거하고, `MapContainer`의 `fitCourseAndHomeBounds` 단일 전환으로 통일하여 카메라 버벅임과 멈춤 현상 100% 해소.
+
+### 3. 검증 결과
+- `npm run build` 빌드 100% 통과 (0 에러, 타입스크립트 타입 체크 통과).
+- GitHub `main` 브랜치에 반영 완료.

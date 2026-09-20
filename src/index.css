@@ -52,7 +52,122 @@ html[data-font-size="xlarge"] {
   font-size: 17px;
 }
 
-/* 3. 화이트 네이버 테마 보조 */
+/* =========================================================
+   3. 화이트 네이버 테마 (Light Mode / White Theme) 전역 변환
+   ========================================================= */
+html[data-theme="light"],
 html.light {
   color-scheme: light;
+}
+
+html[data-theme="light"] body,
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* 스크롤바 라이트 모드 */
+html[data-theme="light"] ::-webkit-scrollbar-track,
+html.light ::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.8);
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb,
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.6);
+}
+
+/* 주요 컨테이너/패널 배경색(bg-gray-900, bg-gray-950, bg-slate-900)을 화이트 네이버 카드로 변환 */
+html[data-theme="light"] .bg-gray-900,
+html[data-theme="light"] .bg-gray-900\/95,
+html[data-theme="light"] .bg-gray-900\/90,
+html[data-theme="light"] .bg-gray-950,
+html[data-theme="light"] .bg-gray-950\/95,
+html[data-theme="light"] .bg-gray-950\/90,
+html[data-theme="light"] .bg-slate-900,
+html[data-theme="light"] .bg-slate-900\/95,
+html[data-theme="light"] .bg-slate-900\/90,
+html.light .bg-gray-900,
+html.light .bg-gray-900\/95,
+html.light .bg-gray-900\/90,
+html.light .bg-gray-950,
+html.light .bg-gray-950\/95,
+html.light .bg-gray-950\/90,
+html.light .bg-slate-900,
+html.light .bg-slate-900\/95,
+html.light .bg-slate-900\/90 {
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* 보조 블록/카드 배경색(bg-gray-800, bg-slate-800)을 부드러운 슬레이트 라이트로 변환 */
+html[data-theme="light"] .bg-gray-800,
+html[data-theme="light"] .bg-gray-800\/60,
+html[data-theme="light"] .bg-gray-800\/80,
+html[data-theme="light"] .bg-gray-800\/90,
+html[data-theme="light"] .bg-gray-800\/50,
+html[data-theme="light"] .bg-slate-800,
+html[data-theme="light"] .bg-slate-800\/60,
+html.light .bg-gray-800,
+html.light .bg-gray-800\/60,
+html.light .bg-gray-800\/80,
+html.light .bg-gray-800\/90,
+html.light .bg-gray-800\/50,
+html.light .bg-slate-800,
+html.light .bg-slate-800\/60 {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+/* 어두운 테두리를 밝고 선명한 네이버형 슬레이트 테두리로 교체 */
+html[data-theme="light"] .border-gray-700,
+html[data-theme="light"] .border-gray-700\/60,
+html[data-theme="light"] .border-gray-800,
+html[data-theme="light"] .border-gray-800\/80,
+html.light .border-gray-700,
+html.light .border-gray-700\/60,
+html.light .border-gray-800,
+html.light .border-gray-800\/80 {
+  border-color: #e2e8f0 !important;
+}
+
+/* 라이트 모드 텍스트 컬러 보정 (단, 색상 버튼/뱃지 내부 text-white는 보존) */
+html[data-theme="light"] .text-white:not([class*="bg-emerald"]):not([class*="bg-teal"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-rose"]):not([class*="bg-red"]):not([class*="bg-[#03C75A]"]),
+html.light .text-white:not([class*="bg-emerald"]):not([class*="bg-teal"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-rose"]):not([class*="bg-red"]):not([class*="bg-[#03C75A]"]) {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .text-gray-300,
+html[data-theme="light"] .text-gray-400,
+html.light .text-gray-300,
+html.light .text-gray-400 {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] .text-gray-200,
+html.light .text-gray-200 {
+  color: #1e293b !important;
+}
+
+html[data-theme="light"] .text-gray-500,
+html.light .text-gray-500 {
+  color: #64748b !important;
+}
+
+/* 호버 시 어두운 배경 밝게 */
+html[data-theme="light"] .hover\:bg-gray-800:hover,
+html[data-theme="light"] .hover\:bg-gray-800\/60:hover,
+html[data-theme="light"] .hover\:bg-gray-700:hover,
+html.light .hover\:bg-gray-800:hover,
+html.light .hover\:bg-gray-800\/60:hover,
+html.light .hover\:bg-gray-700:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* 모달 딤 배경 */
+html[data-theme="light"] .bg-black\/60,
+html[data-theme="light"] .bg-black\/70,
+html.light .bg-black\/60,
+html.light .bg-black\/70 {
+  background-color: rgba(15, 23, 42, 0.4) !important;
 }

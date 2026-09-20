@@ -29,7 +29,6 @@ export function ControlPanel() {
   // 스토어 구독
   const {
     profile,
-    courses,
     filteredCourses,
     activeCourseId,
     setActiveCourseId,
@@ -97,13 +96,9 @@ export function ControlPanel() {
     return `${meters}m`;
   };
 
-  // 코스 선택 핸들러
+  // 코스 선택 핸들러 (지도는 MapContainer의 fitCourseAndHomeBounds가 부드럽게 통합 포커스)
   const handleSelectCourse = (courseId: string) => {
     setActiveCourseId(courseId);
-    const target = courses.find((c) => c.id === courseId);
-    if (target) {
-      flyToPlace(target.restaurant.longitude, target.restaurant.latitude, 15);
-    }
     if (typeof window !== "undefined" && window.innerWidth < 640) {
       setIsMobileExpanded(false);
     }
@@ -1036,9 +1031,9 @@ export function ControlPanel() {
                                   fastForwardWalkSession();
                                 }}
                                 className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/40 border border-amber-400/40 font-bold transition-colors"
-                                title="심사 및 시연용: 1분 목표 완보 시간을 즉시 충족합니다"
+                                title="심사 및 시연용: 목표 완보 시간을 즉시 충족하고 완보 자격을 부여합니다"
                               >
-                                ⚡ 시연용 1분 가속
+                                ⚡ 즉시 완보 자격 획득 (시연용 가속)
                               </button>
                             )}
                           </div>

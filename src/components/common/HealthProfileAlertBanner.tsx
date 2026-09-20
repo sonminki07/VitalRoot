@@ -3,14 +3,15 @@ import { useWellnessStore, checkIsOnboardingComplete } from "../../store/wellnes
 
 export function HealthProfileAlertBanner() {
   const { profile, openOnboardingModal } = useWellnessStore();
+  const [isDismissed, setIsDismissed] = useState(false);
   const [isMinimized, setIsMinimized] = useState(
     typeof window !== "undefined" && window.innerWidth < 1280
   );
 
   const isComplete = checkIsOnboardingComplete(profile);
 
-  // 온보딩이 완료된 상태면 알림을 노출하지 않음
-  if (isComplete) return null;
+  // 온보딩이 완료되었거나 사용자가 닫기(X)를 누른 경우 노출하지 않음
+  if (isComplete || isDismissed) return null;
 
   // 현재 완료된 스텝 계산
   const hasConditions = Boolean(profile.chronicConditions && profile.chronicConditions.length > 0);
@@ -27,18 +28,27 @@ export function HealthProfileAlertBanner() {
     <div className="fixed bottom-24 sm:bottom-24 right-3 sm:right-4 z-40 max-w-sm animate-in slide-in-from-bottom-5 duration-300">
       {isMinimized ? (
         // 최소화된 펄스 뱃지 (지도 조작 방해 최소화하면서도 눈에 띄게 지속 유지)
-        <button
-          onClick={() => {
-            setIsMinimized(false);
-            openOnboardingModal();
-          }}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-500/90 hover:bg-amber-500 text-gray-950 font-bold text-xs shadow-2xl border-2 border-amber-300 animate-pulse transition-all active:scale-95"
-          title="클릭하여 건강 프로필을 완성하세요"
-        >
-          <span className="text-sm">⚠️</span>
-          <span>건강설정 미완료 ({completedCount}/3)</span>
-          <span className="text-[10px] bg-gray-950/20 px-1.5 py-0.5 rounded">설정하기 ➔</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              setIsMinimized(false);
+              openOnboardingModal();
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-500/90 hover:bg-amber-500 text-gray-950 font-bold text-xs shadow-2xl border-2 border-amber-300 animate-pulse transition-all active:scale-95"
+            title="클릭하여 건강 프로필을 완성하세요"
+          >
+            <span className="text-sm">⚠️</span>
+            <span>건강설정 미완료 ({completedCount}/3)</span>
+            <span className="text-[10px] bg-gray-950/20 px-1.5 py-0.5 rounded">설정하기 ➔</span>
+          </button>
+          <button
+            onClick={() => setIsDismissed(true)}
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-900/80 hover:bg-gray-800 text-gray-400 hover:text-white text-xs font-bold border border-gray-700 shadow-md transition-all shrink-0"
+            title="알림 완전히 닫기"
+          >
+            ✕
+          </button>
+        </div>
       ) : (
         // 카드형 알림 토스트
         <div className="bg-gray-950/95 border-2 border-amber-500/90 rounded-2xl p-3.5 sm:p-4 text-white shadow-2xl backdrop-blur-md space-y-2">
@@ -54,13 +64,22 @@ export function HealthProfileAlertBanner() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setIsMinimized(true)}
-              className="text-gray-400 hover:text-white text-xs p-1 rounded hover:bg-gray-800 shrink-0"
-              title="최소화"
-            >
-              ━
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setIsMinimized(true)}
+                className="text-gray-400 hover:text-white text-xs p-1 rounded hover:bg-gray-800"
+                title="최소화 (접어두기)"
+              >
+                ━
+              </button>
+              <button
+                onClick={() => setIsDismissed(true)}
+                className="text-gray-400 hover:text-white text-xs p-1 rounded hover:bg-gray-800 font-bold"
+                title="알림 닫기"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 text-[10px] text-center pt-1">
