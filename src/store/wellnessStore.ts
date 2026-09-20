@@ -182,10 +182,10 @@ export function computeFilteredCourses(
     return targetList;
   }
 
-  // 3. 내 동네 생활권 모드 ('local')
+  // 3. 내 동네 생활권 모드 ('local'): 사용자 위치로부터 전국 모든 코스를 거리순 정렬하여 100% 모두 표출
   if (userLocation) {
-    // 사용자 위치로부터 거리순 정렬
-    const sorted = [...conditionFiltered].sort((a, b) => {
+    // 사용자 위치로부터 거리순 정렬 (가장 가까운 코스가 1순위, 전국 전체 코스가 순차적으로 모두 노출)
+    return [...conditionFiltered].sort((a, b) => {
       const distA = calculateDistanceMeters(
         userLocation.latitude,
         userLocation.longitude,
@@ -200,19 +200,6 @@ export function computeFilteredCourses(
       );
       return distA - distB;
     });
-
-    // 15km 이내 생활권 코스가 있다면 우선 반환 (안산에 있으면 안산 코스들이 반경 1~3km 내에 위치하므로 100% 매칭!)
-    const nearby = sorted.filter((c) => {
-      const dist = calculateDistanceMeters(
-        userLocation.latitude,
-        userLocation.longitude,
-        c.restaurant.latitude,
-        c.restaurant.longitude
-      );
-      return dist <= 15000;
-    });
-
-    return nearby.length > 0 ? nearby : sorted;
   }
 
   // 위치 미연동 시 기본 추천 코스 반환

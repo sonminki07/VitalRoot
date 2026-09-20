@@ -342,7 +342,7 @@ export function ControlPanel() {
                           : "text-gray-500"
                       }`}
                     >
-                      생활권 (반경 5km)
+                      내 위치 거리순 (전국)
                     </span>
                   </div>
                 </button>
@@ -364,7 +364,7 @@ export function ControlPanel() {
                           : "text-gray-500"
                       }`}
                     >
-                      수도권 대표 명소
+                      전국 대표 명소
                     </span>
                   </div>
                 </button>
@@ -373,11 +373,11 @@ export function ControlPanel() {
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>
                   {courseMode === "local"
-                    ? "🏡 내 주변 생활권 맞춤 힐링 코스"
-                    : "🏛️ 수도권 테마 웰니스 명소 코스"}
+                    ? "🏡 내 주변 생활권 맞춤 코스 (거리순)"
+                    : "🏛️ 전국 테마 웰니스 명소 코스"}
                 </span>
                 <span className="text-emerald-400 font-semibold">
-                  {filteredCourses.length}개 세트
+                  총 {filteredCourses.length}개 코스
                 </span>
               </div>
 
