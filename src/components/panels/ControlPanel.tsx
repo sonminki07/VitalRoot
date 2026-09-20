@@ -414,22 +414,15 @@ export function ControlPanel() {
                     : null;
                   const isTransitRecommended = distFromUser !== null && distFromUser > 400; // 도보 5분(400m) 초과 시 대중교통 추천
 
-                  // 네이버 도보/대중교통 길찾기 URL
-                  // 1) 전체 코스 길찾기: 출발(내 위치) ➔ 경유(식당) ➔ 도착(산책로)
-                  const fullCourseNaverUrl = userLocation
-                    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
-                        "내 위치(출발)"
-                      )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
-                        course.restaurant.name + "(식사)"
-                      )}/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(
-                        course.trail.name + "(도착)"
-                      )}/-/walk?c=15.00,0,0,0,dh`
-                    : `https://map.naver.com/p/directions/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
-                        course.restaurant.name + "(출발)"
-                      )}/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(
-                        course.trail.name + "(도착)"
-                      )}/-/walk?c=15.00,0,0,0,dh`;
+                  // 네이버 도보/대중교통 길찾기 URL (네이버 지도 100% 지원 2개 지점 순수 도보/대중교통 URL)
+                  // 1) 식당 ➔ 산책로 (추천 웰니스 코스 도보 길찾기)
+                  const restToTrailNaverUrl = `https://map.naver.com/p/directions/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                    course.restaurant.name
+                  )}/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(
+                    course.trail.name
+                  )}/-/walk?c=15.00,0,0,0,dh`;
 
+                  // 2) 내 위치 ➔ 식당 도보
                   const userToRestWalkUrl = userLocation
                     ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
                         "내 위치"
@@ -438,6 +431,7 @@ export function ControlPanel() {
                       )}/-/walk?c=15.00,0,0,0,dh`
                     : null;
 
+                  // 3) 내 위치 ➔ 식당 대중교통
                   const userToRestTransitUrl = userLocation && isTransitRecommended
                     ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
                         "내 위치"
@@ -446,12 +440,14 @@ export function ControlPanel() {
                       )}/-/transit?c=15.00,0,0,0,dh`
                     : null;
 
-                  // 2) 안심식당 -> 산책로
-                  const restToTrailNaverUrl = `https://map.naver.com/p/directions/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
-                    course.restaurant.name
-                  )}/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(
-                    course.trail.name
-                  )}/-/walk?c=15.00,0,0,0,dh`;
+                  // 4) 내 위치 ➔ 산책로 직통 도보
+                  const userToTrailWalkUrl = userLocation
+                    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
+                        "내 위치"
+                      )}/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(
+                        course.trail.name
+                      )}/-/walk?c=15.00,0,0,0,dh`
+                    : null;
 
                   return (
                     <div
@@ -546,17 +542,17 @@ export function ControlPanel() {
 
                       {/* 하단 네이버 길찾기 정돈 버튼 그리드 */}
                       <div className="mt-2.5 pt-2 border-t border-gray-800/80 space-y-1.5">
-                        {/* 1. 전체 코스 완성형 길찾기 (출발 ➔ 식사 ➔ 도착 🏁) - 최상단 와이드 버튼 */}
+                        {/* 1. 최우선 핵심 버튼: 식당 ➔ 산책로 도보 길찾기 (네이버 도보 100% 직행) */}
                         <a
-                          href={fullCourseNaverUrl}
+                          href={restToTrailNaverUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                           className="w-full py-2 px-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95 border border-emerald-400/40"
-                          title="네이버 지도 전체 코스 길찾기 (출발지 ➔ 식당 ➔ 산책로)"
+                          title="네이버 지도 도보 길찾기 (식당 ➔ 산책로 힐링 코스)"
                         >
                           <span className="text-sm">🟢</span>
-                          <span>전체 길찾기 (출발 ➔ 식사 ➔ 도착 🏁)</span>
+                          <span>식당 ➔ 산책로 도보 길찾기</span>
                         </a>
 
                         {/* 2. 세부 구간 이동 버튼 (2열 그리드) */}
@@ -588,22 +584,22 @@ export function ControlPanel() {
                             </a>
                           ) : null}
 
-                          {/* 식당 ➔ 산책로 코스 도보 */}
-                          <a
-                            href={restToTrailNaverUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className={`py-1.5 px-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center justify-center gap-1 active:scale-95 ${
-                              !userLocation ? "col-span-1" : ""
-                            }`}
-                            title="식당에서 산책로까지 도보 길찾기"
-                          >
-                            <span>👟</span>
-                            <span className="truncate">식당 ➔ 산책로</span>
-                          </a>
+                          {/* 내 집 ➔ 산책로 직통 도보 */}
+                          {userLocation && userToTrailWalkUrl ? (
+                            <a
+                              href={userToTrailWalkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="py-1.5 px-2 bg-gray-800 hover:bg-gray-700 text-teal-300 hover:text-white font-bold text-[11px] rounded-lg border border-teal-500/40 transition-all flex items-center justify-center gap-1 active:scale-95"
+                              title="내 위치에서 산책로까지 직통 도보 길찾기"
+                            >
+                              <span>🏁</span>
+                              <span className="truncate">산책로 직통</span>
+                            </a>
+                          ) : null}
 
-                          {/* 지도 위치 ➔ */}
+                          {/* 지도 포커스 */}
                           <button
                             type="button"
                             onClick={(e) => {
@@ -611,7 +607,7 @@ export function ControlPanel() {
                               handleSelectCourse(course.id);
                             }}
                             className={`py-1.5 px-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-[11px] rounded-lg border border-gray-700 transition-all flex items-center justify-center gap-1 active:scale-95 ${
-                              !userLocation ? "col-span-1" : ""
+                              !userLocation ? "col-span-2" : ""
                             }`}
                           >
                             <span>🎯</span>
