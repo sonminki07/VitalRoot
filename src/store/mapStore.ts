@@ -23,6 +23,6 @@ export const useMapStore = create<MapState>((set) => ({
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
   setSelectedPlace: (selectedPlace) => set({ selectedPlace }),
-  flyToPlace: (longitude, latitude, zoom = 14.5) =>
-    set({ center: [longitude, latitude], zoom }),
+  flyToPlace: (longitude, latitude, zoom = 15) =>
+    set({ center: [longitude, latitude], zoom: Math.round(zoom) }),
 }));

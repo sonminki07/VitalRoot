@@ -44,7 +44,7 @@ export function MapContainer() {
       const initialCenter = new window.naver.maps.LatLng(center[1], center[0]);
       const map = new window.naver.maps.Map(mapElementRef.current, {
         center: initialCenter,
-        zoom: zoom || 15,
+        zoom: Math.round(zoom || 14),
         minZoom: 10,
         maxZoom: 19,
         mapTypeId:
