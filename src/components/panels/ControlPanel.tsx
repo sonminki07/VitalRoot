@@ -43,9 +43,22 @@ export function ControlPanel() {
     toggleCondition,
     userLocation,
     setIsLocationModalOpen,
+    courseMode,
+    setCourseMode,
   } = useWellnessStore();
 
   const { flyToPlace } = useMapStore();
+
+  const handleModeChange = (mode: "local" | "theme") => {
+    setCourseMode(mode);
+    setTimeout(() => {
+      const currentFiltered = useWellnessStore.getState().filteredCourses;
+      const first = currentFiltered[0];
+      if (first) {
+        flyToPlace(first.restaurant.longitude, first.restaurant.latitude, 14);
+      }
+    }, 50);
+  };
 
   const formatDistance = (meters: number) => {
     if (meters >= 1000) {
@@ -274,8 +287,60 @@ export function ControlPanel() {
                 </div>
               )}
 
+              {/* 생활권 vs 수도권 테마 명소 듀얼 모드 토글 */}
+              <div className="bg-gray-950/80 p-1 rounded-xl border border-gray-800 flex gap-1 shadow-inner">
+                <button
+                  onClick={() => handleModeChange("local")}
+                  className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    courseMode === "local"
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-gray-950 shadow-md font-bold"
+                      : "text-gray-400 hover:text-gray-200 hover:bg-gray-900/50"
+                  }`}
+                >
+                  <span className="text-sm">🏡</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span>내 동네 힐링</span>
+                    <span
+                      className={`text-[9px] ${
+                        courseMode === "local"
+                          ? "text-emerald-950 font-bold"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      생활권 (반경 5km)
+                    </span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleModeChange("theme")}
+                  className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                    courseMode === "theme"
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-gray-950 shadow-md font-bold"
+                      : "text-gray-400 hover:text-gray-200 hover:bg-gray-900/50"
+                  }`}
+                >
+                  <span className="text-sm">🏛️</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span>테마 명소 여행</span>
+                    <span
+                      className={`text-[9px] ${
+                        courseMode === "theme"
+                          ? "text-emerald-950 font-bold"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      수도권 대표 명소
+                    </span>
+                  </div>
+                </button>
+              </div>
+
               <div className="flex items-center justify-between text-xs text-gray-400">
-                <span>내 질환 맞춤 당일 힐링 코스</span>
+                <span>
+                  {courseMode === "local"
+                    ? "🏡 내 주변 생활권 맞춤 힐링 코스"
+                    : "🏛️ 수도권 테마 웰니스 명소 코스"}
+                </span>
                 <span className="text-emerald-400 font-semibold">
                   {filteredCourses.length}개 세트
                 </span>
@@ -305,15 +370,22 @@ export function ControlPanel() {
                         course.restaurant.longitude
                       )
                     : null;
+                  const isFarDistance = distFromUser !== null && distFromUser > 15000;
 
-                  // 네이버 도보 길찾기 URL:
-                  // 1) 내 위치 -> 안심식당
+                  // 네이버 도보/대중교통 길찾기 URL:
+                  // 1) 내 위치 -> 안심식당 (15km 초과 시 대중교통 transit, 이내 시 보행 walk)
                   const userToRestNaverUrl = userLocation
-                    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
-                        "내 위치"
-                      )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
-                        course.restaurant.name
-                      )}/-/walk?c=15.00,0,0,0,dh`
+                    ? isFarDistance
+                      ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
+                          "내 위치"
+                        )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                          course.restaurant.name
+                        )}/-/transit?c=15.00,0,0,0,dh`
+                      : `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
+                          "내 위치"
+                        )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                          course.restaurant.name
+                        )}/-/walk?c=15.00,0,0,0,dh`
                     : null;
 
                   // 2) 안심식당 -> 산책로
@@ -334,9 +406,23 @@ export function ControlPanel() {
                       }`}
                     >
                       <div className="flex items-start justify-between">
-                        <h3 className="font-semibold text-white text-xs leading-snug">
-                          {course.title}
-                        </h3>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            {course.region && (
+                              <span className="text-[10px] bg-emerald-500/10 text-emerald-300 font-semibold px-2 py-0.5 rounded-md border border-emerald-500/20">
+                                📍 {course.region}
+                              </span>
+                            )}
+                            {course.isLocal && (
+                              <span className="text-[10px] bg-teal-500/20 text-teal-300 font-semibold px-1.5 py-0.5 rounded-md border border-teal-500/30">
+                                생활권
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-white text-xs leading-snug">
+                            {course.title}
+                          </h3>
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -408,10 +494,18 @@ export function ControlPanel() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="px-2.5 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                                className={`px-2.5 py-1.5 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95 ${
+                                  isFarDistance
+                                    ? "bg-indigo-600 hover:bg-indigo-500"
+                                    : "bg-[#03C75A] hover:bg-[#02b350]"
+                                }`}
                               >
-                                <span>🟢</span>
-                                <span>내 위치 ➔ 식당</span>
+                                <span>{isFarDistance ? "🚆" : "🟢"}</span>
+                                <span>
+                                  {isFarDistance
+                                    ? "대중교통 이동"
+                                    : "내 위치 ➔ 식당"}
+                                </span>
                               </a>
                               <a
                                 href={restToTrailNaverUrl}

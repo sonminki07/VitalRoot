@@ -72,6 +72,77 @@ export function filterCoursesByConditions(
   return filtered.length > 0 ? filtered : courses;
 }
 
+// 듀얼 모드(내 동네 생활권 vs 테마 명소 여행) 및 GPS 위치 기반 통합 필터링 함수
+export function computeFilteredCourses(
+  courses: WellnessCourseSet[],
+  conditions: ChronicCondition[],
+  userLocation: { latitude: number; longitude: number } | null,
+  mode: "local" | "theme"
+): WellnessCourseSet[] {
+  // 1. 질환 조건 필터링
+  const conditionFiltered = filterCoursesByConditions(courses, conditions);
+
+  // 2. 테마 명소 여행 모드: 전통 명소(isLocal !== true) 우선 표출
+  if (mode === "theme") {
+    const themeCourses = conditionFiltered.filter((c) => !c.isLocal);
+    const targetList = themeCourses.length > 0 ? themeCourses : conditionFiltered;
+    if (userLocation) {
+      return [...targetList].sort((a, b) => {
+        const distA = calculateDistanceMeters(
+          userLocation.latitude,
+          userLocation.longitude,
+          a.restaurant.latitude,
+          a.restaurant.longitude
+        );
+        const distB = calculateDistanceMeters(
+          userLocation.latitude,
+          userLocation.longitude,
+          b.restaurant.latitude,
+          b.restaurant.longitude
+        );
+        return distA - distB;
+      });
+    }
+    return targetList;
+  }
+
+  // 3. 내 동네 생활권 모드 ('local')
+  if (userLocation) {
+    // 사용자 위치로부터 거리순 정렬
+    const sorted = [...conditionFiltered].sort((a, b) => {
+      const distA = calculateDistanceMeters(
+        userLocation.latitude,
+        userLocation.longitude,
+        a.restaurant.latitude,
+        a.restaurant.longitude
+      );
+      const distB = calculateDistanceMeters(
+        userLocation.latitude,
+        userLocation.longitude,
+        b.restaurant.latitude,
+        b.restaurant.longitude
+      );
+      return distA - distB;
+    });
+
+    // 15km 이내 생활권 코스가 있다면 우선 반환 (안산에 있으면 안산 코스들이 반경 1~3km 내에 위치하므로 100% 매칭!)
+    const nearby = sorted.filter((c) => {
+      const dist = calculateDistanceMeters(
+        userLocation.latitude,
+        userLocation.longitude,
+        c.restaurant.latitude,
+        c.restaurant.longitude
+      );
+      return dist <= 15000;
+    });
+
+    return nearby.length > 0 ? nearby : sorted;
+  }
+
+  // 위치 미연동 시 기본 추천 코스 반환
+  return conditionFiltered;
+}
+
 interface StayFilterOptions {
   chkcooking: boolean;
   roomrefrigerator: boolean;
@@ -83,6 +154,7 @@ interface WellnessState {
   courses: WellnessCourseSet[];
   filteredCourses: WellnessCourseSet[];
   activeCourseId: string;
+  courseMode: "local" | "theme";
   multiDayCourses: MultiDayCourseSet[];
   activeMultiDayCourseId: string;
   activeWaypointFilter: WaypointFilterType;
@@ -104,6 +176,7 @@ interface WellnessState {
   // 액션
   setProfile: (updates: Partial<UserProfile>) => void;
   toggleCondition: (condition: ChronicCondition) => void;
+  setCourseMode: (mode: "local" | "theme") => void;
   setActiveCourseId: (id: string) => void;
   setActiveMultiDayCourseId: (id: string) => void;
   setActiveWaypointFilter: (filter: WaypointFilterType) => void;
@@ -119,7 +192,12 @@ interface WellnessState {
 }
 
 const initialProfile = getSavedProfile();
-const initialFiltered = filterCoursesByConditions(INITIAL_WELLNESS_COURSES, initialProfile.chronicConditions);
+const initialFiltered = computeFilteredCourses(
+  INITIAL_WELLNESS_COURSES,
+  initialProfile.chronicConditions,
+  null,
+  "local"
+);
 const initialQuestData = getSavedQuests();
 
 export const useWellnessStore = create<WellnessState>((set, get) => ({
@@ -127,6 +205,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   courses: INITIAL_WELLNESS_COURSES,
   filteredCourses: initialFiltered,
   activeCourseId: initialFiltered[0]?.id ?? "course-1",
+  courseMode: "local",
   multiDayCourses: INITIAL_MULTI_DAY_COURSES,
   activeMultiDayCourseId: INITIAL_MULTI_DAY_COURSES[0]?.id ?? "multi-course-1",
   activeWaypointFilter: "전체",
@@ -150,31 +229,23 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
 
   setIsLocationModalOpen: (open) => set({ isLocationModalOpen: open }),
 
-  setUserLocation: (loc) => {
-    if (!loc) {
-      set({ userLocation: null });
-      return;
-    }
-    const sorted = [...get().filteredCourses].sort((a, b) => {
-      const distA = calculateDistanceMeters(
-        loc.latitude,
-        loc.longitude,
-        a.restaurant.latitude,
-        a.restaurant.longitude
-      );
-      const distB = calculateDistanceMeters(
-        loc.latitude,
-        loc.longitude,
-        b.restaurant.latitude,
-        b.restaurant.longitude
-      );
-      return distA - distB;
+  setCourseMode: (mode) => {
+    const { courses, profile, userLocation } = get();
+    const updated = computeFilteredCourses(courses, profile.chronicConditions, userLocation, mode);
+    set({
+      courseMode: mode,
+      filteredCourses: updated,
+      activeCourseId: updated[0]?.id || "course-1",
     });
+  },
 
+  setUserLocation: (loc) => {
+    const { courses, profile, courseMode } = get();
+    const updated = computeFilteredCourses(courses, profile.chronicConditions, loc, courseMode);
     set({
       userLocation: loc,
-      filteredCourses: sorted,
-      activeCourseId: sorted[0]?.id || get().activeCourseId,
+      filteredCourses: updated,
+      activeCourseId: updated[0]?.id || "course-1",
     });
   },
 
@@ -226,7 +297,8 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
       // ignore
     }
 
-    const filtered = filterCoursesByConditions(get().courses, updatedProfile.chronicConditions);
+    const { courses, userLocation, courseMode } = get();
+    const filtered = computeFilteredCourses(courses, updatedProfile.chronicConditions, userLocation, courseMode);
     const activeCourseExists = filtered.some((c) => c.id === get().activeCourseId);
 
     set({
@@ -243,7 +315,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   },
 
   toggleCondition: (condition) => {
-    const { profile, courses } = get();
+    const { profile, courses, userLocation, courseMode } = get();
     const exists = profile.chronicConditions.includes(condition);
     const newConditions = exists
       ? profile.chronicConditions.filter((c) => c !== condition)
@@ -256,7 +328,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
       // ignore
     }
 
-    const filtered = filterCoursesByConditions(courses, newConditions);
+    const filtered = computeFilteredCourses(courses, newConditions, userLocation, courseMode);
     const activeCourseExists = filtered.some((c) => c.id === get().activeCourseId);
 
     set({

@@ -65,6 +65,8 @@ export interface WellnessCourseSet {
   waypoints?: WaypointFacility[];   // 보행 경로 3~5분 공공 편의시설 리스트
   slopeGrade: '완만(무장애)' | '보통' | '도전';
   expectedEffect: string;
+  region?: string;                  // 지역 구분 (예: '안산/경기남부', '서울 도심')
+  isLocal?: boolean;                // 생활권 동네 힐링 코스 여부
 }
 
 // 1박 2일 웰니스 숙박 정보 (Tour API searchStay2 기반)

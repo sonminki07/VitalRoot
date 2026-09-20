@@ -168,6 +168,18 @@ export function MapContainer() {
       return;
     }
 
+    // 직선 거리가 15km 초과인 경우 (예: 안산에서 서울 코스 선택 시) 고속도로를 가로지르는 비정상적인 점선 연결 차단
+    const distToRest = calculateDistanceMeters(
+      userLocation.latitude,
+      userLocation.longitude,
+      activeCourse.restaurant.latitude,
+      activeCourse.restaurant.longitude
+    );
+    if (distToRest > 15000) {
+      setUserToRestCoords([]);
+      return;
+    }
+
     let isMounted = true;
     fetchPedestrianRoute(
       userLocation.longitude,
