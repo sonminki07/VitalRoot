@@ -20,7 +20,6 @@ import {
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
 import { calculateDistanceMeters } from "../utils/pedestrianRouter";
-import { generateLocalCoursesForLocation } from "../utils/localCourseSynthesizer";
 
 export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리";
 
@@ -211,23 +210,6 @@ export function computeFilteredCourses(
       );
       return distA - distB;
     });
-
-    // 만약 사용자가 지정한 집 핀 위치 인근(4km 이내)에 기존 등록된 코스가 없는 소도시/농어촌/도서산간인 경우,
-    // 사용자의 실제 핀 좌표를 중심으로 300m~700m 초근접 도보 생활권 맞춤 코스를 실시간 합성하여 최상단에 추천!
-    const closestDist =
-      sorted[0]
-        ? calculateDistanceMeters(
-            userLocation.latitude,
-            userLocation.longitude,
-            sorted[0].restaurant.latitude,
-            sorted[0].restaurant.longitude
-          )
-        : Infinity;
-
-    if (closestDist > 4000) {
-      const localSynthesized = generateLocalCoursesForLocation(userLocation, conditions);
-      return [...localSynthesized, ...sorted];
-    }
 
     return sorted;
   }

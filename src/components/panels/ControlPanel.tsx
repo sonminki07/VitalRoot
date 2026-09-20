@@ -25,6 +25,15 @@ export function ControlPanel() {
     "courses" | "multiday" | "stays" | "quests" | "profile"
   >("courses");
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+  const [expandedNutritionCourseIds, setExpandedNutritionCourseIds] = useState<Record<string, boolean>>({});
+
+  const toggleNutritionExpand = (courseId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedNutritionCourseIds((prev) => ({
+      ...prev,
+      [courseId]: !prev[courseId],
+    }));
+  };
 
   // 스토어 구독
   const {
@@ -452,6 +461,36 @@ export function ControlPanel() {
                 </span>
               </div>
 
+              {/* 반경 3km(도보권) 이내 검증 식당 부재 시 정직한 대체 추천 배너 */}
+              {userLocation && filteredCourses[0] && (() => {
+                const firstCourse = filteredCourses[0];
+                const firstDist = calculateDistanceMeters(
+                  userLocation.latitude,
+                  userLocation.longitude,
+                  firstCourse.restaurant.latitude,
+                  firstCourse.restaurant.longitude
+                );
+                if (firstDist > 3000) {
+                  return (
+                    <div className={`p-3 rounded-xl border text-xs space-y-1.5 shadow-sm ${
+                      isLight
+                        ? "bg-amber-50 border-amber-300 text-amber-950"
+                        : "bg-amber-950/40 border-amber-500/40 text-amber-200"
+                    }`}>
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <span>ℹ️</span>
+                        <span>현재 위치 인근 안심식당 안내</span>
+                      </div>
+                      <p className={`text-[11px] leading-relaxed ${isLight ? "text-amber-900" : "text-amber-300/90"}`}>
+                        선택하신 위치 반경 3km(도보권) 이내에는 지자체 인증 안심식당이 등록되어 있지 않습니다.
+                        임의의 가상 식당을 생성하지 않고, <strong>가장 가까운 검증된 웰니스 코스({formatDistance(firstDist)})</strong>를 거리순으로 안내합니다. (차량/대중교통 이동 권장)
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               {isTransitioning && (
                 <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center justify-center gap-2 text-xs text-emerald-300 animate-pulse">
                   <span className="animate-spin">🌀</span>
@@ -572,11 +611,17 @@ export function ControlPanel() {
                         </span>
                         {distFromUser !== null && (
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
-                            isLight
+                            distFromUser > 3000
+                              ? isLight
+                                ? "bg-amber-100 text-amber-900 border-amber-300"
+                                : "bg-amber-950/70 text-amber-300 border-amber-500/40"
+                              : isLight
                               ? "bg-sky-100 text-sky-800 border-sky-200"
                               : "bg-sky-950/60 text-sky-300 border-sky-500/30"
                           }`}>
-                            📍 내 위치에서 {formatDistance(distFromUser)}
+                            {distFromUser > 3000
+                              ? `🚗 ${formatDistance(distFromUser)} (차량/대중교통)`
+                              : `📍 내 위치에서 ${formatDistance(distFromUser)} (도보권)`}
                           </span>
                         )}
                       </div>
@@ -593,20 +638,61 @@ export function ControlPanel() {
                           </span>
                         </div>
 
-                        {/* 식약처 영양성분 뱃지 - 글자 크기 상향 및 밝은 모드 고대비 */}
+                        {/* 식약처 영양성분 뱃지 - 클릭 시 상세 영양정보 펼침/접기 */}
                         {course.restaurant.nutrition && (
-                          <div className={`p-2 rounded-lg border text-xs sm:text-[13px] flex items-center justify-between gap-1.5 ${
-                            isLight
-                              ? "bg-emerald-100/70 border-emerald-300/80 text-emerald-950 font-bold"
-                              : "bg-emerald-950/50 border-emerald-500/30 text-emerald-300 font-medium"
-                          }`}>
-                            <span className="font-bold truncate">
-                              🥗 {course.restaurant.nutrition.menuName}
-                            </span>
-                            <span className={`font-mono font-bold shrink-0 ml-1 ${isLight ? "text-emerald-800" : "text-emerald-400"}`}>
-                              당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨{" "}
-                              {course.restaurant.nutrition.sodium}mg 🟢
-                            </span>
+                          <div
+                            onClick={(e) => toggleNutritionExpand(course.id, e)}
+                            className={`p-2.5 rounded-xl border text-xs sm:text-[13px] cursor-pointer transition-all ${
+                              isLight
+                                ? "bg-emerald-100/70 hover:bg-emerald-100 border-emerald-300/80 text-emerald-950"
+                                : "bg-emerald-950/50 hover:bg-emerald-950/80 border-emerald-500/30 text-emerald-300"
+                            }`}
+                            title="클릭하여 상세 영양성분 및 메뉴 전체 정보 펼치기 / 접기"
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="font-bold flex items-center gap-1 min-w-0">
+                                <span className="shrink-0">🥗</span>
+                                <span className={expandedNutritionCourseIds[course.id] ? "break-keep font-extrabold" : "truncate"}>
+                                  {course.restaurant.nutrition.menuName}
+                                </span>
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0 ml-1">
+                                <span className={`font-mono font-bold text-[11px] sm:text-xs ${isLight ? "text-emerald-800" : "text-emerald-400"}`}>
+                                  당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨 {course.restaurant.nutrition.sodium}mg 🟢
+                                </span>
+                                <span className="text-[10px] text-emerald-600 font-bold ml-0.5">
+                                  {expandedNutritionCourseIds[course.id] ? "▲" : "▼"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* 클릭 시 펼쳐지는 상세 영양성분 및 건강 가이드 */}
+                            {expandedNutritionCourseIds[course.id] && (
+                              <div className={`mt-2 pt-2 border-t text-[11px] sm:text-xs space-y-1.5 animate-in fade-in duration-150 ${
+                                isLight ? "border-emerald-300/60 text-slate-700" : "border-emerald-500/30 text-emerald-200/90"
+                              }`}>
+                                <div className="grid grid-cols-3 gap-1 py-1 px-2 rounded-lg bg-emerald-500/10 font-mono text-center">
+                                  <div>
+                                    <span className="text-[10px] text-gray-400 block">열량</span>
+                                    <strong className="text-emerald-600 font-bold">{course.restaurant.nutrition.calories} kcal</strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-gray-400 block">탄수화물</span>
+                                    <strong className="text-emerald-600 font-bold">{course.restaurant.nutrition.carbohydrate}g</strong>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-gray-400 block">단백질</span>
+                                    <strong className="text-emerald-600 font-bold">{course.restaurant.nutrition.protein}g</strong>
+                                  </div>
+                                </div>
+                                <p className={`text-[11px] leading-snug flex items-start gap-1 font-medium ${
+                                  isLight ? "text-emerald-950 font-semibold" : "text-emerald-300"
+                                }`}>
+                                  <span>💡</span>
+                                  <span>{course.restaurant.nutrition.nutritionTip || "식약처 기준 당류 및 나트륨 안심 건강 식단입니다."}</span>
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
 

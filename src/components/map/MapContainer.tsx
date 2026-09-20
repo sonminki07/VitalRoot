@@ -1103,10 +1103,10 @@ export function MapContainer() {
         </div>
       )}
 
-      {/* 지도 하단: 실제 도로 보행로 길찾기 바 (사이드바 우측 sm:left-[368px] lg:left-[412px]에 격리하여 겹침 원천 차단) */}
+      {/* 지도 하단: 실제 도로 보행로 길찾기 바 (가시 영역 정중앙 배치) */}
       {activeCourse && !isCourseBarDismissed && (
         <div
-          className={`absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-30 backdrop-blur-md border rounded-2xl px-3 py-2 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw] sm:max-w-max ${
+          className={`absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[calc(50%+190px)] z-30 backdrop-blur-md border rounded-2xl px-3.5 py-2.5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw] sm:max-w-max ${
             isLight
               ? "bg-white/98 text-slate-900 border-emerald-600/40 shadow-slate-400/30"
               : "bg-gray-900/95 text-white border-emerald-500/60 shadow-black/60"
