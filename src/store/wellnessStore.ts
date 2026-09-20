@@ -420,7 +420,8 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
           // ignore
         }
 
-        const filtered = filterCoursesByConditions(get().courses, loadedProfile.chronicConditions);
+        const { courses, userLocation, courseMode } = get();
+        const filtered = computeFilteredCourses(courses, loadedProfile.chronicConditions, userLocation, courseMode);
         set({
           profile: loadedProfile,
           filteredCourses: filtered,

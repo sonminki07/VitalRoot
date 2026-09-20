@@ -388,22 +388,23 @@ export function ControlPanel() {
                         course.restaurant.longitude
                       )
                     : null;
-                  const isFarDistance = distFromUser !== null && distFromUser > 15000;
+                  const isTransitRecommended = distFromUser !== null && distFromUser > 400; // 도보 5분(400m) 초과 시 대중교통 추천
 
-                  // 네이버 도보/대중교통 길찾기 URL:
-                  // 1) 내 위치 -> 안심식당 (15km 초과 시 대중교통 transit, 이내 시 보행 walk)
-                  const userToRestNaverUrl = userLocation
-                    ? isFarDistance
-                      ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
-                          "내 위치"
-                        )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
-                          course.restaurant.name
-                        )}/-/transit?c=15.00,0,0,0,dh`
-                      : `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
-                          "내 위치"
-                        )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
-                          course.restaurant.name
-                        )}/-/walk?c=15.00,0,0,0,dh`
+                  // 네이버 도보/대중교통 길찾기 URL
+                  const userToRestWalkUrl = userLocation
+                    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
+                        "내 위치"
+                      )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                        course.restaurant.name
+                      )}/-/walk?c=15.00,0,0,0,dh`
+                    : null;
+
+                  const userToRestTransitUrl = userLocation && isTransitRecommended
+                    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
+                        "내 위치"
+                      )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                        course.restaurant.name
+                      )}/-/transit?c=15.00,0,0,0,dh`
                     : null;
 
                   // 2) 안심식당 -> 산책로
@@ -505,26 +506,40 @@ export function ControlPanel() {
                       {/* 하단 네이버 도보 길찾기 버튼 영역 */}
                       <div className="mt-2.5 flex flex-col gap-1.5 pt-1.5 border-t border-gray-800/80">
                         <div className="flex items-center justify-between gap-1.5">
-                          {userToRestNaverUrl ? (
+                          {userLocation ? (
                             <div className="flex flex-wrap items-center gap-1.5 flex-1">
-                              <a
-                                href={userToRestNaverUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className={`px-2.5 py-1.5 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95 ${
-                                  isFarDistance
-                                    ? "bg-indigo-600 hover:bg-indigo-500"
-                                    : "bg-[#03C75A] hover:bg-[#02b350]"
-                                }`}
-                              >
-                                <span>{isFarDistance ? "🚆" : "🟢"}</span>
-                                <span>
-                                  {isFarDistance
-                                    ? "대중교통 이동"
-                                    : "내 위치 ➔ 식당"}
-                                </span>
-                              </a>
+                              {/* 5분(400m) 초과 시 대중교통 버튼 제공 */}
+                              {userToRestTransitUrl && (
+                                <a
+                                  href={userToRestTransitUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                                  title="네이버 지도 대중교통(버스/지하철) 길찾기로 연결"
+                                >
+                                  <span>🚌</span>
+                                  <span>대중교통</span>
+                                </a>
+                              )}
+                              {/* 도보 버튼 */}
+                              {userToRestWalkUrl && (
+                                <a
+                                  href={userToRestWalkUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`px-2.5 py-1.5 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95 ${
+                                    isTransitRecommended
+                                      ? "bg-sky-600 hover:bg-sky-500"
+                                      : "bg-[#03C75A] hover:bg-[#02b350]"
+                                  }`}
+                                  title="네이버 지도 도보 길찾기로 연결"
+                                >
+                                  <span>{isTransitRecommended ? "🚶" : "🟢"}</span>
+                                  <span>{isTransitRecommended ? "도보" : "내 위치 ➔ 식당"}</span>
+                                </a>
+                              )}
                               <a
                                 href={restToTrailNaverUrl}
                                 target="_blank"
