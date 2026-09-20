@@ -11,6 +11,21 @@ export interface MedicationItem {
   inferredCondition?: ChronicCondition; // 약물 기반 추론 질환
 }
 
+export type FontSizeSetting = 'normal' | 'large' | 'xlarge';
+export type AppThemeMode = 'dark' | 'light';
+
+export interface SavedCustomCourse {
+  id: string;
+  title: string;
+  createdAt: string;
+  restaurantName: string;
+  restaurantCoord: [number, number]; // [lng, lat]
+  trailName: string;
+  trailCoord: [number, number];      // [lng, lat]
+  totalDistanceMeters: number;
+  memo?: string;
+}
+
 export interface UserProfile {
   id?: string;
   userName: string;
@@ -23,6 +38,9 @@ export interface UserProfile {
   walkFitnessLevel?: string;      // 보행 체력 수준
   requiredInfra?: string[];       // 산책 필수 인프라 (화장실, 쉼터 등)
   isOnboardingDismissed?: boolean;
+  fontSizePreference?: FontSizeSetting;
+  themePreference?: AppThemeMode;
+  savedCourses?: SavedCustomCourse[];
 }
 
 // 식약처 공공데이터 기반 영양성분 정보

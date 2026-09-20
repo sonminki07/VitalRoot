@@ -1,1 +1,58 @@
 @import "tailwindcss";
+
+/* 1. 세련된 에메랄드 다크 커스텀 스크롤바 (이미지 5 해결) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.6);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.45);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.8);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.7);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.5);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.85);
+}
+
+/* 2. 전역 글자 크기 스케일링 설정 */
+html {
+  font-size: 15.5px; /* 기본 글자 크기 상향 */
+}
+
+html[data-font-size="normal"] {
+  font-size: 14px;
+}
+
+html[data-font-size="large"] {
+  font-size: 15.5px;
+}
+
+html[data-font-size="xlarge"] {
+  font-size: 17px;
+}
+
+/* 3. 화이트 네이버 테마 보조 */
+html.light {
+  color-scheme: light;
+}

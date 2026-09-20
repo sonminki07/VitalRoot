@@ -15,6 +15,13 @@ const RADAR_CATEGORIES: { type: WaypointFilterType; label: string; icon: string 
   { type: "배리어프리", label: "무장애 시설", icon: "♿" },
 ];
 
+function formatDistance(meters: number, unit: "auto" | "km" | "m"): string {
+  if (unit === "km" || (unit === "auto" && meters >= 1000)) {
+    return `${(meters / 1000).toFixed(1)}km`;
+  }
+  return `${meters}m`;
+}
+
 export function MapContainer() {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
@@ -24,7 +31,6 @@ export function MapContainer() {
   const userMarkerRef = useRef<naver.maps.Marker | null>(null);
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null);
 
-  const [mapType, setMapType] = useState<"street" | "satellite">("street");
   const [isMapLoaded, setIsMapLoaded] = useState(false);
 
   // 스토어 구독
@@ -42,7 +48,16 @@ export function MapContainer() {
     setIsLocationModalOpen,
     isPinningHome,
     setIsPinningHome,
+    mapType: storeMapType,
+    setMapType: setStoreMapType,
+    distanceUnit,
+    toggleDistanceUnit,
+    saveCustomCourse,
+    isOnboardingModalOpen,
+    isSettingsModalOpen,
   } = useWellnessStore();
+
+  const isModalActive = isOnboardingModalOpen || isSettingsModalOpen;
 
   const { center, zoom, setSelectedPlace, flyToPlace } = useMapStore();
 
@@ -57,6 +72,16 @@ export function MapContainer() {
   const [actualWalkDistance, setActualWalkDistance] = useState<number>(
     activeCourse?.distanceMeters || 750
   );
+
+  // 전역 인포윈도우 닫기 함수 바인딩
+  useEffect(() => {
+    (window as any).__closeVitalInfoWindow = () => {
+      infoWindowRef.current?.close();
+    };
+    return () => {
+      delete (window as any).__closeVitalInfoWindow;
+    };
+  }, []);
 
   // 지도 클릭 이벤트 (내 집 핀 찍기 모드)
   useEffect(() => {
@@ -107,7 +132,7 @@ export function MapContainer() {
         minZoom: 10,
         maxZoom: 19,
         mapTypeId:
-          mapType === "satellite"
+          storeMapType === "HYBRID"
             ? window.naver.maps.MapTypeId.HYBRID
             : window.naver.maps.MapTypeId.NORMAL,
         zoomControl: true,
@@ -151,17 +176,27 @@ export function MapContainer() {
     };
   }, []);
 
-  // 2. 일반 지도 / 위성 지도(HYBRID) 전환
+  // 2. 일반 지도 / 위성 지도(HYBRID) 전환 (스토어 및 로컬스토리지 영속화)
   const handleChangeMapType = (type: "satellite" | "street") => {
-    setMapType(type);
+    const nextType = type === "satellite" ? "HYBRID" : "NORMAL";
+    setStoreMapType(nextType);
     if (!mapRef.current || !window.naver?.maps) return;
-
     mapRef.current.setMapTypeId(
-      type === "satellite"
+      nextType === "HYBRID"
         ? window.naver.maps.MapTypeId.HYBRID
         : window.naver.maps.MapTypeId.NORMAL
     );
   };
+
+  // 스토어의 mapType 변경 감지 시 지도 타입 동기화
+  useEffect(() => {
+    if (!mapRef.current || !window.naver?.maps) return;
+    mapRef.current.setMapTypeId(
+      storeMapType === "HYBRID"
+        ? window.naver.maps.MapTypeId.HYBRID
+        : window.naver.maps.MapTypeId.NORMAL
+    );
+  }, [storeMapType]);
 
   // 3. 지도 뷰포트 센터 및 줌 연동 (flyTo)
   useEffect(() => {
@@ -370,17 +405,19 @@ export function MapContainer() {
 
       if (isSelected) {
         restContent.innerHTML = `
-          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
-            <span class="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${restStepNum}</span>
-            <span class="text-emerald-300 font-extrabold text-[11px]">${restStepLabel} 🥗</span>
-            <span class="text-[11px] text-white truncate max-w-[130px]">${course.restaurant.name}</span>
+          <div class="-translate-x-1/2 -translate-y-full flex flex-col items-center select-none pointer-events-auto">
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
+              <span class="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${restStepNum}</span>
+              <span class="text-emerald-300 font-extrabold text-[11px]">${restStepLabel} 🥗</span>
+              <span class="text-[11px] text-white truncate max-w-[130px]">${course.restaurant.name}</span>
+            </div>
+            <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-emerald-950 border-r-2 border-b-2 border-emerald-400"></div>
+            <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-lg -mt-0.5"></div>
           </div>
-          <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-emerald-950 border-r-2 border-b-2 border-emerald-400"></div>
-          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-lg -mt-0.5"></div>
         `;
       } else {
         restContent.innerHTML = `
-          <div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-900/90 border border-emerald-500/50 shadow-lg text-[11px] text-emerald-200 opacity-80 hover:opacity-100 hover:scale-105 transition-all">
+          <div class="-translate-x-1/2 -translate-y-full flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-950/90 border border-emerald-500/50 shadow-lg text-[11px] text-emerald-200 opacity-85 hover:opacity-100 hover:scale-105 transition-all">
             <span>🥗</span>
             <span class="truncate max-w-[100px]">${course.restaurant.name}</span>
           </div>
@@ -395,7 +432,7 @@ export function MapContainer() {
         ),
         icon: {
           content: restContent,
-          anchor: new window.naver.maps.Point(isSelected ? 55 : 35, isSelected ? 34 : 12),
+          anchor: new window.naver.maps.Point(0, 0),
         },
         zIndex: isSelected ? 120 : 30,
       });
@@ -406,26 +443,26 @@ export function MapContainer() {
         const nutrition = course.restaurant.nutrition;
         const nutritionHtml = nutrition
           ? `
-          <div class="mt-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-            <div class="flex items-center justify-between text-[11px] font-semibold text-emerald-800">
+          <div class="mt-2 p-2 bg-emerald-950/60 rounded-lg border border-emerald-500/40">
+            <div class="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
               <span>🥗 ${nutrition.menuName}</span>
-              <span class="text-[10px] text-gray-500 font-mono">${nutrition.calories} kcal</span>
+              <span class="text-[10px] text-gray-400 font-mono">${nutrition.calories} kcal</span>
             </div>
-            <div class="grid grid-cols-2 gap-1 text-[10px] pt-1 mt-1 border-t border-emerald-200/60">
+            <div class="grid grid-cols-2 gap-1 text-[10px] pt-1 mt-1 border-t border-emerald-500/20">
               <div class="flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full ${
-                  nutrition.sugarGrade === "안심" ? "bg-emerald-500" : "bg-amber-500"
+                  nutrition.sugarGrade === "안심" ? "bg-emerald-400" : "bg-amber-400"
                 }"></span>
-                <span>당류: <strong>${nutrition.sugars}g</strong> (${nutrition.sugarGrade})</span>
+                <span class="text-gray-200">당류: <strong>${nutrition.sugars}g</strong> (${nutrition.sugarGrade})</span>
               </div>
               <div class="flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full ${
-                  nutrition.sodiumGrade === "안심" ? "bg-emerald-500" : "bg-amber-500"
+                  nutrition.sodiumGrade === "안심" ? "bg-emerald-400" : "bg-amber-400"
                 }"></span>
-                <span>나트륨: <strong>${nutrition.sodium}mg</strong> (${nutrition.sodiumGrade})</span>
+                <span class="text-gray-200">나트륨: <strong>${nutrition.sodium}mg</strong> (${nutrition.sodiumGrade})</span>
               </div>
             </div>
-            <p class="text-[9px] text-emerald-700 mt-1">${nutrition.nutritionTip || "식약처 안심 영양성분 검증"}</p>
+            <p class="text-[9px] text-emerald-400 mt-1">${nutrition.nutritionTip || "식약처 안심 영양성분 검증"}</p>
           </div>
         `
           : "";
@@ -433,15 +470,16 @@ export function MapContainer() {
         const naverSearchUrl = getNaverMapDetailUrl(course.restaurant);
 
         const popupContent = `
-          <div class="text-gray-900 p-3 max-w-[260px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/40 animate-in fade-in zoom-in-95 duration-150">
-            <div class="flex items-center justify-between gap-1 mb-1">
-              <span class="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">안심식당</span>
-              <span class="text-[10px] text-gray-500 font-medium">${course.targetCondition.split(" ")[0]}</span>
+          <div class="relative text-white p-3.5 max-w-[270px] font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/50 animate-in fade-in zoom-in-95 duration-150">
+            <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+            <div class="flex items-center justify-between gap-1 mb-1 pr-6">
+              <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-bold">안심식당</span>
+              <span class="text-[10px] text-gray-400 font-medium">${course.targetCondition.split(" ")[0]}</span>
             </div>
-            <h4 class="font-bold text-sm text-gray-900 leading-snug">${course.restaurant.name}</h4>
-            <p class="text-[11px] text-gray-600 mt-1 line-clamp-2">${course.restaurant.description}</p>
+            <h4 class="font-bold text-sm text-white leading-snug">${course.restaurant.name}</h4>
+            <p class="text-[11px] text-gray-300 mt-1 line-clamp-2">${course.restaurant.description}</p>
             ${nutritionHtml}
-            <div class="mt-2.5 pt-2 border-t border-gray-100">
+            <div class="mt-2.5 pt-2 border-t border-gray-800">
               <a
                 href="${naverSearchUrl}"
                 target="_blank"
@@ -469,17 +507,19 @@ export function MapContainer() {
 
       if (isSelected) {
         trailContent.innerHTML = `
-          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/95 border-2 border-rose-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
-            <span class="w-4 h-4 rounded-full bg-rose-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${trailStepNum}</span>
-            <span class="text-rose-300 font-extrabold text-[11px]">도착 🏁</span>
-            <span class="text-[11px] text-white truncate max-w-[130px]">${course.trail.name}</span>
+          <div class="-translate-x-1/2 -translate-y-full flex flex-col items-center select-none pointer-events-auto">
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/95 border-2 border-rose-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
+              <span class="w-4 h-4 rounded-full bg-rose-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${trailStepNum}</span>
+              <span class="text-rose-300 font-extrabold text-[11px]">도착 🏁</span>
+              <span class="text-[11px] text-white truncate max-w-[130px]">${course.trail.name}</span>
+            </div>
+            <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-rose-950 border-r-2 border-b-2 border-rose-400"></div>
+            <div class="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-lg -mt-0.5"></div>
           </div>
-          <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-rose-950 border-r-2 border-b-2 border-rose-400"></div>
-          <div class="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-lg -mt-0.5"></div>
         `;
       } else {
         trailContent.innerHTML = `
-          <div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-900/90 border border-teal-500/50 shadow-lg text-[11px] text-teal-200 opacity-80 hover:opacity-100 hover:scale-105 transition-all">
+          <div class="-translate-x-1/2 -translate-y-full flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-950/90 border border-teal-500/50 shadow-lg text-[11px] text-teal-200 opacity-85 hover:opacity-100 hover:scale-105 transition-all">
             <span>👟</span>
             <span class="truncate max-w-[100px]">${course.trail.name}</span>
           </div>
@@ -494,7 +534,7 @@ export function MapContainer() {
         ),
         icon: {
           content: trailContent,
-          anchor: new window.naver.maps.Point(isSelected ? 55 : 35, isSelected ? 34 : 12),
+          anchor: new window.naver.maps.Point(0, 0),
         },
         zIndex: isSelected ? 120 : 30,
       });
@@ -505,17 +545,18 @@ export function MapContainer() {
         const naverSearchUrl = getNaverMapDetailUrl(course.trail);
 
         const popupContent = `
-          <div class="text-gray-900 p-3 max-w-[260px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/40 animate-in fade-in zoom-in-95 duration-150">
-            <div class="flex items-center justify-between gap-1 mb-1">
-              <span class="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold">완만 산책로</span>
-              <span class="text-[10px] text-teal-700 font-semibold">${course.slopeGrade}</span>
+          <div class="relative text-white p-3.5 max-w-[270px] font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/50 animate-in fade-in zoom-in-95 duration-150">
+            <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+            <div class="flex items-center justify-between gap-1 mb-1 pr-6">
+              <span class="text-[10px] bg-teal-950 text-teal-300 border border-teal-500/40 px-1.5 py-0.5 rounded font-bold">완만 산책로</span>
+              <span class="text-[10px] text-teal-300 font-semibold">${course.slopeGrade}</span>
             </div>
-            <h4 class="font-bold text-sm text-gray-900 leading-snug">${course.trail.name}</h4>
-            <p class="text-[11px] text-gray-600 mt-1 line-clamp-2">${course.trail.description}</p>
-            <div class="mt-2 p-1.5 bg-teal-50 rounded-lg text-[10px] text-teal-800 font-medium">
+            <h4 class="font-bold text-sm text-white leading-snug">${course.trail.name}</h4>
+            <p class="text-[11px] text-gray-300 mt-1 line-clamp-2">${course.trail.description}</p>
+            <div class="mt-2 p-1.5 bg-teal-950/60 border border-teal-500/30 rounded-lg text-[10px] text-teal-200 font-medium">
               🌿 ${course.trail.healthBenefit}
             </div>
-            <div class="mt-2.5 pt-2 border-t border-gray-100">
+            <div class="mt-2.5 pt-2 border-t border-gray-800">
               <a
                 href="${naverSearchUrl}"
                 target="_blank"
@@ -582,21 +623,22 @@ export function MapContainer() {
               .join(" ");
 
             const popupContent = `
-              <div class="text-gray-900 p-2.5 max-w-[240px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
-                <div class="flex items-center justify-between gap-1 mb-1">
+              <div class="relative text-white p-3 max-w-[260px] font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-700/80 animate-in fade-in zoom-in-95 duration-150">
+                <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+                <div class="flex items-center justify-between gap-1 mb-1 pr-6">
                   <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     wp.category === "화장실"
-                      ? "bg-sky-100 text-sky-800"
+                      ? "bg-sky-950 text-sky-300 border border-sky-500/40"
                       : wp.category === "쉼터"
-                      ? "bg-amber-100 text-amber-800"
-                      : "bg-purple-100 text-purple-800"
+                      ? "bg-amber-950 text-amber-300 border border-amber-500/40"
+                      : "bg-purple-950 text-purple-300 border border-purple-500/40"
                   }">안심 ${wp.category}</span>
-                  <span class="text-[10px] font-semibold text-emerald-700">도보 ${wp.walkingMinutesFromRoute}분 (${wp.distanceMetersFromRoute}m)</span>
+                  <span class="text-[10px] font-semibold text-emerald-400">도보 ${wp.walkingMinutesFromRoute}분 (${wp.distanceMetersFromRoute}m)</span>
                 </div>
-                <h4 class="font-bold text-xs text-gray-900">${wp.name}</h4>
-                <p class="text-[10px] text-gray-600 mt-1">${wp.description}</p>
+                <h4 class="font-bold text-xs text-white">${wp.name}</h4>
+                <p class="text-[10px] text-gray-300 mt-1">${wp.description}</p>
                 <div class="flex flex-wrap gap-1 mt-2">${featureBadges}</div>
-                <div class="mt-2.5 pt-2 border-t border-gray-100">
+                <div class="mt-2.5 pt-2 border-t border-gray-800">
                   <a
                     href="${naverSearchUrl}"
                     target="_blank"
@@ -650,22 +692,25 @@ export function MapContainer() {
         const badgesHtml = stay.safeBadges
           .map(
             (b) =>
-              `<span class="text-[9px] bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded">${b}</span>`
+              `<span class="text-[9px] bg-teal-950 text-teal-300 border border-teal-500/40 px-1.5 py-0.5 rounded">${b}</span>`
           )
           .join(" ");
 
         const popupContent = `
-          <div class="text-gray-900 p-2.5 max-w-[240px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-teal-500/40">
-            <span class="text-[10px] bg-teal-100 text-teal-800 font-bold px-1.5 py-0.5 rounded">안심 숙소</span>
-            <h4 class="font-bold text-xs text-gray-900 mt-1">${stay.name}</h4>
-            <p class="text-[10px] text-gray-600 mt-0.5">${stay.description}</p>
+          <div class="relative text-white p-3 max-w-[260px] font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/50 animate-in fade-in zoom-in-95 duration-150">
+            <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+            <div class="flex items-center justify-between gap-1 mb-1 pr-6">
+              <span class="text-[10px] bg-teal-950 text-teal-300 border border-teal-500/40 font-bold px-1.5 py-0.5 rounded">안심 숙소</span>
+            </div>
+            <h4 class="font-bold text-xs text-white mt-1">${stay.name}</h4>
+            <p class="text-[10px] text-gray-300 mt-0.5">${stay.description}</p>
             <div class="flex flex-wrap gap-1 mt-1.5">${badgesHtml}</div>
-            <div class="mt-2 pt-2 border-t border-gray-100">
+            <div class="mt-2 pt-2 border-t border-gray-800">
               <a
                 href="${naverSearchUrl}"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="w-full flex items-center justify-center gap-1 py-1 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all"
+                class="w-full flex items-center justify-center gap-1 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] rounded-lg transition-all active:scale-95"
               >
                 <span>🟢</span>
                 <span>네이버 지도 상세</span>
@@ -854,7 +899,7 @@ export function MapContainer() {
           <button
             onClick={() => handleChangeMapType("street")}
             className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              mapType === "street"
+              storeMapType === "NORMAL"
                 ? "bg-emerald-600 text-white shadow-sm"
                 : "text-gray-400 hover:text-white"
             }`}
@@ -864,7 +909,7 @@ export function MapContainer() {
           <button
             onClick={() => handleChangeMapType("satellite")}
             className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              mapType === "satellite"
+              storeMapType === "HYBRID"
                 ? "bg-emerald-600 text-white shadow-sm"
                 : "text-gray-400 hover:text-white"
             }`}
@@ -915,12 +960,16 @@ export function MapContainer() {
                 <span className="text-emerald-400">➔</span>
                 <span>{activeCourse.trail.name}</span>
               </div>
-              <div className="text-[11px] text-gray-400">
+              <div
+                onClick={toggleDistanceUnit}
+                className="text-[11px] text-gray-400 cursor-pointer hover:text-gray-200 transition-colors"
+                title="클릭하여 거리 단위 변경 (m / km)"
+              >
                 {userLocation ? (
                   <>
                     내 위치 ➔ 식당{" "}
-                    <strong className="text-sky-300 font-semibold">
-                      {distFromUserToRest}m
+                    <strong className="text-sky-300 font-semibold underline decoration-dotted">
+                      {formatDistance(distFromUserToRest ?? 0, distanceUnit)}
                     </strong>
                     {isTransitRecommended ? (
                       <span className="text-indigo-300 font-medium ml-1">
@@ -932,15 +981,15 @@ export function MapContainer() {
                       </span>
                     )}{" "}
                     • 식당 ➔ 산책로{" "}
-                    <strong className="text-emerald-400 font-semibold">
-                      {actualWalkDistance}m
+                    <strong className="text-emerald-400 font-semibold underline decoration-dotted">
+                      {formatDistance(actualWalkDistance, distanceUnit)}
                     </strong>
                   </>
                 ) : (
                   <>
                     실제 도로 보행 거리:{" "}
-                    <strong className="text-emerald-400 font-semibold">
-                      {actualWalkDistance}m
+                    <strong className="text-emerald-400 font-semibold underline decoration-dotted">
+                      {formatDistance(actualWalkDistance, distanceUnit)}
                     </strong>{" "}
                     • 도보 약{" "}
                     <strong className="text-teal-300 font-semibold">
@@ -949,57 +998,97 @@ export function MapContainer() {
                     ({activeCourse.slopeGrade})
                   </>
                 )}
+                <span className="ml-1 text-[10px] text-gray-500 font-normal">
+                  [단위: {distanceUnit === "auto" ? "자동(m/km)" : distanceUnit}]
+                </span>
               </div>
             </div>
           </div>
 
           <div className="hidden sm:block h-7 w-px bg-gray-700/80 mx-1" />
 
-          {/* 길찾기 버튼 영역: 5분(400m) 초과 시 대중교통 + 도보 듀얼 버튼, 5분 이내면 도보 버튼 */}
-          {userLocation && isTransitRecommended ? (
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <a
-                href={naverTransitUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
-                title="네이버 지도 대중교통(버스/지하철) 길찾기로 연결"
-              >
-                <span className="text-sm">🚌</span>
-                <span>대중교통 길찾기</span>
-              </a>
+          {/* 길찾기 및 나만의 코스 저장 버튼 영역 */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                saveCustomCourse({
+                  id: `saved-${Date.now()}`,
+                  title: `${activeCourse.restaurant.name} ➔ ${activeCourse.trail.name}`,
+                  createdAt: new Date().toLocaleDateString("ko-KR"),
+                  restaurantName: activeCourse.restaurant.name,
+                  restaurantCoord: [
+                    activeCourse.restaurant.longitude,
+                    activeCourse.restaurant.latitude,
+                  ],
+                  trailName: activeCourse.trail.name,
+                  trailCoord: [
+                    activeCourse.trail.longitude,
+                    activeCourse.trail.latitude,
+                  ],
+                  totalDistanceMeters: actualWalkDistance,
+                });
+                alert(
+                  "📌 [나만의 저장 코스]에 현재 코스가 성공적으로 보관되었습니다!\n설정(⚙️) > 여행 & 길찾기 탭에서 언제든 확인하실 수 있습니다."
+                );
+              }}
+              className="flex items-center justify-center gap-1 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+              title="현재 추천 코스를 나만의 보관함에 영구 저장"
+            >
+              <span>📌</span>
+              <span className="hidden sm:inline">코스 저장</span>
+            </button>
+
+            {userLocation && isTransitRecommended ? (
+              <>
+                <a
+                  href={naverTransitUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+                  title="네이버 지도 대중교통(버스/지하철) 길찾기로 연결"
+                >
+                  <span className="text-sm">🚌</span>
+                  <span>대중교통 길찾기</span>
+                </a>
+                <a
+                  href={naverCourseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+                  title="네이버 지도 도보 길찾기로 연결"
+                >
+                  <span className="text-sm">🚶</span>
+                  <span>도보 길찾기</span>
+                </a>
+              </>
+            ) : (
               <a
                 href={naverCourseUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
-                title="네이버 지도 도보 길찾기로 연결"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
               >
-                <span className="text-sm">🚶</span>
-                <span>도보 길찾기</span>
+                <span className="text-sm">🟢</span>
+                <span>
+                  {userLocation ? "내 위치에서 도보 길찾기" : "네이버 도보 길찾기"}
+                </span>
+                <span className="text-[10px] opacity-80">
+                  {userLocation ? "(5분 이내)" : "(출발·도착 자동)"}
+                </span>
               </a>
-            </div>
-          ) : (
-            <a
-              href={naverCourseUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
-            >
-              <span className="text-sm">🟢</span>
-              <span>
-                {userLocation ? "내 위치에서 도보 길찾기" : "네이버 도보 길찾기"}
-              </span>
-              <span className="text-[10px] opacity-80">
-                {userLocation ? "(5분 이내)" : "(출발·도착 자동)"}
-              </span>
-            </a>
-          )}
+            )}
+          </div>
         </div>
       )}
 
-      {/* 네이버 지도 컨테이너 */}
-      <div ref={mapElementRef} className="w-full h-full" />
+      {/* 네이버 지도 컨테이너 (모달 오픈 시 딤 처리 및 클릭 차단) */}
+      <div
+        ref={mapElementRef}
+        className={`w-full h-full transition-all duration-300 ${
+          isModalActive ? "opacity-30 pointer-events-none filter blur-[0.5px]" : "opacity-100"
+        }`}
+      />
     </div>
   );
 }

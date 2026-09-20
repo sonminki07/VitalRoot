@@ -6,6 +6,9 @@ import {
   MultiDayCourseSet,
   WellnessStay,
   WellnessQuest,
+  FontSizeSetting,
+  AppThemeMode,
+  SavedCustomCourse,
 } from "../types/wellness.types";
 import {
   INITIAL_USER_PROFILE,
@@ -22,6 +25,11 @@ export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어�
 const STORAGE_KEY_PROFILE = "vitalroot_user_profile";
 const STORAGE_KEY_QUESTS = "vitalroot_user_quests";
 const STORAGE_KEY_LOCATION = "vitalroot_user_location";
+const STORAGE_KEY_THEME = "vitalroot_theme_mode";
+const STORAGE_KEY_FONT_SIZE = "vitalroot_font_size";
+const STORAGE_KEY_MAP_TYPE = "vitalroot_map_type";
+const STORAGE_KEY_DISTANCE_UNIT = "vitalroot_distance_unit";
+const STORAGE_KEY_SAVED_COURSES = "vitalroot_saved_courses";
 
 function getSavedLocation(): { latitude: number; longitude: number } | null {
   try {
@@ -33,6 +41,46 @@ function getSavedLocation(): { latitude: number; longitude: number } | null {
     // fallback
   }
   return null;
+}
+
+function getSavedTheme(): AppThemeMode {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY_THEME);
+    if (s === "light" || s === "dark") return s;
+  } catch {}
+  return "dark";
+}
+
+function getSavedFontSize(): FontSizeSetting {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY_FONT_SIZE);
+    if (s === "normal" || s === "large" || s === "xlarge") return s;
+  } catch {}
+  return "large"; // 기본 폰트 크기 'large' (가독성 향상)
+}
+
+function getSavedMapType(): "NORMAL" | "HYBRID" {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY_MAP_TYPE);
+    if (s === "NORMAL" || s === "HYBRID") return s;
+  } catch {}
+  return "NORMAL";
+}
+
+function getSavedDistanceUnit(): "auto" | "km" | "m" {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY_DISTANCE_UNIT);
+    if (s === "auto" || s === "km" || s === "m") return s;
+  } catch {}
+  return "auto";
+}
+
+function getSavedCustomCourses(): SavedCustomCourse[] {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY_SAVED_COURSES);
+    if (s) return JSON.parse(s);
+  } catch {}
+  return [];
 }
 
 // 로컬 스토리지에서 초기 프로필 불러오기 (새로고침 시 유지)
@@ -204,6 +252,14 @@ interface WellnessState {
   isSettingsModalOpen: boolean;
   settingsInitialTab: "health" | "travel" | "system";
 
+  // 테마, 글자크기, 지도타입, 거리단위, 코스보관함, 트랜지션 로딩
+  themeMode: AppThemeMode;
+  fontSize: FontSizeSetting;
+  mapType: "NORMAL" | "HYBRID";
+  distanceUnit: "auto" | "km" | "m";
+  savedCustomCourses: SavedCustomCourse[];
+  isCourseLoading: boolean;
+
   isSupabaseConnected: boolean;
   isLoading: boolean;
 
@@ -214,6 +270,13 @@ interface WellnessState {
   closeOnboardingModal: () => void;
   openSettingsModal: (tab?: "health" | "travel" | "system") => void;
   closeSettingsModal: () => void;
+  setThemeMode: (mode: AppThemeMode) => void;
+  setFontSize: (size: FontSizeSetting) => void;
+  setMapType: (type: "NORMAL" | "HYBRID") => void;
+  toggleDistanceUnit: () => void;
+  saveCustomCourse: (course: SavedCustomCourse) => void;
+  removeCustomCourse: (id: string) => void;
+  setIsCourseLoading: (loading: boolean) => void;
   toggleCondition: (condition: ChronicCondition) => void;
   setCourseMode: (mode: "local" | "theme") => void;
   setActiveCourseId: (id: string) => void;
@@ -240,6 +303,11 @@ const initialFiltered = computeFilteredCourses(
   "local"
 );
 const initialQuestData = getSavedQuests();
+const initialTheme = getSavedTheme();
+const initialFontSize = getSavedFontSize();
+const initialMapType = getSavedMapType();
+const initialDistUnit = getSavedDistanceUnit();
+const initialSavedCourses = getSavedCustomCourses();
 
 export const useWellnessStore = create<WellnessState>((set, get) => ({
   profile: initialProfile,
@@ -271,6 +339,13 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   isSettingsModalOpen: false,
   settingsInitialTab: "health",
 
+  themeMode: initialTheme,
+  fontSize: initialFontSize,
+  mapType: initialMapType,
+  distanceUnit: initialDistUnit,
+  savedCustomCourses: initialSavedCourses,
+  isCourseLoading: false,
+
   isSupabaseConnected: false,
   isLoading: false,
 
@@ -279,6 +354,62 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   openSettingsModal: (tab = "health") =>
     set({ isSettingsModalOpen: true, settingsInitialTab: tab }),
   closeSettingsModal: () => set({ isSettingsModalOpen: false }),
+
+  setThemeMode: (themeMode) => {
+    try {
+      localStorage.setItem(STORAGE_KEY_THEME, themeMode);
+      if (themeMode === "dark") {
+        document.documentElement.classList.add("dark");
+        document.documentElement.classList.remove("light");
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.documentElement.classList.add("light");
+      }
+    } catch {}
+    set({ themeMode });
+  },
+
+  setFontSize: (fontSize) => {
+    try {
+      localStorage.setItem(STORAGE_KEY_FONT_SIZE, fontSize);
+      document.documentElement.setAttribute("data-font-size", fontSize);
+    } catch {}
+    set({ fontSize });
+  },
+
+  setMapType: (mapType) => {
+    try {
+      localStorage.setItem(STORAGE_KEY_MAP_TYPE, mapType);
+    } catch {}
+    set({ mapType });
+  },
+
+  toggleDistanceUnit: () => {
+    const current = get().distanceUnit;
+    const next = current === "auto" ? "km" : current === "km" ? "m" : "auto";
+    try {
+      localStorage.setItem(STORAGE_KEY_DISTANCE_UNIT, next);
+    } catch {}
+    set({ distanceUnit: next });
+  },
+
+  saveCustomCourse: (course) => {
+    const saved = [...get().savedCustomCourses, course];
+    try {
+      localStorage.setItem(STORAGE_KEY_SAVED_COURSES, JSON.stringify(saved));
+    } catch {}
+    set({ savedCustomCourses: saved });
+  },
+
+  removeCustomCourse: (id) => {
+    const saved = get().savedCustomCourses.filter((c) => c.id !== id);
+    try {
+      localStorage.setItem(STORAGE_KEY_SAVED_COURSES, JSON.stringify(saved));
+    } catch {}
+    set({ savedCustomCourses: saved });
+  },
+
+  setIsCourseLoading: (isCourseLoading) => set({ isCourseLoading }),
 
   setIsLocationModalOpen: (open) => set({ isLocationModalOpen: open }),
   setIsPinningHome: (pinning) => set({ isPinningHome: pinning }),
@@ -352,9 +483,35 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
 
   setActiveQuestId: (id) => set({ activeQuestId: id }),
 
-  completeQuest: (questId) => {
+  completeQuest: async (questId) => {
+    // 1. 로그인 여부 검증
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("🏅 칭호 획득 및 퀘스트 완보 인증은 로그인 회원만 가능합니다.\n로그인 창으로 이동합니다.");
+      const { useAuthStore } = await import("./authStore");
+      useAuthStore.getState().openModal("signin");
+      return;
+    }
+
     const targetQuest = get().quests.find((q) => q.id === questId);
     if (!targetQuest || targetQuest.isCompleted) return;
+
+    // 2. 현재 GPS/핀 위치와 퀘스트 명소 간 거리 검증 (300m 반경)
+    const { userLocation } = get();
+    if (userLocation) {
+      const dist = calculateDistanceMeters(
+        userLocation.latitude,
+        userLocation.longitude,
+        targetQuest.latitude,
+        targetQuest.longitude
+      );
+      if (dist > 300) {
+        const proceed = confirm(
+          `📍 현재 위치가 퀘스트 명소(${targetQuest.landmarkName})로부터 약 ${Math.round(dist)}m 떨어져 있습니다.\n(현장 반경 300m 이내 실시간 인증 원칙)\n\n[개발/시연 모드] 모의 현장 체류 인증(15분 완보)으로 칭호를 획득하시겠습니까?`
+        );
+        if (!proceed) return;
+      }
+    }
 
     const newQuests = get().quests.map((q) =>
       q.id === questId ? { ...q, isCompleted: true } : q
@@ -377,6 +534,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
     } catch {
       // ignore
     }
+    alert(`🎉 축하합니다! [${targetQuest.titleReward}] 웰니스 칭호를 성공적으로 획득하셨습니다!`);
   },
 
   setProfile: (updates) => {

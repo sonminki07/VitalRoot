@@ -50,8 +50,11 @@ export function ControlPanel() {
   } = useWellnessStore();
 
   const { flyToPlace } = useMapStore();
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleModeChange = (mode: "local" | "theme") => {
+    if (courseMode === mode) return;
+    setIsTransitioning(true);
     setCourseMode(mode);
     setTimeout(() => {
       const currentFiltered = useWellnessStore.getState().filteredCourses;
@@ -59,7 +62,10 @@ export function ControlPanel() {
       if (first) {
         flyToPlace(first.restaurant.longitude, first.restaurant.latitude, 14);
       }
-    }, 50);
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 200);
+    }, 150);
   };
 
   const formatDistance = (meters: number) => {
@@ -129,7 +135,7 @@ export function ControlPanel() {
     <div
       className={`fixed sm:absolute z-40 sm:z-20 transition-all duration-300 ease-in-out flex flex-col bg-gray-900/95 sm:bg-gray-900/90 backdrop-blur-md border border-gray-700/60 shadow-2xl text-white overflow-hidden
         bottom-0 left-0 right-0 rounded-t-3xl sm:rounded-2xl
-        sm:top-4 sm:left-4 sm:right-auto sm:bottom-auto sm:w-96 sm:max-h-[calc(100vh-2rem)]
+        sm:top-3 sm:left-3 sm:right-auto sm:bottom-auto sm:w-96 sm:max-h-[calc(100vh-1.5rem)]
         ${isMobileExpanded ? "h-[85vh] sm:h-auto" : "h-14 sm:h-auto"}
       `}
     >
@@ -257,7 +263,7 @@ export function ControlPanel() {
         </div>
 
         {/* 탭 본문 영역 (스크롤 지원) */}
-        <div className="p-4 overflow-y-auto space-y-4 flex-1 text-sm">
+        <div className="p-4 overflow-y-auto space-y-4 flex-1 text-sm custom-scrollbar">
           {/* TAB 1: 추천 코스 */}
           {activeTab === "courses" && (
             <div className="space-y-3">
@@ -374,6 +380,13 @@ export function ControlPanel() {
                   {filteredCourses.length}개 세트
                 </span>
               </div>
+
+              {isTransitioning && (
+                <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-center justify-center gap-2 text-xs text-emerald-300 animate-pulse">
+                  <span className="animate-spin">🌀</span>
+                  <span>맞춤 웰니스 코스를 새롭게 정렬하고 있습니다...</span>
+                </div>
+              )}
 
               {filteredCourses.length === 0 ? (
                 <div className="p-4 bg-gray-800/40 rounded-xl border border-gray-700/50 text-center text-xs text-gray-400 space-y-2">
@@ -499,14 +512,16 @@ export function ControlPanel() {
                           <div className="text-[10px] text-sky-400 flex items-center gap-1">
                             <span>🧭</span>
                             <span>
-                              경로 인근 화장실·쉼터 {course.waypoints.length}곳 (3~5분 레이더)
+                              경로 3~5분 안심 편의시설:{" "}
+                              <strong>{course.waypoints.length}곳</strong> 레이더 안내
                             </span>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-800">
-                          <span>
-                            보행로 {course.distanceMeters || 720}m • 도보 {course.walkMinutes}분
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-800 text-[11px]">
+                          <span className="text-gray-400">
+                            총 거리: <strong>{course.distanceMeters}m</strong> (약{" "}
+                            {course.walkMinutes}분)
                           </span>
                           <span className="text-teal-300 font-medium">
                             {course.slopeGrade}
@@ -514,75 +529,70 @@ export function ControlPanel() {
                         </div>
                       </div>
 
-                      {/* 하단 네이버 도보 길찾기 버튼 영역 */}
-                      <div className="mt-2.5 flex flex-col gap-1.5 pt-1.5 border-t border-gray-800/80">
-                        <div className="flex items-center justify-between gap-1.5">
-                          {userLocation ? (
-                            <div className="flex flex-wrap items-center gap-1.5 flex-1">
-                              {/* 5분(400m) 초과 시 대중교통 버튼 제공 */}
-                              {userToRestTransitUrl && (
-                                <a
-                                  href={userToRestTransitUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
-                                  title="네이버 지도 대중교통(버스/지하철) 길찾기로 연결"
-                                >
-                                  <span>🚌</span>
-                                  <span>대중교통</span>
-                                </a>
-                              )}
-                              {/* 도보 버튼 */}
-                              {userToRestWalkUrl && (
-                                <a
-                                  href={userToRestWalkUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className={`px-2.5 py-1.5 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95 ${
-                                    isTransitRecommended
-                                      ? "bg-sky-600 hover:bg-sky-500"
-                                      : "bg-[#03C75A] hover:bg-[#02b350]"
-                                  }`}
-                                  title="네이버 지도 도보 길찾기로 연결"
-                                >
-                                  <span>{isTransitRecommended ? "🚶" : "🟢"}</span>
-                                  <span>{isTransitRecommended ? "도보" : "내 위치 ➔ 식당"}</span>
-                                </a>
-                              )}
-                              <a
-                                href={restToTrailNaverUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
-                              >
-                                <span>🚶</span>
-                                <span>식당 ➔ 산책로</span>
-                              </a>
-                            </div>
-                          ) : (
+                      {/* 하단 네이버 길찾기 정돈 버튼 그리드 (2x2 정돈 레이아웃) */}
+                      <div className="mt-2.5 pt-2 border-t border-gray-800/80">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {/* 대중교통 길찾기 */}
+                          {userLocation && isTransitRecommended && userToRestTransitUrl ? (
                             <a
-                              href={restToTrailNaverUrl}
+                              href={userToRestTransitUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="px-3 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                              className="w-full py-1.5 px-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center justify-center gap-1 active:scale-95"
+                              title="네이버 지도 대중교통(버스/지하철) 길찾기"
                             >
-                              <span>🟢</span>
-                              <span>네이버 도보 길찾기</span>
+                              <span>🚌</span>
+                              <span>대중교통</span>
                             </a>
-                          )}
+                          ) : null}
 
+                          {/* 내 위치 ➔ 식당 도보 */}
+                          {userToRestWalkUrl ? (
+                            <a
+                              href={userToRestWalkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className={`w-full py-1.5 px-2 text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center justify-center gap-1 active:scale-95 ${
+                                !isTransitRecommended
+                                  ? "col-span-2 bg-[#03C75A] hover:bg-[#02b350]"
+                                  : "bg-sky-600 hover:bg-sky-500"
+                              }`}
+                              title="네이버 지도 도보 길찾기"
+                            >
+                              <span>{isTransitRecommended ? "🚶" : "🟢"}</span>
+                              <span>{isTransitRecommended ? "도보" : "내 위치 ➔ 식당 도보"}</span>
+                            </a>
+                          ) : null}
+
+                          {/* 식당 ➔ 산책로 */}
+                          <a
+                            href={restToTrailNaverUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className={`w-full py-1.5 px-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center justify-center gap-1 active:scale-95 ${
+                              !userLocation ? "col-span-1" : ""
+                            }`}
+                          >
+                            <span>👟</span>
+                            <span className="truncate">식당 ➔ 산책로</span>
+                          </a>
+
+                          {/* 지도 위치 ➔ */}
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSelectCourse(course.id);
                             }}
-                            className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-0.5 shrink-0 ml-auto"
+                            className={`w-full py-1.5 px-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-[11px] rounded-lg border border-gray-700 transition-all flex items-center justify-center gap-1 active:scale-95 ${
+                              !userLocation ? "col-span-1" : ""
+                            }`}
                           >
-                            지도 위치 ➔
+                            <span>🎯</span>
+                            <span>지도 위치 ➔</span>
                           </button>
                         </div>
                       </div>

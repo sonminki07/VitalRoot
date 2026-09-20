@@ -16,6 +16,7 @@ const ALL_CONDITIONS: ChronicCondition[] = [
 ];
 
 const DIET_GOALS = ["저염/저나트륨", "저탄수화물", "저GI", "고단백", "칼륨조절", "균형건강식"];
+const ALLERGIES_LIST = ["갑각류", "땅콩", "대두", "밀/글루텐", "유제품", "메밀", "난류", "생선"];
 const FITNESS_LEVELS = [
   "식후 30분 가벼운 평지 산책 희망",
   "1시간 내외 숲길/둘레길 완보 가능",
@@ -32,6 +33,12 @@ export function SettingsModal() {
     userLocation,
     setIsPinningHome,
     earnedTitles,
+    themeMode,
+    setThemeMode,
+    fontSize,
+    setFontSize,
+    savedCustomCourses,
+    removeCustomCourse,
   } = useWellnessStore();
 
   const { user } = useAuthStore();
@@ -352,6 +359,44 @@ export function SettingsModal() {
                   </div>
                 </div>
               </div>
+
+              {/* 4. 식품 알레르기 유발 성분 관리 */}
+              <div className="space-y-2 pt-2 border-t border-gray-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-300">
+                    4. 식품 알레르기 주의 관리
+                  </label>
+                  <span className="text-[11px] text-gray-400">
+                    {(profile.allergies || []).length}개 등록됨
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALLERGIES_LIST.map((allg) => {
+                    const isSelected = (profile.allergies || []).includes(allg);
+                    return (
+                      <button
+                        key={allg}
+                        type="button"
+                        onClick={() => {
+                          const current = profile.allergies || [];
+                          const next = isSelected
+                            ? current.filter((a) => a !== allg)
+                            : [...current, allg];
+                          updateProfile({ allergies: next });
+                        }}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                          isSelected
+                            ? "bg-red-900/50 border-red-500 text-red-200 shadow-sm"
+                            : "bg-gray-800/80 border-gray-700 text-gray-400 hover:border-gray-600"
+                        }`}
+                      >
+                        {isSelected ? "⚠️ " : "+ "}
+                        {allg}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
@@ -414,12 +459,115 @@ export function SettingsModal() {
                   코스 진행 방향 기준 <strong>도보 3~5분 반경(180m~350m)</strong> 내의 공공화장실, 그늘막 쉼터, 무장애 편의시설을 실시간 감지하여 지도에 핀으로 안내합니다.
                 </p>
               </div>
+
+              {/* 나만의 저장 코스 보관함 */}
+              <div className="p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>📌</span>
+                    <span>나만의 저장 코스 보관함</span>
+                  </span>
+                  <span className="text-[11px] text-emerald-400 font-semibold">
+                    {savedCustomCourses.length}개 보관 중
+                  </span>
+                </div>
+                {savedCustomCourses.length === 0 ? (
+                  <p className="text-[11px] text-gray-400">
+                    지도 하단 바의 <strong>[📌 나만의 코스 저장]</strong> 버튼을 누르면 이 보관함에 영구 저장됩니다.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {savedCustomCourses.map((sc) => (
+                      <div
+                        key={sc.id}
+                        className="p-2.5 bg-gray-900/80 border border-gray-700/80 rounded-xl text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white">{sc.title}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeCustomCourse(sc.id)}
+                            className="text-red-400 hover:text-red-300 text-[10px]"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                        <div className="text-[11px] text-emerald-400">
+                          {sc.restaurantName} ➔ {sc.trailName} ({sc.totalDistanceMeters}m)
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* TAB 3: 계정 & 확장 기능 (기반 마련) */}
           {activeTab === "system" && (
             <div className="space-y-5 animate-in fade-in duration-150">
+              {/* 화면 테마 및 글자 크기 조절 */}
+              <div className="p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl space-y-3">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>🎨</span>
+                  <span>화면 UI 및 지도 테마</span>
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setThemeMode("dark")}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      themeMode === "dark"
+                        ? "bg-emerald-600 border-emerald-400 text-white shadow-md"
+                        : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
+                    }`}
+                  >
+                    <span>🌙</span>
+                    <span>다크 웰니스 테마</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThemeMode("light")}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      themeMode === "light"
+                        ? "bg-sky-600 border-sky-400 text-white shadow-md"
+                        : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
+                    }`}
+                  >
+                    <span>☀️</span>
+                    <span>화이트 네이버 테마</span>
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-gray-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-gray-300 flex items-center gap-1">
+                      <span>🔤</span>
+                      <span>전체 글자 크기 조절</span>
+                    </span>
+                    <span className="text-[10px] text-emerald-400">
+                      {fontSize === "normal" ? "보통 (14px)" : fontSize === "large" ? "크게 (16px) 권장" : "아주 크게 (18px)"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(["normal", "large", "xlarge"] as const).map((sz) => (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setFontSize(sz)}
+                        className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                          fontSize === sz
+                            ? "bg-emerald-600 border-emerald-400 text-white"
+                            : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
+                        }`}
+                      >
+                        {sz === "normal" ? "보통 (14px)" : sz === "large" ? "크게 (16px)" : "아주 크게 (18px)"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* 계정 정보 */}
               <div className="p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl space-y-2.5">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
