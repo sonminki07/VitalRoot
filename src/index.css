@@ -35,21 +35,21 @@
   background: rgba(16, 185, 129, 0.85);
 }
 
-/* 2. 전역 글자 크기 스케일링 설정 */
+/* 2. 전역 글자 크기 스케일링 설정 (기본 글자 크기 전체 상향) */
 html {
-  font-size: 15.5px; /* 기본 글자 크기 상향 */
+  font-size: 16.5px;
 }
 
 html[data-font-size="normal"] {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 html[data-font-size="large"] {
-  font-size: 15.5px;
+  font-size: 16.5px;
 }
 
 html[data-font-size="xlarge"] {
-  font-size: 17px;
+  font-size: 18.5px;
 }
 
 /* =========================================================
@@ -93,11 +93,49 @@ html.light .bg-gray-950,
 html.light .bg-gray-950\/95,
 html.light .bg-gray-950\/90,
 html.light .bg-slate-900,
-html.light .bg-slate-900\/95,
+html.light .bg.slate-900\/95,
 html.light .bg-slate-900\/90 {
-  background-color: rgba(255, 255, 255, 0.97) !important;
+  background-color: rgba(255, 255, 255, 0.98) !important;
   color: #0f172a !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* 카드 내부 및 보조 컨테이너 배경을 밝고 깔끔한 화이트/소프트 그레이로 교체 */
+html[data-theme="light"] .bg-gray-950\/60,
+html[data-theme="light"] .bg-gray-950\/80,
+html[data-theme="light"] .bg-gray-900\/60,
+html[data-theme="light"] .bg-gray-900\/70,
+html[data-theme="light"] .bg-gray-800\/40,
+html.light .bg-gray-950\/60,
+html.light .bg-gray-950\/80,
+html.light .bg-gray-900\/60,
+html.light .bg-gray-900\/70,
+html.light .bg-gray-800\/40 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* 활성 코스 및 탭의 에메랄드 틴트 블록을 눈에 편안한 밝은 민트/에메랄드 톤으로 변환 */
+html[data-theme="light"] .bg-emerald-950\/30,
+html[data-theme="light"] .bg-emerald-950\/40,
+html[data-theme="light"] .bg-emerald-950\/60,
+html.light .bg-emerald-950\/30,
+html.light .bg-emerald-950\/40,
+html.light .bg-emerald-950\/60 {
+  background-color: rgba(209, 250, 229, 0.75) !important;
+  border-color: #a7f3d0 !important;
+  color: #065f46 !important;
+}
+
+/* 스카이 틴트 블록 (내 위치 뱃지 등) 변환 */
+html[data-theme="light"] .bg-sky-950\/60,
+html[data-theme="light"] .bg-sky-950\/40,
+html.light .bg-sky-950\/60,
+html.light .bg-sky-950\/40 {
+  background-color: #e0f2fe !important;
+  border-color: #bae6fd !important;
+  color: #0369a1 !important;
 }
 
 /* 보조 블록/카드 배경색(bg-gray-800, bg-slate-800)을 부드러운 슬레이트 라이트로 변환 */
@@ -121,27 +159,22 @@ html.light .bg-slate-800\/60 {
 
 /* 어두운 테두리를 밝고 선명한 네이버형 슬레이트 테두리로 교체 */
 html[data-theme="light"] .border-gray-700,
+html[data-theme="light"] .border-gray-700\/50,
 html[data-theme="light"] .border-gray-700\/60,
 html[data-theme="light"] .border-gray-800,
 html[data-theme="light"] .border-gray-800\/80,
 html.light .border-gray-700,
+html.light .border-gray-700\/50,
 html.light .border-gray-700\/60,
 html.light .border-gray-800,
 html.light .border-gray-800\/80 {
   border-color: #e2e8f0 !important;
 }
 
-/* 라이트 모드 텍스트 컬러 보정 (단, 색상 버튼/뱃지 내부 text-white는 보존) */
+/* 라이트 모드 텍스트 컬러 보정 (선명한 명도 대비 확보) */
 html[data-theme="light"] .text-white:not([class*="bg-emerald"]):not([class*="bg-teal"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-rose"]):not([class*="bg-red"]):not([class*="bg-[#03C75A]"]),
 html.light .text-white:not([class*="bg-emerald"]):not([class*="bg-teal"]):not([class*="bg-sky"]):not([class*="bg-amber"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-rose"]):not([class*="bg-red"]):not([class*="bg-[#03C75A]"]) {
   color: #0f172a !important;
-}
-
-html[data-theme="light"] .text-gray-300,
-html[data-theme="light"] .text-gray-400,
-html.light .text-gray-300,
-html.light .text-gray-400 {
-  color: #475569 !important;
 }
 
 html[data-theme="light"] .text-gray-200,
@@ -149,17 +182,50 @@ html.light .text-gray-200 {
   color: #1e293b !important;
 }
 
+html[data-theme="light"] .text-gray-300,
+html[data-theme="light"] .text-gray-400,
+html.light .text-gray-300,
+html.light .text-gray-400 {
+  color: #334155 !important;
+}
+
 html[data-theme="light"] .text-gray-500,
 html.light .text-gray-500 {
   color: #64748b !important;
 }
 
+/* 밝은 배경에서 연한 파스텔 글자들을 진한 고대비 컬러로 교정 */
+html[data-theme="light"] .text-emerald-300,
+html.light .text-emerald-300 {
+  color: #047857 !important;
+}
+html[data-theme="light"] .text-emerald-400,
+html.light .text-emerald-400 {
+  color: #059669 !important;
+}
+html[data-theme="light"] .text-teal-300,
+html.light .text-teal-300 {
+  color: #0f766e !important;
+}
+html[data-theme="light"] .text-sky-300,
+html[data-theme="light"] .text-sky-400,
+html.light .text-sky-300,
+html.light .text-sky-400 {
+  color: #0284c7 !important;
+}
+html[data-theme="light"] .text-amber-300,
+html.light .text-amber-300 {
+  color: #b45309 !important;
+}
+
 /* 호버 시 어두운 배경 밝게 */
 html[data-theme="light"] .hover\:bg-gray-800:hover,
 html[data-theme="light"] .hover\:bg-gray-800\/60:hover,
+html[data-theme="light"] .hover\:bg-gray-800\/80:hover,
 html[data-theme="light"] .hover\:bg-gray-700:hover,
 html.light .hover\:bg-gray-800:hover,
 html.light .hover\:bg-gray-800\/60:hover,
+html.light .hover\:bg-gray-800\/80:hover,
 html.light .hover\:bg-gray-700:hover {
   background-color: #e2e8f0 !important;
 }

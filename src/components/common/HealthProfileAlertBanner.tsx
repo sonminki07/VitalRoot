@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useWellnessStore, checkIsOnboardingComplete } from "../../store/wellnessStore";
 
 export function HealthProfileAlertBanner() {
-  const { profile, openOnboardingModal } = useWellnessStore();
+  const { profile, openOnboardingModal, themeMode } = useWellnessStore();
+  const isLight = themeMode === "light";
   const [isDismissed, setIsDismissed] = useState(false);
   const [isMinimized, setIsMinimized] = useState(
     typeof window !== "undefined" && window.innerWidth < 1280
@@ -25,7 +26,7 @@ export function HealthProfileAlertBanner() {
   const completedCount = [hasConditions, hasMeds, hasFitness].filter(Boolean).length;
 
   return (
-    <div className="fixed bottom-24 sm:bottom-24 right-3 sm:right-4 z-40 max-w-sm animate-in slide-in-from-bottom-5 duration-300">
+    <div className="fixed bottom-4 right-3 sm:right-4 z-40 max-w-sm animate-in slide-in-from-bottom-5 duration-300">
       {isMinimized ? (
         // 최소화된 펄스 뱃지 (지도 조작 방해 최소화하면서도 눈에 띄게 지속 유지)
         <div className="flex items-center gap-1">
@@ -34,16 +35,20 @@ export function HealthProfileAlertBanner() {
               setIsMinimized(false);
               openOnboardingModal();
             }}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-500/90 hover:bg-amber-500 text-gray-950 font-bold text-xs shadow-2xl border-2 border-amber-300 animate-pulse transition-all active:scale-95"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-500/95 hover:bg-amber-500 text-gray-950 font-bold text-xs shadow-2xl border-2 border-amber-300 animate-pulse transition-all active:scale-95"
             title="클릭하여 건강 프로필을 완성하세요"
           >
             <span className="text-sm">⚠️</span>
             <span>건강설정 미완료 ({completedCount}/3)</span>
-            <span className="text-[10px] bg-gray-950/20 px-1.5 py-0.5 rounded">설정하기 ➔</span>
+            <span className="text-[10px] bg-gray-950/20 px-1.5 py-0.5 rounded font-bold">설정하기 ➔</span>
           </button>
           <button
             onClick={() => setIsDismissed(true)}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-900/80 hover:bg-gray-800 text-gray-400 hover:text-white text-xs font-bold border border-gray-700 shadow-md transition-all shrink-0"
+            className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold border shadow-md transition-all shrink-0 ${
+              isLight
+                ? "bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-900 border-slate-300"
+                : "bg-gray-900/80 hover:bg-gray-800 text-gray-400 hover:text-white border-gray-700"
+            }`}
             title="알림 완전히 닫기"
           >
             ✕
@@ -51,15 +56,17 @@ export function HealthProfileAlertBanner() {
         </div>
       ) : (
         // 카드형 알림 토스트
-        <div className="bg-gray-950/95 border-2 border-amber-500/90 rounded-2xl p-3.5 sm:p-4 text-white shadow-2xl backdrop-blur-md space-y-2">
+        <div className={`border-2 border-amber-500/90 rounded-2xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md space-y-2 ${
+          isLight ? "bg-white/98 text-slate-900" : "bg-gray-950/95 text-white"
+        }`}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-xl animate-bounce">⚠️</span>
               <div>
-                <h4 className="font-bold text-xs sm:text-sm text-amber-300">
+                <h4 className={`font-bold text-xs sm:text-sm ${isLight ? "text-amber-700" : "text-amber-300"}`}>
                   맞춤 건강 프로필 미완료 ({completedCount}/3)
                 </h4>
-                <p className="text-[11px] text-gray-300 mt-0.5">
+                <p className={`text-[11px] mt-0.5 ${isLight ? "text-slate-600" : "text-gray-300"}`}>
                   기저질환과 의약품 정보가 등록되지 않으면 맞춤 외식/보행로를 추천할 수 없습니다.
                 </p>
               </div>
@@ -115,7 +122,7 @@ export function HealthProfileAlertBanner() {
           <div className="pt-1 flex items-center justify-end gap-2">
             <button
               onClick={() => setIsMinimized(true)}
-              className="px-2.5 py-1.5 text-xs text-gray-400 hover:text-gray-200"
+              className={`px-2.5 py-1.5 text-xs font-semibold ${isLight ? "text-slate-500 hover:text-slate-800" : "text-gray-400 hover:text-gray-200"}`}
             >
               접어두기
             </button>

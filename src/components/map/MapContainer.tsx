@@ -57,8 +57,10 @@ export function MapContainer() {
     isSettingsModalOpen,
     activeWalkSession,
     cancelWalkSession,
+    themeMode,
   } = useWellnessStore();
 
+  const isLight = themeMode === "light";
   const isModalActive = isOnboardingModalOpen || isSettingsModalOpen;
 
   const { center, zoom, setSelectedPlace, flyToPlace } = useMapStore();
@@ -246,7 +248,7 @@ export function MapContainer() {
     if (!isMapLoaded) return;
     const timer = setTimeout(() => {
       fitCourseAndHomeBounds(true);
-    }, 250);
+    }, 550);
     return () => clearTimeout(timer);
   }, [activeCourse?.id, userLocation?.latitude, userLocation?.longitude]);
 
@@ -971,7 +973,11 @@ export function MapContainer() {
         {/* 전체 경로 한눈에 보기 맞춤 버튼 */}
         <button
           onClick={() => fitCourseAndHomeBounds(true)}
-          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 bg-gray-900/90 hover:bg-gray-800 text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 shrink-0"
+          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 shrink-0 border ${
+            isLight
+              ? "bg-white/95 hover:bg-slate-50 text-emerald-700 hover:text-emerald-800 border-emerald-500/50 shadow-slate-300/40"
+              : "bg-gray-900/90 hover:bg-gray-800 text-emerald-400 hover:text-emerald-300 border-emerald-500/40"
+          }`}
           title="내 위치와 선택된 코스 전체를 화면 한눈에 포커스합니다."
         >
           <span>⛶</span>
@@ -1001,6 +1007,8 @@ export function MapContainer() {
           className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 border shrink-0 ${
             isPinningHome
               ? "bg-amber-500 text-gray-950 border-amber-300 animate-pulse ring-2 ring-amber-400"
+              : isLight
+              ? "bg-white/95 text-amber-800 hover:text-amber-900 border-amber-400 hover:bg-amber-50 shadow-slate-300/40"
               : "bg-gray-900/90 text-amber-300 hover:text-white border-amber-500/40 hover:bg-gray-800"
           }`}
           title="지도 화면을 직접 클릭하여 내 집(출발지) 위치를 지정합니다."
@@ -1017,7 +1025,11 @@ export function MapContainer() {
         {/* 일반 / 위성 단일 토글 스위치 버튼 (공간 낭비 제거) */}
         <button
           onClick={() => handleChangeMapType(storeMapType === "NORMAL" ? "satellite" : "street")}
-          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gray-900/90 hover:bg-gray-800 text-gray-300 hover:text-white border border-gray-700/60 text-xs font-medium shadow-xl transition-all active:scale-95 shrink-0"
+          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-medium shadow-xl transition-all active:scale-95 shrink-0 ${
+            isLight
+              ? "bg-white/95 hover:bg-slate-50 text-slate-800 hover:text-slate-900 border-slate-300 shadow-slate-300/40"
+              : "bg-gray-900/90 hover:bg-gray-800 text-gray-300 hover:text-white border-gray-700/60"
+          }`}
           title={storeMapType === "NORMAL" ? "위성 지도로 변경" : "일반 도로 지도로 변경"}
         >
           <span>{storeMapType === "NORMAL" ? "🛰️" : "🗺️"}</span>
@@ -1026,8 +1038,14 @@ export function MapContainer() {
       </div>
 
       {/* 상단 편의시설 레이더 필터 칩 (데스크톱에서는 사이드바 우측 sm:left-[368px] lg:left-[412px]에 안전하게 위치) */}
-      <div className="absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-20 flex items-center gap-1 bg-gray-900/95 backdrop-blur-md border border-gray-700/80 rounded-2xl p-1 sm:p-1.5 shadow-2xl max-w-[95vw] sm:max-w-none overflow-x-auto">
-        <div className="hidden 2xl:flex items-center gap-1 px-2 text-[11px] text-gray-400 font-semibold border-r border-gray-700/80 mr-1 shrink-0">
+      <div className={`absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-20 flex items-center gap-1 backdrop-blur-md border rounded-2xl p-1 sm:p-1.5 shadow-xl max-w-[95vw] sm:max-w-none overflow-x-auto ${
+        isLight
+          ? "bg-white/95 border-slate-300 shadow-slate-300/40"
+          : "bg-gray-900/95 border-gray-700/80 shadow-2xl"
+      }`}>
+        <div className={`hidden 2xl:flex items-center gap-1 px-2 text-[11px] font-semibold border-r mr-1 shrink-0 ${
+          isLight ? "text-slate-600 border-slate-200" : "text-gray-400 border-gray-700/80"
+        }`}>
           <span>🧭</span>
           <span>편의 레이더:</span>
         </div>
@@ -1038,6 +1056,8 @@ export function MapContainer() {
             className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium shrink-0 transition-all ${
               activeWaypointFilter === cat.type
                 ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 : "text-gray-400 hover:text-white hover:bg-gray-800/60"
             }`}
           >
@@ -1085,72 +1105,16 @@ export function MapContainer() {
 
       {/* 지도 하단: 실제 도로 보행로 길찾기 바 (사이드바 우측 sm:left-[368px] lg:left-[412px]에 격리하여 겹침 원천 차단) */}
       {activeCourse && !isCourseBarDismissed && (
-        <div className="absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 sm:max-w-[calc(100vw-390px)] lg:max-w-[calc(100vw-430px)] z-30 bg-gray-900/95 backdrop-blur-md border border-emerald-500/60 rounded-2xl px-3.5 py-2 sm:py-2.5 shadow-2xl flex flex-col xl:flex-row items-center justify-between gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw]">
-          <div className="flex items-center gap-2.5 text-center sm:text-left">
-            <span className="text-xl shrink-0">
-              {userLocation ? "📍" : "🌿"}
-            </span>
-            <div>
-              <div className="font-bold text-white flex items-center justify-center sm:justify-start gap-1.5 text-xs sm:text-sm">
-                {userLocation && (
-                  <>
-                    <span className="text-sky-300">내 현재 위치</span>
-                    <span className="text-sky-400 font-bold">➔</span>
-                  </>
-                )}
-                <span>{activeCourse.restaurant.name}</span>
-                <span className="text-emerald-400">➔</span>
-                <span>{activeCourse.trail.name}</span>
-              </div>
-              <div
-                onClick={toggleDistanceUnit}
-                className="text-[11px] text-gray-400 cursor-pointer hover:text-gray-200 transition-colors"
-                title="클릭하여 거리 단위 변경 (m / km)"
-              >
-                {userLocation ? (
-                  <>
-                    내 위치 ➔ 식당{" "}
-                    <strong className="text-sky-300 font-semibold underline decoration-dotted">
-                      {formatDistance(distFromUserToRest ?? 0, distanceUnit)}
-                    </strong>
-                    {isTransitRecommended ? (
-                      <span className="text-indigo-300 font-medium ml-1">
-                        (도보 5분 초과 • 대중교통 권장)
-                      </span>
-                    ) : (
-                      <span className="text-emerald-300 font-medium ml-1">
-                        (도보 5분 이내 초근접)
-                      </span>
-                    )}{" "}
-                    • 식당 ➔ 산책로{" "}
-                    <strong className="text-emerald-400 font-semibold underline decoration-dotted">
-                      {formatDistance(actualWalkDistance, distanceUnit)}
-                    </strong>
-                  </>
-                ) : (
-                  <>
-                    실제 도로 보행 거리:{" "}
-                    <strong className="text-emerald-400 font-semibold underline decoration-dotted">
-                      {formatDistance(actualWalkDistance, distanceUnit)}
-                    </strong>{" "}
-                    • 도보 약{" "}
-                    <strong className="text-teal-300 font-semibold">
-                      {Math.round(actualWalkDistance / 70)}분
-                    </strong>{" "}
-                    ({activeCourse.slopeGrade})
-                  </>
-                )}
-                <span className="ml-1 text-[10px] text-gray-500 font-normal">
-                  [단위: {distanceUnit === "auto" ? "자동(m/km)" : distanceUnit}]
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="hidden sm:block h-7 w-px bg-gray-700/80 mx-1" />
-
-          {/* 길찾기 및 나만의 코스 저장 버튼 영역 */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div
+          className={`absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-30 backdrop-blur-md border rounded-2xl px-3 py-2 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw] sm:max-w-max ${
+            isLight
+              ? "bg-white/98 text-slate-900 border-emerald-600/40 shadow-slate-400/30"
+              : "bg-gray-900/95 text-white border-emerald-500/60 shadow-black/60"
+          }`}
+        >
+          {/* 좌측 영역: 코스 저장 핀 버튼 + 코스 정보 */}
+          <div className="flex items-center gap-2.5">
+            {/* 코스 저장 (텍스트 없이 📌 아이콘 단독) */}
             <button
               type="button"
               onClick={() => {
@@ -1174,62 +1138,126 @@ export function MapContainer() {
                   "📌 [나만의 저장 코스]에 현재 코스가 성공적으로 보관되었습니다!\n설정(⚙️) > 여행 & 길찾기 탭에서 언제든 확인하실 수 있습니다."
                 );
               }}
-              className="flex items-center justify-center gap-1 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+              className="flex items-center justify-center w-8 h-8 rounded-xl bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-base shadow-md transition-all active:scale-95 shrink-0"
               title="현재 추천 코스를 나만의 보관함에 영구 저장"
             >
-              <span>📌</span>
-              <span className="hidden sm:inline">코스 저장</span>
+              📌
             </button>
 
+            <div>
+              <div
+                className={`font-bold flex items-center gap-1.5 text-xs sm:text-[14px] ${
+                  isLight ? "text-slate-900" : "text-white"
+                }`}
+              >
+                {userLocation && (
+                  <>
+                    <span className={isLight ? "text-sky-700 font-semibold" : "text-sky-300"}>내 위치</span>
+                    <span className={isLight ? "text-sky-600 font-bold" : "text-sky-400 font-bold"}>➔</span>
+                  </>
+                )}
+                <span>{activeCourse.restaurant.name}</span>
+                <span className={isLight ? "text-emerald-700 font-bold" : "text-emerald-400"}>➔</span>
+                <span>{activeCourse.trail.name}</span>
+              </div>
+              <div
+                onClick={toggleDistanceUnit}
+                className={`text-[11px] sm:text-xs cursor-pointer transition-colors ${
+                  isLight ? "text-slate-600 hover:text-slate-900" : "text-gray-400 hover:text-gray-200"
+                }`}
+                title="클릭하여 거리 단위 변경 (m / km)"
+              >
+                {userLocation ? (
+                  <>
+                    식당까지{" "}
+                    <strong className={isLight ? "text-sky-700 font-bold underline decoration-dotted" : "text-sky-300 font-semibold underline decoration-dotted"}>
+                      {formatDistance(distFromUserToRest ?? 0, distanceUnit)}
+                    </strong>
+                    {isTransitRecommended ? (
+                      <span className={isLight ? "text-indigo-700 font-medium ml-1" : "text-indigo-300 font-medium ml-1"}>
+                        (대중교통 권장)
+                      </span>
+                    ) : (
+                      <span className={isLight ? "text-emerald-700 font-medium ml-1" : "text-emerald-300 font-medium ml-1"}>
+                        (도보 권장)
+                      </span>
+                    )}{" "}
+                    • 산책로{" "}
+                    <strong className={isLight ? "text-emerald-700 font-bold underline decoration-dotted" : "text-emerald-400 font-semibold underline decoration-dotted"}>
+                      {formatDistance(actualWalkDistance, distanceUnit)}
+                    </strong>
+                  </>
+                ) : (
+                  <>
+                    도보 거리:{" "}
+                    <strong className={isLight ? "text-emerald-700 font-bold underline decoration-dotted" : "text-emerald-400 font-semibold underline decoration-dotted"}>
+                      {formatDistance(actualWalkDistance, distanceUnit)}
+                    </strong>{" "}
+                    • 약{" "}
+                    <strong className={isLight ? "text-teal-700 font-bold" : "text-teal-300 font-semibold"}>
+                      {Math.round(actualWalkDistance / 70)}분
+                    </strong>{" "}
+                    ({activeCourse.slopeGrade})
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className={`hidden md:block h-6 w-px mx-0.5 ${isLight ? "bg-slate-300" : "bg-gray-700/80"}`} />
+
+          {/* 길찾기 버튼 영역 */}
+          <div className="flex items-center gap-1.5 shrink-0">
             {userLocation ? (
               <>
-                {/* 1. 최우선 핵심: 식당 ➔ 산책로 웰니스 도보 길찾기 (네이버 도보 100% 직행) */}
                 <a
                   href={naverRestToTrailUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0 border border-emerald-400/40"
+                  className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0 border border-emerald-400/40"
                   title="네이버 지도 도보 길찾기 (식당 ➔ 산책로 힐링 코스)"
                 >
-                  <span className="text-sm">🟢</span>
-                  <span>식당 ➔ 산책로 도보 길찾기</span>
+                  <span className="text-xs">🟢</span>
+                  <span>도보 길찾기</span>
                 </a>
 
-                {/* 2. 대중교통 또는 식당까지 도보 */}
                 {isTransitRecommended ? (
                   <a
                     href={naverTransitUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
-                    title="내 위치에서 식당까지 네이버 대중교통(버스/지하철) 길찾기로 연결"
+                    className="flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0"
+                    title="내 위치에서 식당까지 네이버 대중교통(버스/지하철) 길찾기"
                   >
-                    <span className="text-sm">🚌</span>
-                    <span>식당까지 대중교통</span>
+                    <span className="text-xs">🚌</span>
+                    <span>식당(대중교통)</span>
                   </a>
                 ) : (
                   <a
                     href={naverUserToRestWalkUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+                    className="flex items-center justify-center gap-1 px-2 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0"
                     title="내 위치에서 식당까지 도보 길찾기"
                   >
-                    <span className="text-sm">🚶</span>
+                    <span className="text-xs">🚶</span>
                     <span>식당 도보</span>
                   </a>
                 )}
 
-                {/* 3. 내 집 ➔ 산책로 직통 도보 */}
                 <a
                   href={naverUserToTrailUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-gray-800 hover:bg-gray-700 text-teal-300 hover:text-white font-bold text-xs rounded-xl border border-teal-500/40 shadow-lg transition-all active:scale-95 shrink-0"
+                  className={`flex items-center justify-center gap-1 px-2 py-1.5 font-bold text-xs rounded-xl border shadow transition-all active:scale-95 shrink-0 ${
+                    isLight
+                      ? "bg-slate-100 hover:bg-slate-200 text-teal-800 border-teal-600/30"
+                      : "bg-gray-800 hover:bg-gray-700 text-teal-300 hover:text-white border-teal-500/40"
+                  }`}
                   title="내 위치에서 산책로까지 직통 도보 길찾기"
                 >
-                  <span className="text-sm">🏁</span>
-                  <span>산책로 직통 도보</span>
+                  <span className="text-xs">🏁</span>
+                  <span>산책로 직통</span>
                 </a>
               </>
             ) : (
@@ -1237,10 +1265,10 @@ export function MapContainer() {
                 href={naverRestToTrailUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0"
               >
-                <span className="text-sm">🟢</span>
-                <span>네이버 도보 길찾기 (식당 ➔ 산책로)</span>
+                <span className="text-xs">🟢</span>
+                <span>도보 길찾기 (식당 ➔ 산책로)</span>
               </a>
             )}
 
@@ -1248,7 +1276,11 @@ export function MapContainer() {
             <button
               type="button"
               onClick={() => setIsCourseBarDismissed(true)}
-              className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-gray-800 text-xs shrink-0 font-bold ml-1 transition-colors"
+              className={`p-1.5 rounded-xl text-xs shrink-0 font-bold ml-1 transition-colors ${
+                isLight
+                  ? "text-slate-400 hover:text-slate-800 hover:bg-slate-200/80"
+                  : "text-gray-400 hover:text-white hover:bg-gray-800"
+              }`}
               title="하단 코스 길찾기 바 닫기"
             >
               ✕
@@ -1261,6 +1293,8 @@ export function MapContainer() {
       <div
         ref={mapElementRef}
         className={`w-full h-full transition-all duration-300 ${
+          isLight ? "bg-[#e5e7eb]" : "bg-[#1e293b]"
+        } ${
           isModalActive ? "opacity-30 pointer-events-none filter blur-[0.5px]" : "opacity-100"
         }`}
       />

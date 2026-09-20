@@ -12,7 +12,7 @@ import { useWellnessStore, checkIsOnboardingComplete } from "./store/wellnessSto
 
 function App() {
   const { initAuth } = useAuthStore();
-  const { profile, openOnboardingModal } = useWellnessStore();
+  const { profile, openOnboardingModal, themeMode } = useWellnessStore();
   const hasCheckedOnboarding = useRef(false);
 
   // 전역 Supabase 세션 리스너 및 OAuth 복귀 파라미터 초기화
@@ -37,7 +37,11 @@ function App() {
   }, [profile, openOnboardingModal]);
 
   return (
-    <div className="relative w-screen h-screen bg-gray-900 overflow-hidden">
+    <div
+      className={`relative w-screen h-screen ${
+        themeMode === "light" ? "bg-slate-100" : "bg-gray-900"
+      } overflow-hidden`}
+    >
       {/* 반응형 컨트롤 패널 (데스크톱: 좌측 플로팅 / 모바일: 하단 바텀 시트) */}
       <ControlPanel />
       {/* 지도 컴포넌트 & 상단 유틸 바 & 하단 코스 요약/길찾기 바 */}

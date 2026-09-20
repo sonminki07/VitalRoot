@@ -59,7 +59,10 @@ export function ControlPanel() {
     courseMode,
     setCourseMode,
     openSettingsModal,
+    themeMode,
   } = useWellnessStore();
+
+  const isLight = themeMode === "light";
 
   // 완보 세션 실시간 타이머 틱
   useEffect(() => {
@@ -150,9 +153,14 @@ export function ControlPanel() {
 
   return (
     <div
-      className={`fixed sm:absolute z-40 sm:z-20 transition-all duration-300 ease-in-out flex flex-col bg-gray-900/95 sm:bg-gray-900/90 backdrop-blur-md border border-gray-700/60 shadow-2xl text-white overflow-hidden
+      className={`fixed sm:absolute z-40 sm:z-20 transition-all duration-300 ease-in-out flex flex-col backdrop-blur-md shadow-2xl overflow-hidden
         bottom-0 left-0 right-0 rounded-t-3xl sm:rounded-2xl
         sm:top-3 sm:left-3 sm:right-auto sm:bottom-auto sm:w-[350px] lg:w-96 sm:max-h-[calc(100vh-1.5rem)]
+        ${
+          isLight
+            ? "bg-white/98 border border-slate-200 text-slate-900"
+            : "bg-gray-900/95 sm:bg-gray-900/90 border border-gray-700/60 text-white"
+        }
         ${isMobileExpanded ? "h-[85vh] sm:h-auto" : "h-14 sm:h-auto"}
       `}
     >
@@ -198,40 +206,70 @@ export function ControlPanel() {
         </div>
 
         {/* 상단 헤더 */}
-        <div className="p-3.5 sm:p-4 border-b border-gray-800 bg-gradient-to-r from-emerald-900/40 to-teal-900/20">
+        <div
+          className={`p-3.5 sm:p-4 border-b ${
+            isLight
+              ? "bg-gradient-to-r from-emerald-50 to-teal-50/40 border-slate-200"
+              : "border-gray-800 bg-gradient-to-r from-emerald-900/40 to-teal-900/20"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xl">🌿</span>
-              <h1 className="font-bold text-lg tracking-tight bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent">
+              <h1 className="font-bold text-lg tracking-tight bg-gradient-to-r from-emerald-500 to-teal-400 bg-clip-text text-transparent">
                 VitalRoot
               </h1>
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => openSettingsModal("health")}
-                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-gray-800/90 hover:bg-gray-700 border border-gray-700 text-gray-200 hover:text-white transition-colors shadow-sm"
+                className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors shadow-sm ${
+                  isLight
+                    ? "bg-white hover:bg-slate-100 border-slate-200 text-slate-700 font-bold"
+                    : "bg-gray-800/90 hover:bg-gray-700 border-gray-700 text-gray-200 hover:text-white"
+                }`}
                 title="통합 환경 설정 및 건강 프로필 관리"
               >
                 <span>⚙️</span>
                 <span>설정</span>
               </button>
-              <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium">
+              <span
+                className={`text-xs px-2.5 py-1 rounded-full border font-bold ${
+                  isLight
+                    ? "bg-emerald-100/80 border-emerald-300 text-emerald-800"
+                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                }`}
+              >
                 네이버 지도 연동
               </span>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
+          <p
+            className={`text-xs mt-1 ${
+              isLight ? "text-slate-500 font-medium" : "text-gray-400"
+            }`}
+          >
             만성질환 맞춤 안심식당 + 힐링 산책로 + 안심 숙소 & 퀘스트
           </p>
         </div>
 
         {/* 5개 탭 네비게이션 */}
-        <div className="grid grid-cols-5 border-b border-gray-800 text-[10px] sm:text-[11px] font-medium bg-gray-950/60">
+        <div
+          className={`grid grid-cols-5 border-b text-[11px] sm:text-xs font-semibold ${
+            isLight
+              ? "bg-slate-100/90 border-slate-200"
+              : "bg-gray-950/80 border-gray-800"
+          }`}
+        >
           <button
             onClick={() => setActiveTab("courses")}
             className={`py-2.5 transition-colors text-center ${
               activeTab === "courses"
-                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                ? isLight
+                  ? "text-emerald-700 border-b-2 border-emerald-600 bg-white font-bold shadow-sm"
+                  : "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 : "text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -241,7 +279,11 @@ export function ControlPanel() {
             onClick={() => setActiveTab("multiday")}
             className={`py-2.5 transition-colors text-center ${
               activeTab === "multiday"
-                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                ? isLight
+                  ? "text-emerald-700 border-b-2 border-emerald-600 bg-white font-bold shadow-sm"
+                  : "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 : "text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -251,7 +293,11 @@ export function ControlPanel() {
             onClick={() => setActiveTab("stays")}
             className={`py-2.5 transition-colors text-center ${
               activeTab === "stays"
-                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                ? isLight
+                  ? "text-emerald-700 border-b-2 border-emerald-600 bg-white font-bold shadow-sm"
+                  : "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 : "text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -261,7 +307,11 @@ export function ControlPanel() {
             onClick={() => setActiveTab("quests")}
             className={`py-2.5 transition-colors text-center ${
               activeTab === "quests"
-                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                ? isLight
+                  ? "text-emerald-700 border-b-2 border-emerald-600 bg-white font-bold shadow-sm"
+                  : "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 : "text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -271,7 +321,11 @@ export function ControlPanel() {
             onClick={() => setActiveTab("profile")}
             className={`py-2.5 transition-colors text-center ${
               activeTab === "profile"
-                ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                ? isLight
+                  ? "text-emerald-700 border-b-2 border-emerald-600 bg-white font-bold shadow-sm"
+                  : "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30 font-semibold"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 : "text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -472,93 +526,127 @@ export function ControlPanel() {
                       onClick={() => handleSelectCourse(course.id)}
                       className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isActive
-                          ? "bg-emerald-950/30 border-emerald-500/70 shadow-lg shadow-emerald-950/50"
+                          ? isLight
+                            ? "bg-emerald-50/70 border-emerald-500 shadow-md ring-1 ring-emerald-400/40"
+                            : "bg-emerald-950/30 border-emerald-500/70 shadow-lg shadow-emerald-950/50"
+                          : isLight
+                          ? "bg-white border-slate-200 hover:border-slate-300 hover:shadow-sm"
                           : "bg-gray-800/40 border-gray-700/50 hover:bg-gray-800/80"
                       }`}
                     >
                       <div className="flex items-start justify-between">
-                        <div className="space-y-0.5">
+                        <div className="space-y-1">
                           <div className="flex items-center gap-1.5 mb-1">
                             {course.region && (
-                              <span className="text-[10px] bg-emerald-500/10 text-emerald-300 font-semibold px-2 py-0.5 rounded-md border border-emerald-500/20">
+                              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                                isLight
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                  : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                              }`}>
                                 📍 {course.region}
                               </span>
                             )}
                             {course.isLocal && (
-                              <span className="text-[10px] bg-teal-500/20 text-teal-300 font-semibold px-1.5 py-0.5 rounded-md border border-teal-500/30">
+                              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md border ${
+                                isLight
+                                  ? "bg-teal-100 text-teal-800 border-teal-200"
+                                  : "bg-teal-500/20 text-teal-300 border-teal-500/30"
+                              }`}>
                                 생활권
                               </span>
                             )}
                           </div>
-                          <h3 className="font-semibold text-white text-xs leading-snug">
+                          <h3 className={`font-bold text-sm sm:text-base leading-snug ${
+                            isLight ? "text-slate-900" : "text-white"
+                          }`}>
                             {course.title}
                           </h3>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        <span className="text-[11px] text-emerald-400 font-medium">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className={`text-xs font-bold ${
+                          isLight ? "text-emerald-700" : "text-emerald-400"
+                        }`}>
                           🎯 {course.targetCondition}
                         </span>
                         {distFromUser !== null && (
-                          <span className="text-[10px] text-sky-300 font-semibold bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-500/30">
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                            isLight
+                              ? "bg-sky-100 text-sky-800 border-sky-200"
+                              : "bg-sky-950/60 text-sky-300 border-sky-500/30"
+                          }`}>
                             📍 내 위치에서 {formatDistance(distFromUser)}
                           </span>
                         )}
                       </div>
 
-                      <div className="mt-2.5 space-y-1.5 bg-gray-900/60 p-2.5 rounded-lg text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-400">🍽️ 안심식당:</span>
-                          <span className="text-gray-200 font-medium">
+                      <div className={`mt-3 space-y-2 p-3 rounded-xl border text-xs sm:text-[13px] ${
+                        isLight
+                          ? "bg-slate-50 border-slate-200 text-slate-800"
+                          : "bg-gray-900/70 border-gray-800 text-gray-200"
+                      }`}>
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className={isLight ? "text-slate-600 font-semibold" : "text-gray-400"}>🍽️ 안심식당:</span>
+                          <span className={`font-bold ${isLight ? "text-slate-900" : "text-gray-200"}`}>
                             {course.restaurant.name}
                           </span>
                         </div>
 
-                        {/* 식약처 영양성분 뱃지 */}
+                        {/* 식약처 영양성분 뱃지 - 글자 크기 상향 및 밝은 모드 고대비 */}
                         {course.restaurant.nutrition && (
-                          <div className="p-1.5 bg-emerald-950/40 rounded border border-emerald-500/20 text-[10px] flex items-center justify-between">
-                            <span className="text-emerald-300 font-medium truncate">
+                          <div className={`p-2 rounded-lg border text-xs sm:text-[13px] flex items-center justify-between gap-1.5 ${
+                            isLight
+                              ? "bg-emerald-100/70 border-emerald-300/80 text-emerald-950 font-bold"
+                              : "bg-emerald-950/50 border-emerald-500/30 text-emerald-300 font-medium"
+                          }`}>
+                            <span className="font-bold truncate">
                               🥗 {course.restaurant.nutrition.menuName}
                             </span>
-                            <span className="text-emerald-400 font-mono shrink-0 ml-1">
+                            <span className={`font-mono font-bold shrink-0 ml-1 ${isLight ? "text-emerald-800" : "text-emerald-400"}`}>
                               당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨{" "}
                               {course.restaurant.nutrition.sodium}mg 🟢
                             </span>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-400">🚶 힐링산책:</span>
-                          <span className="text-gray-200 font-medium">
+                        <div className="flex items-center justify-between text-xs sm:text-sm">
+                          <span className={isLight ? "text-slate-600 font-semibold" : "text-gray-400"}>🚶 힐링산책:</span>
+                          <span className={`font-bold ${isLight ? "text-slate-900" : "text-gray-200"}`}>
                             {course.trail.name}
                           </span>
                         </div>
 
-                        {/* 경로 3~5분 공공 편의시설 보유 안내 */}
+                        {/* 경로 3~5분 공공 편의시설 보유 안내 - 글자 크기 상향 */}
                         {course.waypoints && (
-                          <div className="text-[10px] text-sky-400 flex items-center gap-1">
+                          <div className={`text-xs sm:text-[13px] font-bold flex items-center gap-1.5 ${
+                            isLight ? "text-sky-700" : "text-sky-300"
+                          }`}>
                             <span>🧭</span>
                             <span>
                               경로 3~5분 안심 편의시설:{" "}
-                              <strong>{course.waypoints.length}곳</strong> 레이더 안내
+                              <strong className="underline decoration-sky-400 font-extrabold">{course.waypoints.length}곳</strong> 레이더 안내
                             </span>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-1 border-t border-gray-800 text-[11px]">
-                          <span className="text-gray-400">
-                            총 거리: <strong>{course.distanceMeters}m</strong> (약{" "}
+                        <div className={`flex items-center justify-between pt-1.5 border-t text-xs sm:text-[13px] ${
+                          isLight ? "border-slate-200 text-slate-600" : "border-gray-800 text-gray-400"
+                        }`}>
+                          <span>
+                            총 거리: <strong className={isLight ? "text-slate-900" : "text-white"}>{course.distanceMeters}m</strong> (약{" "}
                             {course.walkMinutes}분)
                           </span>
-                          <span className="text-teal-300 font-medium">
+                          <span className={`font-bold ${isLight ? "text-teal-700" : "text-teal-300"}`}>
                             {course.slopeGrade}
                           </span>
                         </div>
                       </div>
 
                       {/* 하단 네이버 길찾기 정돈 버튼 그리드 */}
-                      <div className="mt-2.5 pt-2 border-t border-gray-800/80 space-y-1.5">
+                      <div className={`mt-2.5 pt-2 border-t space-y-1.5 ${
+                        isLight ? "border-slate-200" : "border-gray-800/80"
+                      }`}>
                         {/* 1. 최우선 핵심 버튼: 식당 ➔ 산책로 도보 길찾기 (네이버 도보 100% 직행) */}
                         <a
                           href={restToTrailNaverUrl}
@@ -608,7 +696,11 @@ export function ControlPanel() {
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="py-1.5 px-2 bg-gray-800 hover:bg-gray-700 text-teal-300 hover:text-white font-bold text-[11px] rounded-lg border border-teal-500/40 transition-all flex items-center justify-center gap-1 active:scale-95"
+                              className={`py-1.5 px-2 font-bold text-[11px] rounded-lg border transition-all flex items-center justify-center gap-1 active:scale-95 ${
+                                isLight
+                                  ? "bg-teal-50 hover:bg-teal-100 text-teal-800 border-teal-300"
+                                  : "bg-gray-800 hover:bg-gray-700 text-teal-300 hover:text-white border-teal-500/40"
+                              }`}
                               title="내 위치에서 산책로까지 직통 도보 길찾기"
                             >
                               <span>🏁</span>
@@ -623,9 +715,11 @@ export function ControlPanel() {
                               e.stopPropagation();
                               handleSelectCourse(course.id);
                             }}
-                            className={`py-1.5 px-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-[11px] rounded-lg border border-gray-700 transition-all flex items-center justify-center gap-1 active:scale-95 ${
-                              !userLocation ? "col-span-2" : ""
-                            }`}
+                            className={`py-1.5 px-2 font-bold text-[11px] rounded-lg border transition-all flex items-center justify-center gap-1 active:scale-95 ${
+                              isLight
+                                ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
+                                : "bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700"
+                            } ${!userLocation ? "col-span-2" : ""}`}
                           >
                             <span>🎯</span>
                             <span>지도 위치 ➔</span>
@@ -1256,12 +1350,18 @@ export function ControlPanel() {
         </div>
 
         {/* 하단 네이버 지도 연동 상태 */}
-        <div className="p-3 border-t border-gray-800/80 bg-gray-950/70 text-[11px] flex items-center justify-between text-gray-400">
+        <div
+          className={`p-3 border-t text-[11px] flex items-center justify-between ${
+            isLight
+              ? "bg-slate-100/90 border-slate-200 text-slate-600 font-semibold"
+              : "border-gray-800/80 bg-gray-950/70 text-gray-400"
+          }`}
+        >
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>NAVER Maps API v3 연동 완료</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className={isLight ? "text-slate-800 font-bold" : ""}>NAVER Maps API v3 연동 완료</span>
           </div>
-          <span className="text-gray-500">한국관광공사 Tour API</span>
+          <span className={isLight ? "text-slate-500 font-medium" : "text-gray-500"}>한국관광공사 Tour API</span>
         </div>
       </div>
     </div>
