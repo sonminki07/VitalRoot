@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { MapContainer } from "./components/map/MapContainer";
 import { ControlPanel } from "./components/panels/ControlPanel";
 import { AuthModal } from "./components/auth/AuthModal";
+import { LocationModal } from "./components/common/LocationModal";
 import { useAuthStore } from "./store/authStore";
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
       <MapContainer />
       {/* 로그인 / 회원가입 오버레이 모달 */}
       <AuthModal />
+      {/* 사용자 위치(GPS) 사용 동의 모달 */}
+      <LocationModal />
     </div>
   );
 }

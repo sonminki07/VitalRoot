@@ -15,6 +15,7 @@ import {
   INITIAL_WELLNESS_QUESTS,
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
+import { calculateDistanceMeters } from "../utils/pedestrianRouter";
 
 export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리";
 
@@ -93,6 +94,9 @@ interface WellnessState {
   quests: WellnessQuest[];
   activeQuestId: string | null;
   earnedTitles: string[];
+  // 사용자 위치(GPS) 관련
+  userLocation: { latitude: number; longitude: number } | null;
+  isLocationModalOpen: boolean;
 
   isSupabaseConnected: boolean;
   isLoading: boolean;
@@ -107,6 +111,8 @@ interface WellnessState {
   toggleStayFilter: (key: keyof StayFilterOptions) => void;
   setActiveQuestId: (id: string | null) => void;
   completeQuest: (questId: string) => void;
+  setUserLocation: (loc: { latitude: number; longitude: number } | null) => void;
+  setIsLocationModalOpen: (open: boolean) => void;
   fetchSupabaseData: () => Promise<void>;
   syncProfileWithDb: (userId: string) => Promise<void>;
   saveProfileToDb: (userId: string, profile: UserProfile) => Promise<void>;
@@ -137,8 +143,40 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   })),
   activeQuestId: INITIAL_WELLNESS_QUESTS[0]?.id ?? null,
   earnedTitles: initialQuestData.earnedTitles,
+  userLocation: null,
+  isLocationModalOpen: false,
   isSupabaseConnected: false,
   isLoading: false,
+
+  setIsLocationModalOpen: (open) => set({ isLocationModalOpen: open }),
+
+  setUserLocation: (loc) => {
+    if (!loc) {
+      set({ userLocation: null });
+      return;
+    }
+    const sorted = [...get().filteredCourses].sort((a, b) => {
+      const distA = calculateDistanceMeters(
+        loc.latitude,
+        loc.longitude,
+        a.restaurant.latitude,
+        a.restaurant.longitude
+      );
+      const distB = calculateDistanceMeters(
+        loc.latitude,
+        loc.longitude,
+        b.restaurant.latitude,
+        b.restaurant.longitude
+      );
+      return distA - distB;
+    });
+
+    set({
+      userLocation: loc,
+      filteredCourses: sorted,
+      activeCourseId: sorted[0]?.id || get().activeCourseId,
+    });
+  },
 
   setActiveStayId: (id) => set({ activeStayId: id }),
 

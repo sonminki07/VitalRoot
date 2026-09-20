@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useWellnessStore, WaypointFilterType } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 import { AuthButton } from "../auth/AuthButton";
+import {
+  fetchPedestrianRoute,
+  calculateDistanceMeters,
+} from "../../utils/pedestrianRouter";
 
 const RADAR_CATEGORIES: { type: WaypointFilterType; label: string; icon: string }[] = [
   { type: "전체", label: "전체", icon: "🌐" },
@@ -14,7 +18,9 @@ export function MapContainer() {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const polylineRef = useRef<naver.maps.Polyline | null>(null);
+  const userConnectorPolylineRef = useRef<naver.maps.Polyline | null>(null);
   const markersRef = useRef<naver.maps.Marker[]>([]);
+  const userMarkerRef = useRef<naver.maps.Marker | null>(null);
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null);
 
   const [mapType, setMapType] = useState<"street" | "satellite">("street");
@@ -30,9 +36,23 @@ export function MapContainer() {
     activeStayId,
     quests,
     activeQuestId,
+    userLocation,
+    setIsLocationModalOpen,
   } = useWellnessStore();
 
   const { center, zoom, setSelectedPlace } = useMapStore();
+
+  const activeCourse =
+    filteredCourses.find((c) => c.id === activeCourseId) || filteredCourses[0];
+
+  // 실제 도로망(OSRM) 보행자 좌표셋 상태
+  const [roadRouteCoords, setRoadRouteCoords] = useState<[number, number][]>(
+    activeCourse?.walkingRoute || []
+  );
+  const [userToRestCoords, setUserToRestCoords] = useState<[number, number][]>([]);
+  const [actualWalkDistance, setActualWalkDistance] = useState<number>(
+    activeCourse?.distanceMeters || 750
+  );
 
   // 1. 네이버 지도 스크립트 대기 및 지도 인스턴스 초기화
   useEffect(() => {
@@ -111,24 +131,65 @@ export function MapContainer() {
     mapRef.current.panTo(targetLatLng, { duration: 500 });
   }, [center, zoom]);
 
-  // 4. 활성 코스 보행로 (Polyline) 렌더링 - 초기 로드 및 새로고침 시 즉각 표출
-  const activeCourse =
-    filteredCourses.find((c) => c.id === activeCourseId) || filteredCourses[0];
-
+  // 4. 활성 코스의 실제 도로망(인도, 골목, 계단, 데크길) 보행로 OSRM 실시간 조회
   useEffect(() => {
-    if (!mapRef.current || !window.naver?.maps || !activeCourse) return;
+    if (!activeCourse) return;
 
+    let isMounted = true;
+    fetchPedestrianRoute(
+      activeCourse.restaurant.longitude,
+      activeCourse.restaurant.latitude,
+      activeCourse.trail.longitude,
+      activeCourse.trail.latitude
+    ).then((res) => {
+      if (isMounted) {
+        setRoadRouteCoords(res.coordinates);
+        setActualWalkDistance(res.distanceMeters);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCourse?.id]);
+
+  // 5. 사용자 현재 위치 ➔ 안심식당까지의 실제 도로망 보행로 OSRM 조회
+  useEffect(() => {
+    if (!userLocation || !activeCourse) {
+      setUserToRestCoords([]);
+      return;
+    }
+
+    let isMounted = true;
+    fetchPedestrianRoute(
+      userLocation.longitude,
+      userLocation.latitude,
+      activeCourse.restaurant.longitude,
+      activeCourse.restaurant.latitude
+    ).then((res) => {
+      if (isMounted) {
+        setUserToRestCoords(res.coordinates);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userLocation, activeCourse?.id]);
+
+  // 6. 보행 경로선 (Polyline) 네이버 지도에 렌더링
+  useEffect(() => {
+    if (!mapRef.current || !window.naver?.maps) return;
     const map = mapRef.current;
 
-    // 기존 경로선 제거
+    // (A) 코스 보행로 (식당 ➔ 산책로, 실제 도로를 따라 꺾어지는 에메랄드 라인)
     if (polylineRef.current) {
       polylineRef.current.setMap(null);
       polylineRef.current = null;
     }
 
-    // 신규 경로선 생성 (에메랄드 하이라이트)
-    if (activeCourse.walkingRoute && activeCourse.walkingRoute.length > 0) {
-      const path = activeCourse.walkingRoute.map(
+    if (roadRouteCoords.length > 0) {
+      const path = roadRouteCoords.map(
         ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
       );
 
@@ -142,23 +203,85 @@ export function MapContainer() {
         strokeLineJoin: "round",
       });
     }
-  }, [isMapLoaded, activeCourse]);
 
-  // 5. 마커 (안심식당, 산책로, 공공편의시설, 숙소, 퀘스트) 렌더링
+    // (B) 사용자 위치 ➔ 식당 연결 보행로 (스카이블루 점선)
+    if (userConnectorPolylineRef.current) {
+      userConnectorPolylineRef.current.setMap(null);
+      userConnectorPolylineRef.current = null;
+    }
+
+    if (userToRestCoords.length > 0) {
+      const userPath = userToRestCoords.map(
+        ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
+      );
+
+      userConnectorPolylineRef.current = new window.naver.maps.Polyline({
+        map,
+        path: userPath,
+        strokeColor: "#0284c7",
+        strokeWeight: 5,
+        strokeOpacity: 0.9,
+        strokeStyle: "shortdash",
+        strokeLineCap: "round",
+      });
+    }
+  }, [isMapLoaded, roadRouteCoords, userToRestCoords]);
+
+  // 7. 마커 렌더링 (내 위치, 안심식당, 산책로, 공공편의시설, 숙소, 퀘스트)
   useEffect(() => {
     if (!mapRef.current || !window.naver?.maps) return;
-
     const map = mapRef.current;
 
-    // 기존 마커 모두 제거
+    // 기존 마커 제거
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
-    // (A) 추천 코스 내 안심식당 & 산책로 마커 렌더링
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setMap(null);
+      userMarkerRef.current = null;
+    }
+
+    // 📍 (0) 사용자 현재 위치 GPS 펄스 마커
+    if (userLocation) {
+      const userContent = document.createElement("div");
+      userContent.className = "vital-marker-wrapper cursor-pointer relative flex items-center justify-center";
+      userContent.innerHTML = `
+        <span class="animate-ping absolute inline-flex h-9 w-9 rounded-full bg-sky-400 opacity-75"></span>
+        <div class="relative w-8 h-8 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-400 border-2 border-white shadow-2xl flex items-center justify-center text-sm text-white font-bold">
+          📍
+        </div>
+      `;
+
+      const userMarker = new window.naver.maps.Marker({
+        map,
+        position: new window.naver.maps.LatLng(userLocation.latitude, userLocation.longitude),
+        icon: {
+          content: userContent,
+          anchor: new window.naver.maps.Point(16, 16),
+        },
+        zIndex: 120,
+      });
+
+      window.naver.maps.Event.addListener(userMarker, "click", () => {
+        const popupContent = `
+          <div class="text-gray-900 p-3 max-w-[220px] font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-sky-500/50">
+            <span class="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full">실시간 GPS</span>
+            <h4 class="font-bold text-xs text-gray-900 mt-1">📍 내 현재 위치</h4>
+            <p class="text-[11px] text-gray-600 mt-0.5">이 위치를 기준으로 가장 가까운 안심식당과 산책로가 추천되었습니다.</p>
+          </div>
+        `;
+        infoWindowRef.current?.setContent(popupContent);
+        infoWindowRef.current?.open(map, userMarker);
+      });
+
+      userMarkerRef.current = userMarker;
+    }
+
+    // (A) 안심식당 & 산책로 마커 렌더링
     filteredCourses.forEach((course) => {
       const isSelected = course.id === activeCourse?.id;
 
-      // 1. 안심식당 마커
+      // 안심식당 마커
       const restContent = document.createElement("div");
       restContent.className = "vital-marker-wrapper cursor-pointer";
       restContent.innerHTML = `
@@ -247,7 +370,7 @@ export function MapContainer() {
 
       markersRef.current.push(restMarker);
 
-      // 2. 완만 산책로 마커
+      // 완만 산책로 마커
       const trailContent = document.createElement("div");
       trailContent.className = "vital-marker-wrapper cursor-pointer";
       trailContent.innerHTML = `
@@ -311,7 +434,7 @@ export function MapContainer() {
 
       markersRef.current.push(trailMarker);
 
-      // 3. 선택된 코스의 이동 동선 3~5분 공공 편의시설 레이더 핀
+      // 선택된 코스의 이동 동선 3~5분 공공 편의시설 핀
       if (isSelected && course.waypoints) {
         const filteredWaypoints =
           activeWaypointFilter === "전체"
@@ -397,7 +520,7 @@ export function MapContainer() {
       }
     });
 
-    // (B) 헬스케어 안심 숙소 마커 (활성 숙소 표시)
+    // (B) 헬스케어 안심 숙소 마커
     stays.forEach((stay) => {
       const isStayActive = stay.id === activeStayId;
       const stayContent = document.createElement("div");
@@ -509,6 +632,7 @@ export function MapContainer() {
     });
   }, [
     isMapLoaded,
+    userLocation,
     filteredCourses,
     activeCourse?.id,
     activeWaypointFilter,
@@ -519,8 +643,22 @@ export function MapContainer() {
     setSelectedPlace,
   ]);
 
-  // 단일 네이버 도보 길찾기 완성형 URL (출발지: 안심식당 + 도착지: 산책로 100% 자동 채움)
-  const naverCourseUrl = activeCourse
+  // 내 위치로부터의 거리 (m)
+  const distFromUserToRest = userLocation && activeCourse
+    ? calculateDistanceMeters(
+        userLocation.latitude,
+        userLocation.longitude,
+        activeCourse.restaurant.latitude,
+        activeCourse.restaurant.longitude
+      )
+    : null;
+
+  // 단일 네이버 도보 길찾기 완성형 URL (내 위치가 있으면 내 위치 ➔ 식당, 없으면 식당 ➔ 산책로)
+  const naverCourseUrl = userLocation && activeCourse
+    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},내현재위치/${activeCourse.restaurant.longitude},${activeCourse.restaurant.latitude},${encodeURIComponent(
+        activeCourse.restaurant.name
+      )}/-/walk?c=15.00,0,0,0,dh`
+    : activeCourse
     ? `https://map.naver.com/p/directions/${activeCourse.restaurant.longitude},${activeCourse.restaurant.latitude},${encodeURIComponent(
         activeCourse.restaurant.name
       )}/${activeCourse.trail.longitude},${activeCourse.trail.latitude},${encodeURIComponent(
@@ -530,9 +668,26 @@ export function MapContainer() {
 
   return (
     <div className="relative w-full h-full">
-      {/* 우측 상단 컨트롤 바 (인증 버튼 + 일반/위성 지도 전환 스위치) */}
+      {/* 우측 상단 컨트롤 바 (내 위치 찾기 + 인증 버튼 + 일반/위성 전환 스위치) */}
       <div className="absolute top-4 right-4 sm:right-16 z-20 flex items-center gap-2">
+        {/* 내 위치 기반 찾기 버튼 */}
+        <button
+          onClick={() => setIsLocationModalOpen(true)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 ${
+            userLocation
+              ? "bg-sky-600 hover:bg-sky-500 text-white border border-sky-400/50"
+              : "bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50 animate-pulse"
+          }`}
+        >
+          <span>📍</span>
+          <span className="hidden sm:inline">
+            {userLocation ? "내 위치 활성화됨" : "내 위치 코스 찾기"}
+          </span>
+          <span className="sm:hidden">내 위치</span>
+        </button>
+
         <AuthButton />
+
         <div className="flex bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-1 shadow-2xl">
           <button
             onClick={() => handleChangeMapType("street")}
@@ -579,19 +734,51 @@ export function MapContainer() {
         ))}
       </div>
 
-      {/* 지도 하단: 네이버 도보 길찾기 단일 바 (카카오맵 제거 및 100% 출발-도착 자동 연동) */}
+      {/* 지도 하단: 실제 도로 보행로 길찾기 바 */}
       {activeCourse && (
         <div className="absolute bottom-16 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 bg-gray-900/95 backdrop-blur-md border border-emerald-500/60 rounded-2xl px-4 py-2.5 sm:py-3 shadow-2xl flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[92vw]">
           <div className="flex items-center gap-2.5 text-center sm:text-left">
-            <span className="text-xl shrink-0">🌿</span>
+            <span className="text-xl shrink-0">
+              {userLocation ? "📍" : "🌿"}
+            </span>
             <div>
               <div className="font-bold text-white flex items-center justify-center sm:justify-start gap-1.5 text-xs sm:text-sm">
+                {userLocation && (
+                  <>
+                    <span className="text-sky-300">내 현재 위치</span>
+                    <span className="text-sky-400 font-bold">➔</span>
+                  </>
+                )}
                 <span>{activeCourse.restaurant.name}</span>
                 <span className="text-emerald-400">➔</span>
                 <span>{activeCourse.trail.name}</span>
               </div>
               <div className="text-[11px] text-gray-400">
-                보행 거리: <strong className="text-emerald-400 font-semibold">{activeCourse.distanceMeters || 720}m</strong> • 도보 약 <strong className="text-teal-300 font-semibold">{activeCourse.walkMinutes}분</strong> ({activeCourse.slopeGrade})
+                {userLocation ? (
+                  <>
+                    내 위치에서 식당까지 도보{" "}
+                    <strong className="text-sky-300 font-semibold">
+                      {distFromUserToRest}m
+                    </strong>{" "}
+                    • 식당 ➔ 산책로 보행로{" "}
+                    <strong className="text-emerald-400 font-semibold">
+                      {actualWalkDistance}m
+                    </strong>{" "}
+                    (도로망 실제 보행로)
+                  </>
+                ) : (
+                  <>
+                    실제 도로 보행 거리:{" "}
+                    <strong className="text-emerald-400 font-semibold">
+                      {actualWalkDistance}m
+                    </strong>{" "}
+                    • 도보 약{" "}
+                    <strong className="text-teal-300 font-semibold">
+                      {Math.round(actualWalkDistance / 70)}분
+                    </strong>{" "}
+                    ({activeCourse.slopeGrade})
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -603,10 +790,12 @@ export function MapContainer() {
             href={naverCourseUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 shrink-0"
           >
             <span className="text-sm">🟢</span>
-            <span>네이버 도보 길찾기</span>
+            <span>
+              {userLocation ? "내 위치에서 길찾기" : "네이버 도보 길찾기"}
+            </span>
             <span className="text-[10px] opacity-80">(출발·도착 자동)</span>
           </a>
         </div>

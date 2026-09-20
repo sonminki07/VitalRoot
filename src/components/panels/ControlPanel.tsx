@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 import { ChronicCondition } from "../../types/wellness.types";
+import { calculateDistanceMeters } from "../../utils/pedestrianRouter";
 
 const ALL_CONDITIONS: ChronicCondition[] = [
   "당뇨",
@@ -39,9 +40,18 @@ export function ControlPanel() {
     completeQuest,
     earnedTitles,
     toggleCondition,
+    userLocation,
+    setIsLocationModalOpen,
   } = useWellnessStore();
 
   const { flyToPlace } = useMapStore();
+
+  const formatDistance = (meters: number) => {
+    if (meters >= 1000) {
+      return `${(meters / 1000).toFixed(1)}km`;
+    }
+    return `${meters}m`;
+  };
 
   // 코스 선택 핸들러
   const handleSelectCourse = (courseId: string) => {
@@ -225,6 +235,44 @@ export function ControlPanel() {
           {/* TAB 1: 추천 코스 */}
           {activeTab === "courses" && (
             <div className="space-y-3">
+              {/* 내 위치 연동 상태 배너 */}
+              {!userLocation ? (
+                <div className="p-3 bg-gradient-to-r from-emerald-950/60 to-teal-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between gap-2 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📍</span>
+                    <div className="text-xs">
+                      <p className="font-bold text-white">
+                        내 위치 기반 코스 탐색
+                      </p>
+                      <p className="text-[11px] text-emerald-300">
+                        가까운 안심식당과 산책로를 자동 정렬합니다.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-xs rounded-lg transition-all shadow shrink-0 active:scale-95"
+                  >
+                    위치 연동
+                  </button>
+                </div>
+              ) : (
+                <div className="p-2.5 bg-sky-950/50 border border-sky-500/40 rounded-xl flex items-center justify-between gap-2 shadow-sm text-xs">
+                  <div className="flex items-center gap-1.5 text-sky-200">
+                    <span className="text-sm animate-pulse">📍</span>
+                    <span className="font-semibold text-[11px]">
+                      내 위치 기준 가까운 순 정렬 중
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="text-[11px] text-sky-400 hover:text-sky-300 underline font-medium shrink-0"
+                  >
+                    위치 재설정
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>내 질환 맞춤 당일 힐링 코스</span>
                 <span className="text-emerald-400 font-semibold">
@@ -248,7 +296,27 @@ export function ControlPanel() {
               ) : (
                 filteredCourses.map((course) => {
                   const isActive = course.id === activeCourseId;
-                  const naverUrl = `https://map.naver.com/p/directions/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                  const distFromUser = userLocation
+                    ? calculateDistanceMeters(
+                        userLocation.latitude,
+                        userLocation.longitude,
+                        course.restaurant.latitude,
+                        course.restaurant.longitude
+                      )
+                    : null;
+
+                  // 네이버 도보 길찾기 URL:
+                  // 1) 내 위치 -> 안심식당
+                  const userToRestNaverUrl = userLocation
+                    ? `https://map.naver.com/p/directions/${userLocation.longitude},${userLocation.latitude},${encodeURIComponent(
+                        "내 위치"
+                      )}/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
+                        course.restaurant.name
+                      )}/-/walk?c=15.00,0,0,0,dh`
+                    : null;
+
+                  // 2) 안심식당 -> 산책로
+                  const restToTrailNaverUrl = `https://map.naver.com/p/directions/${course.restaurant.longitude},${course.restaurant.latitude},${encodeURIComponent(
                     course.restaurant.name
                   )}/${course.trail.longitude},${course.trail.latitude},${encodeURIComponent(
                     course.trail.name
@@ -270,9 +338,16 @@ export function ControlPanel() {
                         </h3>
                       </div>
 
-                      <p className="text-[11px] text-emerald-400 mt-1 font-medium">
-                        🎯 {course.targetCondition}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="text-[11px] text-emerald-400 font-medium">
+                          🎯 {course.targetCondition}
+                        </span>
+                        {distFromUser !== null && (
+                          <span className="text-[10px] text-sky-300 font-semibold bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-500/30">
+                            📍 내 위치에서 {formatDistance(distFromUser)}
+                          </span>
+                        )}
+                      </div>
 
                       <div className="mt-2.5 space-y-1.5 bg-gray-900/60 p-2.5 rounded-lg text-xs">
                         <div className="flex items-center justify-between">
@@ -322,28 +397,55 @@ export function ControlPanel() {
                         </div>
                       </div>
 
-                      <div className="mt-2.5 flex items-center justify-between gap-1.5 pt-1.5 border-t border-gray-800/80">
-                        {/* 네이버 도보 길찾기 단일 버튼 */}
-                        <a
-                          href={naverUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="px-3 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
-                        >
-                          <span>🟢</span>
-                          <span>네이버 도보 길찾기</span>
-                        </a>
+                      {/* 하단 네이버 도보 길찾기 버튼 영역 */}
+                      <div className="mt-2.5 flex flex-col gap-1.5 pt-1.5 border-t border-gray-800/80">
+                        <div className="flex items-center justify-between gap-1.5">
+                          {userToRestNaverUrl ? (
+                            <div className="flex flex-wrap items-center gap-1.5 flex-1">
+                              <a
+                                href={userToRestNaverUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="px-2.5 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                              >
+                                <span>🟢</span>
+                                <span>내 위치 ➔ 식당</span>
+                              </a>
+                              <a
+                                href={restToTrailNaverUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-[10px] sm:text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                              >
+                                <span>🚶</span>
+                                <span>식당 ➔ 산책로</span>
+                              </a>
+                            </div>
+                          ) : (
+                            <a
+                              href={restToTrailNaverUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="px-3 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-[11px] rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                            >
+                              <span>🟢</span>
+                              <span>네이버 도보 길찾기</span>
+                            </a>
+                          )}
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectCourse(course.id);
-                          }}
-                          className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1"
-                        >
-                          지도 위치 ➔
-                        </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectCourse(course.id);
+                            }}
+                            className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-0.5 shrink-0 ml-auto"
+                          >
+                            지도 위치 ➔
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
