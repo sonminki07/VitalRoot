@@ -128,49 +128,73 @@ export function MapContainer() {
     return () => window.removeEventListener("vital-repin-home", handleRepin);
   }, []);
 
-  // 🗺️ 내 위치(출발지) + 식당 + 산책로 전체 경로 맞춤 포커스 (fitBounds)
-  const fitCourseAndHomeBounds = (animate = true) => {
+  // 🗺️ 활성 코스(식당 ~ 산책로) 중심 맞춤 포커스 (북쪽 치우침/외곽 쏠림 없는 정중앙 포커스)
+  const focusActiveCourse = (animate = true, overrideZoom?: number) => {
     if (!mapRef.current || !window.naver?.maps || !activeCourse) return;
     const map = mapRef.current;
 
-    const baseLat = activeCourse.restaurant.latitude;
-    const baseLng = activeCourse.restaurant.longitude;
-    const bounds = new window.naver.maps.LatLngBounds(
-      new window.naver.maps.LatLng(baseLat, baseLng),
-      new window.naver.maps.LatLng(baseLat, baseLng)
-    );
+    const restLat = activeCourse.restaurant.latitude;
+    const restLng = activeCourse.restaurant.longitude;
+    const trailLat = activeCourse.trail.latitude;
+    const trailLng = activeCourse.trail.longitude;
 
-    bounds.extend(new window.naver.maps.LatLng(activeCourse.restaurant.latitude, activeCourse.restaurant.longitude));
-    bounds.extend(new window.naver.maps.LatLng(activeCourse.trail.latitude, activeCourse.trail.longitude));
+    const midLat = (restLat + trailLat) / 2;
+    const midLng = (restLng + trailLng) / 2;
 
-    // 집 위치가 코스와 10km 이내(생활권)에 있을 때만 포함하여 전국 단위 과도한 줌아웃 방지
-    if (userLocation) {
-      const distKm =
-        calculateDistanceMeters(
-          userLocation.latitude,
-          userLocation.longitude,
-          activeCourse.restaurant.latitude,
-          activeCourse.restaurant.longitude
-        ) / 1000;
-      if (distKm <= 10) {
-        bounds.extend(new window.naver.maps.LatLng(userLocation.latitude, userLocation.longitude));
-      }
-    }
+    const dist = calculateDistanceMeters(restLat, restLng, trailLat, trailLng);
+    const targetZoom = overrideZoom ?? (dist > 1500 ? 14 : dist > 700 ? 15 : 16);
 
     const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
-    const padding = {
-      top: 80,
-      right: 60,
-      bottom: 140,
-      left: isDesktop ? (window.innerWidth >= 1024 ? 420 : 370) : 30,
-    };
+    // 데스크톱에서는 좌측 패널(약 380px)을 감안하여 화면 정중앙 시야를 위해 경도를 약간 서쪽(-0.0025)으로 조정
+    const targetLng = isDesktop ? midLng - 0.0025 : midLng;
+    const targetCenter = new window.naver.maps.LatLng(midLat, targetLng);
 
-    if (animate && typeof (map as any).panToBounds === "function") {
-      (map as any).panToBounds(bounds, padding);
+    if (animate && typeof (map as any).morph === "function") {
+      (map as any).morph(targetCenter, targetZoom, { duration: 600 });
+    } else if (animate) {
+      map.setZoom(targetZoom);
+      map.panTo(targetCenter, { duration: 500 });
     } else {
-      map.fitBounds(bounds, padding);
+      map.setCenter(targetCenter);
+      map.setZoom(targetZoom);
     }
   };
+
+  // '코스 보기' 커스텀 이벤트 수신 시 코스 전경 부드러운 포커스
+  useEffect(() => {
+    const handleFitCourse = (e: any) => {
+      const targetCourseId = e.detail?.courseId || activeCourseId;
+      const targetCourse =
+        filteredCourses.find((c) => c.id === targetCourseId) || activeCourse;
+      if (!targetCourse || !mapRef.current || !window.naver?.maps) return;
+
+      const map = mapRef.current;
+      const restLat = targetCourse.restaurant.latitude;
+      const restLng = targetCourse.restaurant.longitude;
+      const trailLat = targetCourse.trail.latitude;
+      const trailLng = targetCourse.trail.longitude;
+
+      const midLat = (restLat + trailLat) / 2;
+      const midLng = (restLng + trailLng) / 2;
+
+      const dist = calculateDistanceMeters(restLat, restLng, trailLat, trailLng);
+      const optimalZoom = dist > 1500 ? 14 : dist > 700 ? 15 : 16;
+
+      const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
+      const targetLng = isDesktop ? midLng - 0.0025 : midLng;
+      const targetCoord = new window.naver.maps.LatLng(midLat, targetLng);
+
+      if (typeof (map as any).morph === "function") {
+        (map as any).morph(targetCoord, optimalZoom, { duration: 700 });
+      } else {
+        map.setZoom(optimalZoom);
+        map.panTo(targetCoord, { duration: 500 });
+      }
+    };
+
+    window.addEventListener("vital-fit-course", handleFitCourse);
+    return () => window.removeEventListener("vital-fit-course", handleFitCourse);
+  }, [activeCourse, activeCourseId, filteredCourses]);
 
   // 1. 네이버 지도 스크립트 대기 및 지도 인스턴스 초기화
   useEffect(() => {
@@ -218,7 +242,7 @@ export function MapContainer() {
       setIsMapLoaded(true);
 
       setTimeout(() => {
-        fitCourseAndHomeBounds(false);
+        focusActiveCourse(false);
       }, 200);
     };
 
@@ -242,38 +266,49 @@ export function MapContainer() {
     };
   }, []);
 
-  // 코스 또는 내 위치 변경 시 지도 뷰포트 맞춤 (A ➔ B 전환 시 2단계 연속 활공 시네마틱 애니메이션)
+  // 코스 변경 시 지도 뷰포트 맞춤 (A ➔ B 전환 시 여유롭고 부드러운 2단계 연속 활공 시네마틱 애니메이션)
   useEffect(() => {
     if (!isMapLoaded || !mapRef.current || !window.naver?.maps) return;
     if (!activeCourse) return;
 
+    const courseCenterLat =
+      (activeCourse.restaurant.latitude + activeCourse.trail.latitude) / 2;
+    const courseCenterLng =
+      (activeCourse.restaurant.longitude + activeCourse.trail.longitude) / 2;
+
     const currentCourse = {
       id: activeCourse.id,
-      lat: activeCourse.restaurant.latitude,
-      lng: activeCourse.restaurant.longitude,
+      lat: courseCenterLat,
+      lng: courseCenterLng,
     };
 
     const prev = prevCourseRef.current;
 
-    // 최초 로드 시에는 급격한 축소 없이 자연스럽게 뷰포트 맞춤
+    const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
+    const courseDist = calculateDistanceMeters(
+      activeCourse.restaurant.latitude,
+      activeCourse.restaurant.longitude,
+      activeCourse.trail.latitude,
+      activeCourse.trail.longitude
+    );
+    const targetZoom = courseDist > 1500 ? 14 : courseDist > 700 ? 15 : 16;
+    const targetLng = isDesktop ? currentCourse.lng - 0.0025 : currentCourse.lng;
+    const targetCenter = new window.naver.maps.LatLng(currentCourse.lat, targetLng);
+
+    // 최초 로드 시에는 코스 중심 위치로 바로 부드럽게 뷰포트 맞춤
     if (!prev) {
       prevCourseRef.current = currentCourse;
       const timer = setTimeout(() => {
-        fitCourseAndHomeBounds(false);
+        focusActiveCourse(false);
       }, 300);
       return () => clearTimeout(timer);
     }
 
-    // 동일한 코스인 경우 (내 집 핀 위치 변경 등)
+    // 동일한 코스인 경우: 재실행 절대 금지 (ALT+TAB 창 복귀 시 포커스 튐 원천 차단!)
     if (prev.id === currentCourse.id) {
-      const timer = setTimeout(() => {
-        fitCourseAndHomeBounds(true);
-      }, 300);
-      return () => clearTimeout(timer);
+      return;
     }
 
-    // A 코스에서 B 코스로 변경될 때:
-    // [1단계: 축소(Zoom-out) & 중간 지점으로 시점 상승 활공] ➔ [2단계: B 코스로 하강 및 확대(Zoom-in) 착륙]
     prevCourseRef.current = currentCourse;
 
     const distKm =
@@ -286,74 +321,57 @@ export function MapContainer() {
 
     const midLat = (prev.lat + currentCourse.lat) / 2;
     const midLng = (prev.lng + currentCourse.lng) / 2;
-
-    // 거리에 따른 적응형 축소(Zoom-out) 레벨 계산
-    let zoomOutLevel = 12;
-    if (distKm > 150) {
-      zoomOutLevel = 7; // 전국 단위 (예: 서울 ↔ 제주, 부산)
-    } else if (distKm > 60) {
-      zoomOutLevel = 9; // 광역 권역 (예: 서울 ↔ 강원)
-    } else if (distKm > 20) {
-      zoomOutLevel = 10; // 수도권/대도시권
-    } else if (distKm > 5) {
-      zoomOutLevel = 12; // 시/구 단위
-    } else {
-      zoomOutLevel = 13; // 인접 근거리 단위
-    }
+    const midCoord = new window.naver.maps.LatLng(midLat, midLng);
 
     const map = mapRef.current;
-    const targetCenter = new window.naver.maps.LatLng(
-      currentCourse.lat,
-      currentCourse.lng
-    );
 
-    // 3km 미만 근거리 이동 시에는 줌아웃 없이 목표 지점으로 부드럽게 단일 활공
-    if (distKm < 3) {
+    // 2km 미만 근거리 코스 이동 시: 줌아웃 없이 목표 코스 중심으로 여유롭고 부드러운 단일 활공 (700ms)
+    if (distKm < 2) {
       if (typeof (map as any).morph === "function") {
-        (map as any).morph(targetCenter, 15, { duration: 600 });
+        (map as any).morph(targetCenter, targetZoom, { duration: 700 });
       } else {
         map.panTo(targetCenter, { duration: 500 });
       }
-      const timer = setTimeout(() => {
-        fitCourseAndHomeBounds(false);
-      }, 650);
-      return () => clearTimeout(timer);
+      return;
     }
 
-    // 3km 이상 중·원거리 이동:
-    // 1단계: A 지점에서 중간 지점으로 시점을 띄우며 부드럽게 축소(Zoom-out) 이동 (500ms)
+    // 2km 이상 원거리 이동 (예: 서울 ↔ 수원, 안산, 제주 등):
+    // 거리에 따른 1단계 적응형 축소 레벨
+    let zoomOutLevel = 12;
+    if (distKm > 150) {
+      zoomOutLevel = 7; // 전국 단위 (서울 ↔ 제주, 부산)
+    } else if (distKm > 50) {
+      zoomOutLevel = 9; // 수도권 ↔ 강원/충청
+    } else if (distKm > 15) {
+      zoomOutLevel = 10; // 서울 ↔ 수원
+    } else {
+      zoomOutLevel = 12; // 시/구 단위
+    }
+
+    // 1단계: 시점을 띄우며(Zoom-out) 중간 지점으로 여유롭게 상승 활공 (650ms)
     if (typeof (map as any).morph === "function") {
-      (map as any).morph(
-        new window.naver.maps.LatLng(midLat, midLng),
-        zoomOutLevel,
-        { duration: 500 }
-      );
+      (map as any).morph(midCoord, zoomOutLevel, { duration: 650 });
     } else {
       map.setZoom(zoomOutLevel);
-      map.panTo(new window.naver.maps.LatLng(midLat, midLng), { duration: 400 });
+      map.panTo(midCoord, { duration: 500 });
     }
 
-    // 2단계: 520ms 시점에 B 코스(식당 중심)로 부드럽게 하강(Zoom-in 15)하며 활공 (600ms)
-    // (panToBounds/fitBounds로 바로 넘어가면 순간이동 점프가 생기므로 morph로 부드러운 착륙 보장)
-    const timer1 = setTimeout(() => {
-      if (typeof (map as any).morph === "function") {
-        (map as any).morph(targetCenter, 15, { duration: 600 });
+    // 2단계: 680ms 시점에 B 코스 중심 좌표로 부드럽게 하강(Zoom-in) 착륙 (750ms)
+    // (어떠한 fitBounds나 추가 점프 없이 morph 자체로 완벽 착륙하여 텔레포트 및 새로고침 현상 100% 제거)
+    const timer = setTimeout(() => {
+      if (!mapRef.current) return;
+      if (typeof (mapRef.current as any).morph === "function") {
+        (mapRef.current as any).morph(targetCenter, targetZoom, { duration: 750 });
       } else {
-        map.setZoom(15);
-        map.panTo(targetCenter, { duration: 500 });
+        mapRef.current.setZoom(targetZoom);
+        mapRef.current.panTo(targetCenter, { duration: 500 });
       }
-    }, 520);
-
-    // 3단계: 착륙 애니메이션이 완료된 후(1180ms) 여백 패딩 정밀 피팅 (순간 점프 없음)
-    const timer2 = setTimeout(() => {
-      fitCourseAndHomeBounds(false);
-    }, 1180);
+    }, 680);
 
     return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
+      clearTimeout(timer);
     };
-  }, [activeCourse?.id, userLocation?.latitude, userLocation?.longitude]);
+  }, [activeCourse?.id]);
 
   // 2. 일반 지도 / 위성 지도(HYBRID) 전환 (스토어 및 로컬스토리지 영속화)
   const handleChangeMapType = (type: "satellite" | "street") => {
@@ -591,185 +609,227 @@ export function MapContainer() {
     filteredCourses.forEach((course) => {
       const isSelected = course.id === activeCourse?.id;
 
-      // 2단계: 안심식당 캡슐 뱃지
-      const restContent = document.createElement("div");
-      restContent.className = "vital-journey-marker cursor-pointer flex flex-col items-center select-none";
-      
-      const restStepNum = userLocation ? "2" : "1";
-      const restStepLabel = userLocation ? "식사" : "출발";
+      let skipRest = false;
+      let skipTrail = false;
 
-      if (isSelected) {
-        restContent.innerHTML = `
-          <div class="-translate-x-1/2 -translate-y-full flex flex-col items-center select-none pointer-events-auto">
-            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950/95 border-2 border-emerald-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
-              <span class="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${restStepNum}</span>
-              <span class="text-emerald-300 font-extrabold text-[11px]">${restStepLabel} 🥗</span>
-              <span class="text-[11px] text-white truncate max-w-[130px]">${course.restaurant.name}</span>
-            </div>
-            <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-emerald-950 border-r-2 border-b-2 border-emerald-400"></div>
-            <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-lg -mt-0.5"></div>
-          </div>
-        `;
-      } else {
-        restContent.innerHTML = `
-          <div class="-translate-x-1/2 -translate-y-full flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-950/90 border border-emerald-500/50 shadow-lg text-[11px] text-emerald-200 opacity-85 hover:opacity-100 hover:scale-105 transition-all">
-            <span>🥗</span>
-            <span class="truncate max-w-[100px]">${course.restaurant.name}</span>
-          </div>
-        `;
+      if (!isSelected && activeCourse) {
+        // 비선택 코스의 마커가 활성 코스의 도착지나 식당과 70m 이내로 중복되면 겹침 방지를 위해 렌더링 제외
+        const distTrailToActiveTrail = calculateDistanceMeters(
+          course.trail.latitude,
+          course.trail.longitude,
+          activeCourse.trail.latitude,
+          activeCourse.trail.longitude
+        );
+        const distTrailToActiveRest = calculateDistanceMeters(
+          course.trail.latitude,
+          course.trail.longitude,
+          activeCourse.restaurant.latitude,
+          activeCourse.restaurant.longitude
+        );
+        if (distTrailToActiveTrail < 70 || distTrailToActiveRest < 70) {
+          skipTrail = true;
+        }
+
+        const distRestToActiveRest = calculateDistanceMeters(
+          course.restaurant.latitude,
+          course.restaurant.longitude,
+          activeCourse.restaurant.latitude,
+          activeCourse.restaurant.longitude
+        );
+        const distRestToActiveTrail = calculateDistanceMeters(
+          course.restaurant.latitude,
+          course.restaurant.longitude,
+          activeCourse.trail.latitude,
+          activeCourse.trail.longitude
+        );
+        if (distRestToActiveRest < 70 || distRestToActiveTrail < 70) {
+          skipRest = true;
+        }
       }
 
-      const restMarker = new window.naver.maps.Marker({
-        map,
-        position: new window.naver.maps.LatLng(
-          course.restaurant.latitude,
-          course.restaurant.longitude
-        ),
-        icon: {
-          content: restContent,
-          anchor: new window.naver.maps.Point(0, 0),
-        },
-        zIndex: isSelected ? 120 : 30,
-      });
+      // 2단계: 안심식당 캡슐 뱃지
+      if (!skipRest) {
+        const restContent = document.createElement("div");
+        restContent.className = "vital-journey-marker cursor-pointer flex flex-col items-center select-none";
+        
+        const restStepNum = userLocation ? "2" : "1";
+        const restStepLabel = userLocation ? "식사" : "출발";
 
-      window.naver.maps.Event.addListener(restMarker, "click", () => {
-        setSelectedPlace(course.restaurant);
-
-        const nutrition = course.restaurant.nutrition;
-        const nutritionHtml = nutrition
-          ? `
-          <div class="mt-2 p-2 bg-emerald-950/60 rounded-lg border border-emerald-500/40">
-            <div class="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
-              <span>🥗 ${nutrition.menuName}</span>
-              <span class="text-[10px] text-gray-400 font-mono">${nutrition.calories} kcal</span>
-            </div>
-            <div class="grid grid-cols-2 gap-1 text-[10px] pt-1 mt-1 border-t border-emerald-500/20">
-              <div class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full ${
-                  nutrition.sugarGrade === "안심" ? "bg-emerald-400" : "bg-amber-400"
-                }"></span>
-                <span class="text-gray-200">당류: <strong>${nutrition.sugars}g</strong> (${nutrition.sugarGrade})</span>
+        if (isSelected) {
+          restContent.innerHTML = `
+            <div class="-translate-x-1/2 -translate-y-full flex flex-col items-center select-none pointer-events-auto">
+              <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-950 border-2 border-emerald-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
+                <span class="w-4 h-4 rounded-full bg-emerald-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${restStepNum}</span>
+                <span class="text-emerald-300 font-extrabold text-[11px]">${restStepLabel} 🥗</span>
+                <span class="text-[11px] text-white truncate max-w-[130px]">${course.restaurant.name}</span>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full ${
-                  nutrition.sodiumGrade === "안심" ? "bg-emerald-400" : "bg-amber-400"
-                }"></span>
-                <span class="text-gray-200">나트륨: <strong>${nutrition.sodium}mg</strong> (${nutrition.sodiumGrade})</span>
+              <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-emerald-950 border-r-2 border-b-2 border-emerald-400"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-lg -mt-0.5"></div>
+            </div>
+          `;
+        } else {
+          restContent.innerHTML = `
+            <div class="-translate-x-1/2 -translate-y-full flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-950/90 border border-emerald-500/50 shadow-lg text-[11px] text-emerald-200 opacity-85 hover:opacity-100 hover:scale-105 transition-all">
+              <span>🥗</span>
+              <span class="truncate max-w-[100px]">${course.restaurant.name}</span>
+            </div>
+          `;
+        }
+
+        const restMarker = new window.naver.maps.Marker({
+          map,
+          position: new window.naver.maps.LatLng(
+            course.restaurant.latitude,
+            course.restaurant.longitude
+          ),
+          icon: {
+            content: restContent,
+            anchor: new window.naver.maps.Point(0, 0),
+          },
+          zIndex: isSelected ? 190 : 30,
+        });
+
+        window.naver.maps.Event.addListener(restMarker, "click", () => {
+          setSelectedPlace(course.restaurant);
+
+          const nutrition = course.restaurant.nutrition;
+          const nutritionHtml = nutrition
+            ? `
+            <div class="mt-2 p-2 bg-emerald-950/60 rounded-lg border border-emerald-500/40">
+              <div class="flex items-center justify-between text-[11px] font-semibold text-emerald-300">
+                <span>🥗 ${nutrition.menuName}</span>
+                <span class="text-[10px] text-gray-400 font-mono">${nutrition.calories} kcal</span>
+              </div>
+              <div class="grid grid-cols-2 gap-1 text-[10px] pt-1 mt-1 border-t border-emerald-500/20">
+                <div class="flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full ${
+                    nutrition.sugarGrade === "안심" ? "bg-emerald-400" : "bg-amber-400"
+                  }"></span>
+                  <span class="text-gray-200">당류: <strong>${nutrition.sugars}g</strong> (${nutrition.sugarGrade})</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full ${
+                    nutrition.sodiumGrade === "안심" ? "bg-emerald-400" : "bg-amber-400"
+                  }"></span>
+                  <span class="text-gray-200">나트륨: <strong>${nutrition.sodium}mg</strong> (${nutrition.sodiumGrade})</span>
+                </div>
+              </div>
+              <p class="text-[9px] text-emerald-400 mt-1">${nutrition.nutritionTip || "식약처 안심 영양성분 검증"}</p>
+            </div>
+          `
+            : "";
+
+          const naverSearchUrl = getNaverMapDetailUrl(course.restaurant);
+
+          const popupContent = `
+            <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3.5 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/50 animate-in fade-in zoom-in-95 duration-150">
+              <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+              <div class="flex items-center justify-between gap-1 mb-1 pr-6">
+                <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-bold">안심식당</span>
+                <span class="text-[10px] text-gray-400 font-medium">${course.targetCondition.split(" ")[0]}</span>
+              </div>
+              <h4 class="font-bold text-sm text-white leading-snug" style="word-break: keep-all;">${course.restaurant.name}</h4>
+              <p class="text-[11px] text-gray-300 mt-1 leading-snug" style="word-break: keep-all;">${course.restaurant.description}</p>
+              ${nutritionHtml}
+              <div class="mt-2.5 pt-2 border-t border-gray-800">
+                <a
+                  href="${naverSearchUrl}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="w-full flex items-center justify-center gap-1 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
+                >
+                  <span>🟢</span>
+                  <span>네이버 지도 상세 보기</span>
+                </a>
               </div>
             </div>
-            <p class="text-[9px] text-emerald-400 mt-1">${nutrition.nutritionTip || "식약처 안심 영양성분 검증"}</p>
-          </div>
-        `
-          : "";
+          `;
 
-        const naverSearchUrl = getNaverMapDetailUrl(course.restaurant);
+          infoWindowRef.current?.setContent(popupContent);
+          infoWindowRef.current?.open(map, restMarker);
+        });
 
-        const popupContent = `
-          <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3.5 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/50 animate-in fade-in zoom-in-95 duration-150">
-            <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
-            <div class="flex items-center justify-between gap-1 mb-1 pr-6">
-              <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-bold">안심식당</span>
-              <span class="text-[10px] text-gray-400 font-medium">${course.targetCondition.split(" ")[0]}</span>
-            </div>
-            <h4 class="font-bold text-sm text-white leading-snug" style="word-break: keep-all;">${course.restaurant.name}</h4>
-            <p class="text-[11px] text-gray-300 mt-1 leading-snug" style="word-break: keep-all;">${course.restaurant.description}</p>
-            ${nutritionHtml}
-            <div class="mt-2.5 pt-2 border-t border-gray-800">
-              <a
-                href="${naverSearchUrl}"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="w-full flex items-center justify-center gap-1 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
-              >
-                <span>🟢</span>
-                <span>네이버 지도 상세 보기</span>
-              </a>
-            </div>
-          </div>
-        `;
-
-        infoWindowRef.current?.setContent(popupContent);
-        infoWindowRef.current?.open(map, restMarker);
-      });
-
-      markersRef.current.push(restMarker);
+        markersRef.current.push(restMarker);
+      }
 
       // 3단계: 완만 산책로 캡슐 뱃지
-      const trailContent = document.createElement("div");
-      trailContent.className = "vital-journey-marker cursor-pointer flex flex-col items-center select-none";
+      if (!skipTrail) {
+        const trailContent = document.createElement("div");
+        trailContent.className = "vital-journey-marker cursor-pointer flex flex-col items-center select-none";
 
-      const trailStepNum = userLocation ? "3" : "2";
+        const trailStepNum = userLocation ? "3" : "2";
 
-      if (isSelected) {
-        trailContent.innerHTML = `
-          <div class="-translate-x-1/2 -translate-y-full flex flex-col items-center select-none pointer-events-auto">
-            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950/95 border-2 border-rose-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
-              <span class="w-4 h-4 rounded-full bg-rose-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${trailStepNum}</span>
-              <span class="text-rose-300 font-extrabold text-[11px]">도착 🏁</span>
-              <span class="text-[11px] text-white truncate max-w-[130px]">${course.trail.name}</span>
+        if (isSelected) {
+          trailContent.innerHTML = `
+            <div class="-translate-x-1/2 -translate-y-full flex flex-col items-center select-none pointer-events-auto">
+              <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-950 border-2 border-rose-400 shadow-2xl text-white text-xs font-bold whitespace-nowrap scale-110 z-30 transition-transform">
+                <span class="w-4 h-4 rounded-full bg-rose-400 flex items-center justify-center text-[10px] text-slate-950 font-black shrink-0">${trailStepNum}</span>
+                <span class="text-rose-300 font-extrabold text-[11px]">도착 🏁</span>
+                <span class="text-[11px] text-white truncate max-w-[130px]">${course.trail.name}</span>
+              </div>
+              <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-rose-950 border-r-2 border-b-2 border-rose-400"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-lg -mt-0.5"></div>
             </div>
-            <div class="w-2.5 h-2.5 -mt-1 rotate-45 bg-rose-950 border-r-2 border-b-2 border-rose-400"></div>
-            <div class="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-lg -mt-0.5"></div>
-          </div>
-        `;
-      } else {
-        trailContent.innerHTML = `
-          <div class="-translate-x-1/2 -translate-y-full flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-950/90 border border-teal-500/50 shadow-lg text-[11px] text-teal-200 opacity-85 hover:opacity-100 hover:scale-105 transition-all">
-            <span>👟</span>
-            <span class="truncate max-w-[100px]">${course.trail.name}</span>
-          </div>
-        `;
+          `;
+        } else {
+          trailContent.innerHTML = `
+            <div class="-translate-x-1/2 -translate-y-full flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-950/90 border border-teal-500/50 shadow-lg text-[11px] text-teal-200 opacity-85 hover:opacity-100 hover:scale-105 transition-all">
+              <span>👟</span>
+              <span class="truncate max-w-[100px]">${course.trail.name}</span>
+            </div>
+          `;
+        }
+
+        const trailMarker = new window.naver.maps.Marker({
+          map,
+          position: new window.naver.maps.LatLng(
+            course.trail.latitude,
+            course.trail.longitude
+          ),
+          icon: {
+            content: trailContent,
+            anchor: new window.naver.maps.Point(0, 0),
+          },
+          zIndex: isSelected ? 200 : 30,
+        });
+
+        window.naver.maps.Event.addListener(trailMarker, "click", () => {
+          setSelectedPlace(course.trail);
+
+          const naverSearchUrl = getNaverMapDetailUrl(course.trail);
+
+          const popupContent = `
+            <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3.5 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/50 animate-in fade-in zoom-in-95 duration-150">
+              <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+              <div class="flex items-center justify-between gap-1 mb-1 pr-6">
+                <span class="text-[10px] bg-teal-950 text-teal-300 border border-teal-500/40 px-1.5 py-0.5 rounded font-bold">완만 산책로</span>
+                <span class="text-[10px] text-teal-300 font-semibold">${course.slopeGrade}</span>
+              </div>
+              <h4 class="font-bold text-sm text-white leading-snug" style="word-break: keep-all;">${course.trail.name}</h4>
+              <p class="text-[11px] text-gray-300 mt-1 leading-snug" style="word-break: keep-all;">${course.trail.description}</p>
+              <div class="mt-2 p-1.5 bg-teal-950/60 border border-teal-500/30 rounded-lg text-[10px] text-teal-200 font-medium" style="word-break: keep-all;">
+                🌿 ${course.trail.healthBenefit}
+              </div>
+              <div class="mt-2.5 pt-2 border-t border-gray-800">
+                <a
+                  href="${naverSearchUrl}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="w-full flex items-center justify-center gap-1 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
+                >
+                  <span>🟢</span>
+                  <span>네이버 지도 상세 보기</span>
+                </a>
+              </div>
+            </div>
+          `;
+
+          infoWindowRef.current?.setContent(popupContent);
+          infoWindowRef.current?.open(map, trailMarker);
+        });
+
+        markersRef.current.push(trailMarker);
       }
-
-      const trailMarker = new window.naver.maps.Marker({
-        map,
-        position: new window.naver.maps.LatLng(
-          course.trail.latitude,
-          course.trail.longitude
-        ),
-        icon: {
-          content: trailContent,
-          anchor: new window.naver.maps.Point(0, 0),
-        },
-        zIndex: isSelected ? 120 : 30,
-      });
-
-      window.naver.maps.Event.addListener(trailMarker, "click", () => {
-        setSelectedPlace(course.trail);
-
-        const naverSearchUrl = getNaverMapDetailUrl(course.trail);
-
-        const popupContent = `
-          <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3.5 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/50 animate-in fade-in zoom-in-95 duration-150">
-            <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
-            <div class="flex items-center justify-between gap-1 mb-1 pr-6">
-              <span class="text-[10px] bg-teal-950 text-teal-300 border border-teal-500/40 px-1.5 py-0.5 rounded font-bold">완만 산책로</span>
-              <span class="text-[10px] text-teal-300 font-semibold">${course.slopeGrade}</span>
-            </div>
-            <h4 class="font-bold text-sm text-white leading-snug" style="word-break: keep-all;">${course.trail.name}</h4>
-            <p class="text-[11px] text-gray-300 mt-1 leading-snug" style="word-break: keep-all;">${course.trail.description}</p>
-            <div class="mt-2 p-1.5 bg-teal-950/60 border border-teal-500/30 rounded-lg text-[10px] text-teal-200 font-medium" style="word-break: keep-all;">
-              🌿 ${course.trail.healthBenefit}
-            </div>
-            <div class="mt-2.5 pt-2 border-t border-gray-800">
-              <a
-                href="${naverSearchUrl}"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="w-full flex items-center justify-center gap-1 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
-              >
-                <span>🟢</span>
-                <span>네이버 지도 상세 보기</span>
-              </a>
-            </div>
-          </div>
-        `;
-
-        infoWindowRef.current?.setContent(popupContent);
-        infoWindowRef.current?.open(map, trailMarker);
-      });
-
-      markersRef.current.push(trailMarker);
 
       // 선택된 코스의 이동 동선 3~5분 공공 편의시설 핀
       if (isSelected && course.waypoints) {
@@ -779,6 +839,23 @@ export function MapContainer() {
             : course.waypoints.filter((wp) => wp.category === activeWaypointFilter);
 
         filteredWaypoints.forEach((wp) => {
+          // 도착지 또는 식당 마커와 70m 이내로 인접한 편의시설 핀은 겹침 방지를 위해 제외 (도착지 최우선 노출)
+          const wpDistToTrail = calculateDistanceMeters(
+            wp.latitude,
+            wp.longitude,
+            course.trail.latitude,
+            course.trail.longitude
+          );
+          const wpDistToRest = calculateDistanceMeters(
+            wp.latitude,
+            wp.longitude,
+            course.restaurant.latitude,
+            course.restaurant.longitude
+          );
+          if (wpDistToTrail < 70 || wpDistToRest < 70) {
+            return;
+          }
+
           const wpContent = document.createElement("div");
           wpContent.className = "vital-marker-wrapper cursor-pointer";
 
@@ -1086,16 +1163,16 @@ export function MapContainer() {
       <div className="absolute top-4 right-3 sm:right-4 z-30 flex items-center justify-end gap-1.5 sm:gap-2">
         {/* 전체 경로 한눈에 보기 맞춤 버튼 */}
         <button
-          onClick={() => fitCourseAndHomeBounds(true)}
+          onClick={() => focusActiveCourse(true)}
           className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 shrink-0 border ${
             isLight
               ? "bg-white/95 hover:bg-slate-50 text-emerald-700 hover:text-emerald-800 border-emerald-500/50 shadow-slate-300/40"
               : "bg-gray-900/90 hover:bg-gray-800 text-emerald-400 hover:text-emerald-300 border-emerald-500/40"
           }`}
-          title="내 위치와 선택된 코스 전체를 화면 한눈에 포커스합니다."
+          title="선택된 웰니스 코스 전체를 화면 한눈에 포커스합니다."
         >
           <span>⛶</span>
-          <span className="hidden 2xl:inline">전체 경로 맞춤</span>
+          <span className="hidden 2xl:inline">코스 전체 맞춤</span>
         </button>
 
         {/* 내 위치 기반 찾기 버튼 */}

@@ -809,21 +809,44 @@ export function ControlPanel() {
                             </a>
                           ) : null}
 
-                          {/* 지도 포커스 */}
+                          {/* 지도 포커스 (식당 중심) */}
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSelectCourse(course.id);
+                              flyToPlace(course.restaurant.longitude, course.restaurant.latitude, 16);
                             }}
                             className={`py-1.5 px-2 font-bold text-[11px] rounded-lg border transition-all flex items-center justify-center gap-1 active:scale-95 ${
                               isLight
                                 ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
                                 : "bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700"
-                            } ${!userLocation ? "col-span-2" : ""}`}
+                            }`}
+                            title="안심식당(출발지) 중심으로 지도 위치 포커스"
                           >
                             <span>🎯</span>
-                            <span>지도 위치 ➔</span>
+                            <span className="truncate">지도 위치 ➔</span>
+                          </button>
+
+                          {/* 코스 전체 보기 버튼 (2열 그리드 빈자리 채움) */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectCourse(course.id);
+                              window.dispatchEvent(
+                                new CustomEvent("vital-fit-course", { detail: { courseId: course.id } })
+                              );
+                            }}
+                            className={`py-1.5 px-2 font-bold text-[11px] rounded-lg border transition-all flex items-center justify-center gap-1 active:scale-95 ${
+                              isLight
+                                ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300"
+                                : "bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 hover:text-white border-emerald-500/40"
+                            }`}
+                            title="코스 전체가 한눈에 보이도록 축소/확대 및 중심 이동"
+                          >
+                            <span>🗺️</span>
+                            <span className="truncate">코스 보기</span>
                           </button>
                         </div>
                       </div>

@@ -89,7 +89,7 @@ export function buildRegionalCourses(
         ? "고혈압 (탈수 방지 및 완경사 혈관 안정)"
         : "저혈압/대사증후군 (평지 보행 및 활력 증진)";
 
-    // 공공 편의시설(화장실, 쉼터, 무장애) 웨이포인트 보강
+    // 공공 편의시설(화장실, 쉼터, 무장애) 웨이포인트 보강 (도착지/식당 핀과 좌표 중복 겹침 방지)
     const waypoints: WaypointFacility[] = [
       {
         id: `wp-${region.shortName}-${i}-1`,
@@ -97,8 +97,8 @@ export function buildRegionalCourses(
         category: "쉼터",
         description: "피톤치드 그늘 벤치 및 평지 휴게 공간",
         address: trail.address,
-        latitude: Number(((rest.latitude + trail.latitude) / 2).toFixed(6)),
-        longitude: Number(((rest.longitude + trail.longitude) / 2).toFixed(6)),
+        latitude: Number((rest.latitude * 0.6 + trail.latitude * 0.4 + 0.0003).toFixed(6)),
+        longitude: Number((rest.longitude * 0.6 + trail.longitude * 0.4 + 0.0004).toFixed(6)),
         walkingMinutesFromRoute: 2,
         distanceMetersFromRoute: 80,
         features: ["그늘 벤치", "음수대", "비상벨"],
@@ -109,8 +109,8 @@ export function buildRegionalCourses(
         category: "화장실",
         description: "휠체어 접근 가능 및 24시간 청결 유지 안심 화장실",
         address: trail.address,
-        latitude: trail.latitude,
-        longitude: trail.longitude,
+        latitude: Number((rest.latitude * 0.3 + trail.latitude * 0.7 - 0.0004).toFixed(6)),
+        longitude: Number((rest.longitude * 0.3 + trail.longitude * 0.7 + 0.0003).toFixed(6)),
         walkingMinutesFromRoute: 3,
         distanceMetersFromRoute: 120,
         features: ["장애인 화장실", "비데", "자동문"],
