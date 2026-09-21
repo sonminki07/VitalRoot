@@ -12,7 +12,7 @@ import { useWellnessStore, checkIsOnboardingComplete } from "./store/wellnessSto
 
 function App() {
   const { initAuth } = useAuthStore();
-  const { profile, openOnboardingModal, themeMode } = useWellnessStore();
+  const { profile, openOnboardingModal, themeMode, userLocation, loadRegionData } = useWellnessStore();
   const hasCheckedOnboarding = useRef(false);
 
   // 전역 Supabase 세션 리스너 및 OAuth 복귀 파라미터 초기화
@@ -20,6 +20,13 @@ function App() {
     const cleanup = initAuth();
     return cleanup;
   }, [initAuth]);
+
+  // 최초 로드 시 현재 사용자 위치(또는 기본 서울)의 4대 공공 Tour API 데이터 온디맨드 로딩
+  useEffect(() => {
+    const lat = userLocation?.latitude ?? 37.5583;
+    const lng = userLocation?.longitude ?? 126.9825;
+    loadRegionData(lat, lng);
+  }, []);
 
   // 최초 진입 시 건강 프로필 미완료(미흡) 상태인 경우 온보딩 팝업 자동 호출
   useEffect(() => {

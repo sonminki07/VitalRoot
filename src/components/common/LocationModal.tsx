@@ -56,8 +56,13 @@ const CITY_TARGETS: CityTarget[] = [
 ];
 
 export function LocationModal() {
-  const { isLocationModalOpen, setIsLocationModalOpen, setUserLocation, setIsPinningHome } =
-    useWellnessStore();
+  const {
+    isLocationModalOpen,
+    setIsLocationModalOpen,
+    setUserLocation,
+    setIsPinningHome,
+    loadRegionData,
+  } = useWellnessStore();
   const { flyToPlace } = useMapStore();
   const [selectedRegion, setSelectedRegion] = useState<string>("전체");
   const [isLoading, setIsLoading] = useState(false);
@@ -70,11 +75,12 @@ export function LocationModal() {
 
   if (!isLocationModalOpen) return null;
 
-  // 도시 선택 시: 좌표를 집으로 강제 확정하지 않고, 해당 시 중심으로 지도를 이동시킨 뒤 사용자가 직접 집을 찍도록 핀 모드 전환!
+  // 도시 선택 시: 좌표를 집으로 강제 확정하지 않고, 해당 시 중심으로 지도를 이동시킨 뒤 사용자가 직접 집을 찍도록 핀 모드 전환 & 4대 Tour API 온디맨드 로드!
   const handleSelectCity = (city: CityTarget) => {
     setIsLocationModalOpen(false);
     // 지도 포커스를 해당 도시 중심부(zoom 14: 상세 도로/건물 식별 뷰)로 부드럽게 이동
     flyToPlace(city.lng, city.lat, 14);
+    loadRegionData(city.lat, city.lng);
     // 사용자가 지도에서 직접 자신의 집 위치를 클릭할 수 있도록 핀 찍기 모드 활성화
     setIsPinningHome(true);
   };
@@ -100,6 +106,7 @@ export function LocationModal() {
         const lng = pos.coords.longitude;
 
         setUserLocation({ latitude: lat, longitude: lng });
+        loadRegionData(lat, lng);
         setIsLocationModalOpen(false);
 
         // 지도 중심을 사용자 현재 위치로 부드럽게 이동

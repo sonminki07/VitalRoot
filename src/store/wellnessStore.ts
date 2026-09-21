@@ -20,6 +20,9 @@ import {
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
 import { calculateDistanceMeters } from "../utils/pedestrianRouter";
+import { fetchComprehensiveRegionalTourData } from "../utils/tourApi";
+import { buildRegionalCourses, buildRegionalQuests } from "../utils/regionalCourseQuestBuilder";
+import { resolveKoreaRegion } from "../utils/koreaRegionResolver";
 
 export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리";
 
@@ -261,6 +264,11 @@ interface WellnessState {
   savedCustomCourses: SavedCustomCourse[];
   isCourseLoading: boolean;
 
+  // 지역 온디맨드 로딩 상태
+  currentRegionName: string;
+  isRegionLoading: boolean;
+  loadRegionData: (lat: number, lng: number) => Promise<void>;
+
   isSupabaseConnected: boolean;
   isLoading: boolean;
 
@@ -315,6 +323,9 @@ const initialFontSize = getSavedFontSize();
 const initialMapType = getSavedMapType();
 const initialDistUnit = getSavedDistanceUnit();
 const initialSavedCourses = getSavedCustomCourses();
+const initialRegion = initialSavedLoc
+  ? resolveKoreaRegion(initialSavedLoc.latitude, initialSavedLoc.longitude).shortName
+  : "서울";
 
 if (typeof document !== "undefined") {
   try {
@@ -363,6 +374,8 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   distanceUnit: initialDistUnit,
   savedCustomCourses: initialSavedCourses,
   isCourseLoading: false,
+  currentRegionName: initialRegion,
+  isRegionLoading: false,
 
   isSupabaseConnected: false,
   isLoading: false,
@@ -482,6 +495,49 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
       filteredCourses: updated,
       activeCourseId: updated[0]?.id || "course-1",
     });
+    if (loc) {
+      get().loadRegionData(loc.latitude, loc.longitude);
+    }
+  },
+
+  loadRegionData: async (lat: number, lng: number) => {
+    set({ isRegionLoading: true });
+    try {
+      const region = resolveKoreaRegion(lat, lng);
+      const collection = await fetchComprehensiveRegionalTourData(lat, lng);
+      const { profile, courses } = get();
+      const regionalCourses = buildRegionalCourses(lat, lng, collection, profile.chronicConditions);
+      const regionalQuests = buildRegionalQuests(lat, lng, collection);
+
+      const savedQuestData = getSavedQuests();
+      const mergedQuests = regionalQuests.map((q) => ({
+        ...q,
+        isCompleted: savedQuestData.completedIds.includes(q.id),
+      }));
+
+      // 기존 합성 지역 코스를 제외하고 새 지역 코스를 최우선 배치
+      const nonRegional = courses.filter((c) => !c.id.startsWith("regional-course-"));
+      const allCourses = [...regionalCourses, ...nonRegional];
+      const filtered = computeFilteredCourses(
+        allCourses,
+        profile.chronicConditions,
+        { latitude: lat, longitude: lng },
+        get().courseMode
+      );
+
+      set({
+        currentRegionName: region.shortName,
+        courses: allCourses,
+        filteredCourses: filtered,
+        activeCourseId: filtered[0]?.id || regionalCourses[0]?.id || "course-1",
+        quests: mergedQuests,
+        activeQuestId: mergedQuests[0]?.id || null,
+        isRegionLoading: false,
+      });
+    } catch (err) {
+      console.warn("[wellnessStore] Failed to load region data:", err);
+      set({ isRegionLoading: false });
+    }
   },
 
   setActiveStayId: (id) => set({ activeStayId: id }),

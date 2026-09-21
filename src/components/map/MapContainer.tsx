@@ -1103,17 +1103,17 @@ export function MapContainer() {
         </div>
       )}
 
-      {/* 지도 하단: 실제 도로 보행로 길찾기 바 (가시 영역 정중앙 배치) */}
+      {/* 지도 하단: 실제 도로 보행로 길찾기 바 (가시 영역 정중앙 배치 & 글씨 세로 깨짐 완전 방지) */}
       {activeCourse && !isCourseBarDismissed && (
         <div
-          className={`absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[calc(50%+190px)] z-30 backdrop-blur-md border rounded-2xl px-3.5 py-2.5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-2.5 sm:gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw] sm:max-w-max ${
+          className={`absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[calc(50%+190px)] z-30 backdrop-blur-md border rounded-2xl px-3.5 py-2.5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw] sm:max-w-max select-none ${
             isLight
               ? "bg-white/98 text-slate-900 border-emerald-600/40 shadow-slate-400/30"
               : "bg-gray-900/95 text-white border-emerald-500/60 shadow-black/60"
           }`}
         >
           {/* 좌측 영역: 코스 저장 핀 버튼 + 코스 정보 */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0 shrink">
             {/* 코스 저장 (텍스트 없이 📌 아이콘 단독) */}
             <button
               type="button"
@@ -1144,25 +1144,29 @@ export function MapContainer() {
               📌
             </button>
 
-            <div>
+            <div className="min-w-0">
               <div
-                className={`font-bold flex items-center gap-1.5 text-xs sm:text-[14px] ${
+                className={`font-bold flex items-center gap-1.5 text-xs sm:text-[14px] whitespace-nowrap overflow-hidden ${
                   isLight ? "text-slate-900" : "text-white"
                 }`}
               >
                 {userLocation && (
                   <>
-                    <span className={isLight ? "text-sky-700 font-semibold" : "text-sky-300"}>내 위치</span>
-                    <span className={isLight ? "text-sky-600 font-bold" : "text-sky-400 font-bold"}>➔</span>
+                    <span className={`shrink-0 ${isLight ? "text-sky-700 font-semibold" : "text-sky-300"}`}>내 위치</span>
+                    <span className={`shrink-0 ${isLight ? "text-sky-600 font-bold" : "text-sky-400 font-bold"}`}>➔</span>
                   </>
                 )}
-                <span>{activeCourse.restaurant.name}</span>
-                <span className={isLight ? "text-emerald-700 font-bold" : "text-emerald-400"}>➔</span>
-                <span>{activeCourse.trail.name}</span>
+                <span className="truncate max-w-[120px] sm:max-w-[200px] break-keep" title={activeCourse.restaurant.name}>
+                  {activeCourse.restaurant.name}
+                </span>
+                <span className={`shrink-0 ${isLight ? "text-emerald-700 font-bold" : "text-emerald-400"}`}>➔</span>
+                <span className="truncate max-w-[120px] sm:max-w-[200px] break-keep" title={activeCourse.trail.name}>
+                  {activeCourse.trail.name}
+                </span>
               </div>
               <div
                 onClick={toggleDistanceUnit}
-                className={`text-[11px] sm:text-xs cursor-pointer transition-colors ${
+                className={`text-[11px] sm:text-xs cursor-pointer transition-colors whitespace-nowrap break-keep ${
                   isLight ? "text-slate-600 hover:text-slate-900" : "text-gray-400 hover:text-gray-200"
                 }`}
                 title="클릭하여 거리 단위 변경 (m / km)"
@@ -1197,28 +1201,28 @@ export function MapContainer() {
                     <strong className={isLight ? "text-teal-700 font-bold" : "text-teal-300 font-semibold"}>
                       {Math.round(actualWalkDistance / 70)}분
                     </strong>{" "}
-                    ({activeCourse.slopeGrade})
+                    ({activeCourse.slopeGrade || "완경사 4.5% 미만"})
                   </>
                 )}
               </div>
             </div>
           </div>
 
-          <div className={`hidden md:block h-6 w-px mx-0.5 ${isLight ? "bg-slate-300" : "bg-gray-700/80"}`} />
+          <div className={`hidden md:block h-6 w-px mx-0.5 shrink-0 ${isLight ? "bg-slate-300" : "bg-gray-700/80"}`} />
 
-          {/* 길찾기 버튼 영역 */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* 길찾기 버튼 영역 (가로 한 줄 유지 & 버튼 텍스트 세로 깨짐 원천 방지) */}
+          <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
             {userLocation ? (
               <>
                 <a
                   href={naverRestToTrailUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0 border border-emerald-400/40"
+                  className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0 border border-emerald-400/40 whitespace-nowrap"
                   title="네이버 지도 도보 길찾기 (식당 ➔ 산책로 힐링 코스)"
                 >
-                  <span className="text-xs">🟢</span>
-                  <span>도보 길찾기</span>
+                  <span className="text-xs shrink-0">🟢</span>
+                  <span className="whitespace-nowrap">도보 길찾기</span>
                 </a>
 
                 {isTransitRecommended ? (
@@ -1226,22 +1230,22 @@ export function MapContainer() {
                     href={naverTransitUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0"
+                    className="flex items-center justify-center gap-1 px-2 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
                     title="내 위치에서 식당까지 네이버 대중교통(버스/지하철) 길찾기"
                   >
-                    <span className="text-xs">🚌</span>
-                    <span>식당(대중교통)</span>
+                    <span className="text-xs shrink-0">🚌</span>
+                    <span className="whitespace-nowrap">대중교통</span>
                   </a>
                 ) : (
                   <a
                     href={naverUserToRestWalkUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1 px-2 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0"
+                    className="flex items-center justify-center gap-1 px-2 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
                     title="내 위치에서 식당까지 도보 길찾기"
                   >
-                    <span className="text-xs">🚶</span>
-                    <span>식당 도보</span>
+                    <span className="text-xs shrink-0">🚶</span>
+                    <span className="whitespace-nowrap">식당 도보</span>
                   </a>
                 )}
 
@@ -1249,15 +1253,15 @@ export function MapContainer() {
                   href={naverUserToTrailUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center justify-center gap-1 px-2 py-1.5 font-bold text-xs rounded-xl border shadow transition-all active:scale-95 shrink-0 ${
+                  className={`flex items-center justify-center gap-1 px-2 py-1.5 font-bold text-xs rounded-xl border shadow transition-all active:scale-95 shrink-0 whitespace-nowrap ${
                     isLight
                       ? "bg-slate-100 hover:bg-slate-200 text-teal-800 border-teal-600/30"
                       : "bg-gray-800 hover:bg-gray-700 text-teal-300 hover:text-white border-teal-500/40"
                   }`}
                   title="내 위치에서 산책로까지 직통 도보 길찾기"
                 >
-                  <span className="text-xs">🏁</span>
-                  <span>산책로 직통</span>
+                  <span className="text-xs shrink-0">🏁</span>
+                  <span className="whitespace-nowrap">산책로 직통</span>
                 </a>
               </>
             ) : (
@@ -1265,10 +1269,10 @@ export function MapContainer() {
                 href={naverRestToTrailUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 shrink-0 whitespace-nowrap"
               >
-                <span className="text-xs">🟢</span>
-                <span>도보 길찾기 (식당 ➔ 산책로)</span>
+                <span className="text-xs shrink-0">🟢</span>
+                <span className="whitespace-nowrap">도보 길찾기 (식당 ➔ 산책로)</span>
               </a>
             )}
 

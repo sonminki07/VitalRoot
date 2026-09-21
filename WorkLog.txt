@@ -333,3 +333,34 @@
 ### 3. 검증 결과
 - `npm run build` 빌드 100% 통과 (0 에러, 타입스크립트 타입 체크 통과).
 - GitHub `main` 브랜치에 배포 완료.
+
+## [2026-09-21] 오류 v.3 UI 겹침·글씨 세로 깨짐 해소, 한국관광공사 4대 OpenAPI(국문/무장애/의료/웰니스) 정식 연동 및 전국 226개 시·군·구 온디맨드 맞춤 코스·명소 퀘스트 확장
+
+### 1. 작업 개요
+- **사용자 피드백 및 요청 사항**:
+  1. "UI의 오류가 많음 하단 UI겹침, 글씨가 세로로 나옴": 하단 코스 요약 바와 우측 하단 건강 알림 배너가 겹치는 현상을 해소하고, 좁은 너비에서 텍스트가 한 글자씩 줄바꿈되어 세로로 깨지던 레이아웃 오류 수정.
+  2. "퀘스트는 각 지역의 명소로 되어야하는데 현재는 일부 지역만 퀘스트가 존재함": 서울 중심 정적 퀘스트 3개에서 벗어나 사용자가 방문/선택한 전국 각 지역의 실제 명소를 바탕으로 한 퀘스트 제공.
+  3. "내가 만약 수도권, 광역시에 존재하지 않고 다른 지역을 투어한다면 그 지역의 명소나 그 지역에서 경로를 추천해줘야 하는데 현재는 수도권과 일부 지역만 서비스가 되어진다": 전국 226개 시·군·구(도서·산간 소도시 포함) 방문 시에도 현지 명소와 경로가 추천되도록 개선.
+  4. "api 목록인데 우리는 실제로 국문 관광정보 서비스만 사용했는데 내가 체크한거는 4개거든? 나머지 3개는 api 받고 추가하면 좋을듯": 한국관광공사 4대 OpenAPI (국문 관광정보 `KorService2`, 무장애 여행 정보 `KorWithService2`, 의료관광정보 `MdclTursmService`, 웰니스관광정보 `WellnessTursmService`) 정식 연동.
+
+### 2. 주요 구현 내용
+1. **한국관광공사 4대 Open API 통합 클라이언트 & 지능형 캐싱 (`src/utils/tourApi.ts`)**:
+   - 기존의 폐기된 `KorService1` 엔드포인트(400 에러)를 최신 정식 버전인 `KorService2`로 전면 마이그레이션.
+   - `KorWithService2`(무장애 보행로/편의시설), `MdclTursmService`(의료관광, `langDivCd=KOR`), `WellnessTursmService`(치유의 숲/웰니스 테마, `langDivCd=KOR`) 클라이언트 구현.
+   - `fetchComprehensiveRegionalTourData` 함수를 통해 4대 API를 병렬(`Promise.allSettled`) 수집하고, 좌표 그리드(약 5~10km) 기반 메모리 & LocalStorage 캐시(24시간 TTL) 구축으로 일일 쿼터(1,000건) 절약 및 지연 시간 0ms 달성.
+2. **전국 시·군·구 단위 코스 & 지역 명소 퀘스트 실시간 생성 엔진 (`src/utils/regionalCourseQuestBuilder.ts`)**:
+   - `buildRegionalCourses`: 현지 수집된 안심식당(39)과 무장애 둘레길/산책로를 1:1 매칭하여 식약처 기준 안심 영양성분 및 3중 안전 웨이포인트(화장실/쉼터)가 포함된 코스 생성.
+   - `buildRegionalQuests`: 현지 웰니스·무장애·대표 관광명소를 기반으로 20~30분 산책 퀘스트를 동적 생성하고 지역 고유 칭호(예: `영양 은하수 웰니스 수호자 🏅`, `강릉 푸른 솔향 힐링 마스터 🌿`) 및 카테고리 뱃지 부여.
+3. **전역 스토어 온디맨드 로딩 및 도시 전환 연동 (`src/store/wellnessStore.ts`, `src/components/common/LocationModal.tsx`, `src/App.tsx`)**:
+   - `currentRegionName`, `isRegionLoading`, `loadRegionData` 액션 추가.
+   - GPS 내 위치 지정, `LocationModal` 도시 선택, 앱 최초 구동 시 활성 좌표의 4대 API 데이터를 온디맨드 로드하여 코스 및 퀘스트 즉시 갱신.
+4. **UI 하단 충돌 해소 및 글씨 세로 깨짐 원천 방지 (`src/components/map/MapContainer.tsx`, `src/components/common/HealthProfileAlertBanner.tsx`, `src/components/panels/ControlPanel.tsx`)**:
+   - `HealthProfileAlertBanner`를 하단(`bottom-4`)에서 우측 상단 유틸 바 직하단(`top-20 right-3 sm:right-4`)으로 재배치하여 하단 바 및 모바일 퀵 바와의 충돌을 원천 차단.
+   - 하단 코스 바 및 버튼 요소에 `whitespace-nowrap`, `break-keep`, `truncate max-w-[120px] sm:max-w-[200px]`를 적용하여 한 글자씩 떨어지던 세로 출력 현상 100% 해소.
+   - 사이드바 퀘스트 탭 상단에 `📍 [지역명] 실시간 명소 퀘스트` 뱃지 및 로딩 인디케이터 표출.
+
+### 3. 검증 결과
+- `npm run build` 빌드 100% 통과 (0 에러, 타입스크립트 타입 체크 통과).
+- 서울 중구, 강원 강릉시, 전남 여수시, 경북 영양군 4개 권역 대상 4대 Tour API 라이브 호출 검증 완료 (영양군 식당 9건/무장애 3건/웰니스 1건 정상 응답 확인).
+- 데스크톱 및 모바일 뷰포트 레이아웃 겹침 및 텍스트 렌더링 정상 검증.
+

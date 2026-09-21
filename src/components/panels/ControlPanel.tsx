@@ -69,6 +69,8 @@ export function ControlPanel() {
     setCourseMode,
     openSettingsModal,
     themeMode,
+    currentRegionName,
+    isRegionLoading,
   } = useWellnessStore();
 
   const isLight = themeMode === "light";
@@ -1102,9 +1104,14 @@ export function ControlPanel() {
               {/* 퀘스트 목록 */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>지역 명소 스탬프 & 완보 퀘스트</span>
-                  <span className="text-purple-400 font-semibold">
-                    {quests.length}개 챌린지
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 text-[10px] shrink-0">
+                      📍 {currentRegionName}
+                    </span>
+                    <span className="font-semibold text-gray-200 truncate">실시간 명소 완보 퀘스트</span>
+                  </div>
+                  <span className="text-purple-400 font-semibold text-[11px] shrink-0">
+                    {isRegionLoading ? "로딩 중..." : `${quests.length}개 챌린지`}
                   </span>
                 </div>
 
