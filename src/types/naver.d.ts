@@ -140,6 +140,7 @@ declare namespace naver.maps {
     function addListener(target: any, type: string, listener: (...args: any[]) => void): any;
     function removeListener(listener: any): void;
     function clearListeners(target: any, type?: string): void;
+    function trigger(target: any, type: string, ...args: any[]): any;
   }
 }
 

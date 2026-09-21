@@ -468,12 +468,13 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   },
 
   setCourseMode: (mode) => {
-    const { courses, profile, userLocation } = get();
+    const { courses, profile, userLocation, activeCourseId } = get();
     const updated = computeFilteredCourses(courses, profile.chronicConditions, userLocation, mode);
+    const activeCourseExists = updated.some((c) => c.id === activeCourseId);
     set({
       courseMode: mode,
       filteredCourses: updated,
-      activeCourseId: updated[0]?.id || "course-1",
+      activeCourseId: activeCourseExists ? activeCourseId : updated[0]?.id || "course-1",
     });
   },
 
@@ -487,13 +488,14 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
     } catch {
       // ignore
     }
-    const { courses, profile, courseMode } = get();
+    const { courses, profile, courseMode, activeCourseId } = get();
     const updated = computeFilteredCourses(courses, profile.chronicConditions, loc, courseMode);
+    const activeCourseExists = updated.some((c) => c.id === activeCourseId);
     set({
       userLocation: loc,
       isPinningHome: false,
       filteredCourses: updated,
-      activeCourseId: updated[0]?.id || "course-1",
+      activeCourseId: activeCourseExists ? activeCourseId : updated[0]?.id || "course-1",
     });
     if (loc) {
       get().loadRegionData(loc.latitude, loc.longitude);
@@ -505,7 +507,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
     try {
       const region = resolveKoreaRegion(lat, lng);
       const collection = await fetchComprehensiveRegionalTourData(lat, lng);
-      const { profile, courses } = get();
+      const { profile, courses, activeCourseId } = get();
       const regionalCourses = buildRegionalCourses(lat, lng, collection, profile.chronicConditions);
       const regionalQuests = buildRegionalQuests(lat, lng, collection);
 
@@ -525,11 +527,13 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
         get().courseMode
       );
 
+      const activeCourseExists = filtered.some((c) => c.id === activeCourseId);
+
       set({
         currentRegionName: region.shortName,
         courses: allCourses,
         filteredCourses: filtered,
-        activeCourseId: filtered[0]?.id || regionalCourses[0]?.id || "course-1",
+        activeCourseId: activeCourseExists ? activeCourseId : filtered[0]?.id || regionalCourses[0]?.id || "course-1",
         quests: mergedQuests,
         activeQuestId: mergedQuests[0]?.id || null,
         isRegionLoading: false,
@@ -834,12 +838,13 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
           // ignore
         }
 
-        const { courses, userLocation, courseMode } = get();
+        const { courses, userLocation, courseMode, activeCourseId } = get();
         const filtered = computeFilteredCourses(courses, loadedProfile.chronicConditions, userLocation, courseMode);
+        const activeCourseExists = filtered.some((c) => c.id === activeCourseId);
         set({
           profile: loadedProfile,
           filteredCourses: filtered,
-          activeCourseId: filtered[0]?.id ?? "course-1",
+          activeCourseId: activeCourseExists ? activeCourseId : filtered[0]?.id ?? "course-1",
         });
       }
     } catch (err) {
