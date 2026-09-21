@@ -517,9 +517,17 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
         isCompleted: savedQuestData.completedIds.includes(q.id),
       }));
 
-      // 기존 합성 지역 코스를 제외하고 새 지역 코스를 최우선 배치
-      const nonRegional = courses.filter((c) => !c.id.startsWith("regional-course-"));
-      const allCourses = [...regionalCourses, ...nonRegional];
+      // 기존 코스들과 새 지역 코스를 ID 기반으로 병합 (이전 방문 지역 코스도 영구 보존)
+      const courseMap = new Map<string, WellnessCourseSet>();
+      courses.forEach((c) => courseMap.set(c.id, c));
+      regionalCourses.forEach((c) => courseMap.set(c.id, c));
+      const allCourses = [
+        ...regionalCourses,
+        ...Array.from(courseMap.values()).filter(
+          (c) => !regionalCourses.some((rc) => rc.id === c.id)
+        ),
+      ];
+
       const filtered = computeFilteredCourses(
         allCourses,
         profile.chronicConditions,
@@ -527,7 +535,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
         get().courseMode
       );
 
-      const activeCourseExists = filtered.some((c) => c.id === activeCourseId);
+      const activeCourseExists = allCourses.some((c) => c.id === activeCourseId);
 
       set({
         currentRegionName: region.shortName,
@@ -838,13 +846,11 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
           // ignore
         }
 
-        const { courses, userLocation, courseMode, activeCourseId } = get();
+        const { courses, userLocation, courseMode } = get();
         const filtered = computeFilteredCourses(courses, loadedProfile.chronicConditions, userLocation, courseMode);
-        const activeCourseExists = filtered.some((c) => c.id === activeCourseId);
         set({
           profile: loadedProfile,
           filteredCourses: filtered,
-          activeCourseId: activeCourseExists ? activeCourseId : filtered[0]?.id ?? "course-1",
         });
       }
     } catch (err) {

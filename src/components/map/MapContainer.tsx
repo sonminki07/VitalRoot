@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useWellnessStore, WaypointFilterType } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 import { AuthButton } from "../auth/AuthButton";
+import { HealthProfileAlertBanner } from "../common/HealthProfileAlertBanner";
 import {
   fetchPedestrianRoute,
   calculateDistanceMeters,
@@ -30,9 +31,7 @@ export function MapContainer() {
   const markersRef = useRef<naver.maps.Marker[]>([]);
   const userMarkerRef = useRef<naver.maps.Marker | null>(null);
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null);
-  const lastCenterRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const prevCourseRef = useRef<{ id: string; lat: number; lng: number } | null>(null);
-  const isInitialCenterMountRef = useRef(true);
 
   const [isMapLoaded, setIsMapLoaded] = useState(false);
 
@@ -215,61 +214,27 @@ export function MapContainer() {
         disableAnchor: true,
       });
 
-      // 지도 이동 및 줌 완료 시 현재 중심좌표 실시간 보존 (포커스 튐 원천 방지)
-      const idleListener = window.naver.maps.Event.addListener(map, "idle", () => {
-        const c = map.getCenter();
-        if (c) {
-          lastCenterRef.current = { lat: c.lat(), lng: c.lng(), zoom: map.getZoom() };
-        }
-      });
-
-      // 크롬 탭/창 전환 후 복귀 시 포커스 튐 방지 및 뷰포트 유지
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === "visible" && mapRef.current) {
-          window.naver.maps.Event.trigger(mapRef.current, "resize");
-          if (lastCenterRef.current) {
-            mapRef.current.setCenter(
-              new window.naver.maps.LatLng(
-                lastCenterRef.current.lat,
-                lastCenterRef.current.lng
-              )
-            );
-          }
-        }
-      };
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-
       mapRef.current = map;
       setIsMapLoaded(true);
 
       setTimeout(() => {
         fitCourseAndHomeBounds(false);
       }, 200);
-
-      return () => {
-        if (idleListener) {
-          window.naver.maps.Event.removeListener(idleListener);
-        }
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
-      };
     };
 
-    let cleanupListeners: (() => void) | undefined;
-
     if (window.naver && window.naver.maps) {
-      cleanupListeners = initNaverMap();
+      initNaverMap();
     } else {
       checkInterval = window.setInterval(() => {
         if (window.naver && window.naver.maps) {
           clearInterval(checkInterval);
-          cleanupListeners = initNaverMap();
+          initNaverMap();
         }
       }, 200);
     }
 
     return () => {
       if (checkInterval) clearInterval(checkInterval);
-      if (cleanupListeners) cleanupListeners();
       if (mapRef.current) {
         mapRef.current.destroy();
         mapRef.current = null;
@@ -277,7 +242,7 @@ export function MapContainer() {
     };
   }, []);
 
-  // 코스 또는 내 위치 변경 시 지도 뷰포트 맞춤 (A ➔ B 전환 시 2단계 축소/확대 시네마틱 애니메이션)
+  // 코스 또는 내 위치 변경 시 지도 뷰포트 맞춤 (A ➔ B 전환 시 2단계 연속 활공 시네마틱 애니메이션)
   useEffect(() => {
     if (!isMapLoaded || !mapRef.current || !window.naver?.maps) return;
     if (!activeCourse) return;
@@ -308,7 +273,7 @@ export function MapContainer() {
     }
 
     // A 코스에서 B 코스로 변경될 때:
-    // [1단계: 축소(Zoom-out) & 중간 지점으로 시점 상승] ➔ [2단계: B 코스로 하강 및 확대(Zoom-in)]
+    // [1단계: 축소(Zoom-out) & 중간 지점으로 시점 상승 활공] ➔ [2단계: B 코스로 하강 및 확대(Zoom-in) 착륙]
     prevCourseRef.current = currentCourse;
 
     const distKm =
@@ -337,24 +302,57 @@ export function MapContainer() {
     }
 
     const map = mapRef.current;
-    // 1단계: A 지점에서 중간 지점으로 시점을 올리며 축소(Zoom-out) 이동
+    const targetCenter = new window.naver.maps.LatLng(
+      currentCourse.lat,
+      currentCourse.lng
+    );
+
+    // 3km 미만 근거리 이동 시에는 줌아웃 없이 목표 지점으로 부드럽게 단일 활공
+    if (distKm < 3) {
+      if (typeof (map as any).morph === "function") {
+        (map as any).morph(targetCenter, 15, { duration: 600 });
+      } else {
+        map.panTo(targetCenter, { duration: 500 });
+      }
+      const timer = setTimeout(() => {
+        fitCourseAndHomeBounds(false);
+      }, 650);
+      return () => clearTimeout(timer);
+    }
+
+    // 3km 이상 중·원거리 이동:
+    // 1단계: A 지점에서 중간 지점으로 시점을 띄우며 부드럽게 축소(Zoom-out) 이동 (500ms)
     if (typeof (map as any).morph === "function") {
       (map as any).morph(
         new window.naver.maps.LatLng(midLat, midLng),
         zoomOutLevel,
-        { duration: 420 }
+        { duration: 500 }
       );
     } else {
       map.setZoom(zoomOutLevel);
       map.panTo(new window.naver.maps.LatLng(midLat, midLng), { duration: 400 });
     }
 
-    // 2단계: 450ms 후 B 코스(식당 + 산책로)로 부드럽게 확대(Zoom-in) 및 경계 완벽 피팅
-    const timer = setTimeout(() => {
-      fitCourseAndHomeBounds(true);
-    }, 450);
+    // 2단계: 520ms 시점에 B 코스(식당 중심)로 부드럽게 하강(Zoom-in 15)하며 활공 (600ms)
+    // (panToBounds/fitBounds로 바로 넘어가면 순간이동 점프가 생기므로 morph로 부드러운 착륙 보장)
+    const timer1 = setTimeout(() => {
+      if (typeof (map as any).morph === "function") {
+        (map as any).morph(targetCenter, 15, { duration: 600 });
+      } else {
+        map.setZoom(15);
+        map.panTo(targetCenter, { duration: 500 });
+      }
+    }, 520);
 
-    return () => clearTimeout(timer);
+    // 3단계: 착륙 애니메이션이 완료된 후(1180ms) 여백 패딩 정밀 피팅 (순간 점프 없음)
+    const timer2 = setTimeout(() => {
+      fitCourseAndHomeBounds(false);
+    }, 1180);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
   }, [activeCourse?.id, userLocation?.latitude, userLocation?.longitude]);
 
   // 2. 일반 지도 / 위성 지도(HYBRID) 전환 (스토어 및 로컬스토리지 영속화)
@@ -380,23 +378,18 @@ export function MapContainer() {
   }, [storeMapType]);
 
   // 3. 지도 뷰포트 센터 및 줌 연동 (flyTo - morph로 부드러운 위치/줌 동시 이동)
+  const lastHandledCenterRef = useRef<string | null>(null);
   useEffect(() => {
-    // 최초 마운트 시에는 초기 기본 좌표 [126.9825, 37.5583]로 인한 불필요한 점프 방지
-    if (isInitialCenterMountRef.current) {
-      isInitialCenterMountRef.current = false;
+    // 최초 기본 좌표 [126.9825, 37.5583] 및 동일 좌표 중복 호출 무시
+    const key = `${center[0].toFixed(4)},${center[1].toFixed(4)},${zoom}`;
+    if (!lastHandledCenterRef.current) {
+      lastHandledCenterRef.current = key;
       return;
     }
-    if (!mapRef.current || !window.naver?.maps) return;
+    if (lastHandledCenterRef.current === key) return;
+    lastHandledCenterRef.current = key;
 
-    const currentCenter = mapRef.current.getCenter();
-    if (
-      currentCenter &&
-      Math.abs(currentCenter.lat() - center[1]) < 0.0001 &&
-      Math.abs(currentCenter.lng() - center[0]) < 0.0001 &&
-      mapRef.current.getZoom() === Math.round(zoom || 14)
-    ) {
-      return;
-    }
+    if (!mapRef.current || !window.naver?.maps) return;
 
     const targetLatLng = new window.naver.maps.LatLng(center[1], center[0]);
     const targetZoom = Math.round(zoom || 14);
@@ -409,7 +402,7 @@ export function MapContainer() {
         mapRef.current.setZoom(targetZoom);
       }
     }
-  }, [center, zoom]);
+  }, [center[0], center[1], zoom]);
 
   // 4. 활성 코스의 보행로 렌더링 (공공 도로망 라우터 100% 호출 - 건물/산/물 관통 원천 배제)
   useEffect(() => {
@@ -1089,8 +1082,8 @@ export function MapContainer() {
         </div>
       )}
 
-      {/* 우측 상단 컨트롤 바 (전체 경로 맞춤 + 내 위치 찾기 + 집 핀 찍기 + 인증 버튼 + 일반/위성 단일 토글) */}
-      <div className="absolute top-4 right-3 sm:right-14 z-20 flex items-center justify-end gap-1.5 sm:gap-2">
+      {/* 우측 상단 컨트롤 바 (전체 경로 맞춤 + 내 위치 찾기 + 집 핀 찍기 + 인증 버튼 + 일반/위성 + 맞춤 건강 알림 뱃지) */}
+      <div className="absolute top-4 right-3 sm:right-4 z-30 flex items-center justify-end gap-1.5 sm:gap-2">
         {/* 전체 경로 한눈에 보기 맞춤 버튼 */}
         <button
           onClick={() => fitCourseAndHomeBounds(true)}
@@ -1156,6 +1149,9 @@ export function MapContainer() {
           <span>{storeMapType === "NORMAL" ? "🛰️" : "🗺️"}</span>
           <span>{storeMapType === "NORMAL" ? "위성" : "일반"}</span>
         </button>
+
+        {/* 맞춤 건강 프로필 알림 배너 (상단 바 우측 끝에 동일한 Y 위치로 정렬) */}
+        <HealthProfileAlertBanner />
       </div>
 
       {/* 상단 편의시설 레이더 필터 칩 (데스크톱에서는 사이드바 우측 sm:left-[368px] lg:left-[412px]에 안전하게 위치) */}

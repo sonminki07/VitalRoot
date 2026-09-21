@@ -633,65 +633,78 @@ export function ControlPanel() {
                           ? "bg-slate-50 border-slate-200 text-slate-800"
                           : "bg-gray-900/70 border-gray-800 text-gray-200"
                       }`}>
+                        {/* 안심식당 헤더 (상단에 상호명 명확히 표출) */}
                         <div className="flex items-center justify-between text-xs sm:text-sm">
                           <span className={isLight ? "text-slate-600 font-semibold" : "text-gray-400"}>🍽️ 안심식당:</span>
-                          <span className={`font-bold ${isLight ? "text-slate-900" : "text-gray-200"}`}>
+                          <span className={`font-bold ${isLight ? "text-slate-900" : "text-gray-100"}`}>
                             {course.restaurant.name}
                           </span>
                         </div>
 
-                        {/* 식약처 영양성분 뱃지 - 클릭 시 상세 영양정보 펼침/접기 */}
+                        {/* 식약처 영양성분 및 건강 가이드 - 음식점 이름 아래에 펼침/접기 카드로 표출 */}
                         {course.restaurant.nutrition && (
                           <div
                             onClick={(e) => toggleNutritionExpand(course.id, e)}
-                            className={`p-2.5 rounded-xl border text-xs sm:text-[13px] cursor-pointer transition-all ${
+                            className={`p-2.5 rounded-xl border text-xs sm:text-[13px] cursor-pointer transition-all select-none ${
                               isLight
                                 ? "bg-emerald-100/70 hover:bg-emerald-100 border-emerald-300/80 text-emerald-950"
                                 : "bg-emerald-950/50 hover:bg-emerald-950/80 border-emerald-500/30 text-emerald-300"
                             }`}
-                            title="클릭하여 상세 영양성분 및 메뉴 전체 정보 펼치기 / 접기"
+                            title="클릭하여 상세 영양성분 및 건강 정보 펼치기 / 접기"
                           >
-                            <div className="flex items-center justify-between gap-1.5">
-                              <span className="font-bold flex items-center gap-1 min-w-0">
-                                <span className="shrink-0">🥗</span>
-                                <span className={expandedNutritionCourseIds[course.id] ? "break-keep font-extrabold" : "truncate"}>
+                            {/* 대표 메뉴명 및 펼침 버튼 */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-sm shrink-0">🥗</span>
+                                <span className="font-extrabold text-xs sm:text-sm break-keep leading-tight">
                                   {course.restaurant.nutrition.menuName}
                                 </span>
-                              </span>
+                              </div>
                               <div className="flex items-center gap-1 shrink-0 ml-1">
-                                <span className={`font-mono font-bold text-[11px] sm:text-xs ${isLight ? "text-emerald-800" : "text-emerald-400"}`}>
-                                  당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨 {course.restaurant.nutrition.sodium}mg 🟢
-                                </span>
-                                <span className="text-[10px] text-emerald-600 font-bold ml-0.5">
-                                  {expandedNutritionCourseIds[course.id] ? "▲" : "▼"}
+                                <span className="text-[11px] font-semibold text-emerald-400">
+                                  {expandedNutritionCourseIds[course.id] ? "닫기 ▲" : "건강정보 ▼"}
                                 </span>
                               </div>
                             </div>
 
-                            {/* 클릭 시 펼쳐지는 상세 영양성분 및 건강 가이드 */}
+                            {/* 접혀 있을 때도 가로 1줄로 깔끔하게 당/나트륨 요약 */}
+                            {!expandedNutritionCourseIds[course.id] && (
+                              <div className="mt-1.5 pt-1.5 border-t border-emerald-500/20 flex items-center justify-between text-[11px]">
+                                <span className="text-emerald-300/90 font-medium">식약처 안심 식단</span>
+                                <span className={`font-mono font-bold ${isLight ? "text-emerald-800" : "text-emerald-400"}`}>
+                                  당 {course.restaurant.nutrition.sugars}g 🟢 • 나트륨 {course.restaurant.nutrition.sodium}mg 🟢
+                                </span>
+                              </div>
+                            )}
+
+                            {/* 펼쳤을 때 하단에 상세 건강 정보 및 영양 가이드 표출 */}
                             {expandedNutritionCourseIds[course.id] && (
-                              <div className={`mt-2 pt-2 border-t text-[11px] sm:text-xs space-y-1.5 animate-in fade-in duration-150 ${
+                              <div className={`mt-2.5 pt-2 border-t text-[11px] sm:text-xs space-y-2 animate-in fade-in duration-150 ${
                                 isLight ? "border-emerald-300/60 text-slate-700" : "border-emerald-500/30 text-emerald-200/90"
                               }`}>
-                                <div className="grid grid-cols-3 gap-1 py-1 px-2 rounded-lg bg-emerald-500/10 font-mono text-center">
+                                <div className="flex items-center justify-between text-[11px] font-semibold">
+                                  <span className="text-emerald-400">당류 {course.restaurant.nutrition.sugars}g ({course.restaurant.nutrition.sugarGrade || "안심"})</span>
+                                  <span className="text-emerald-400">나트륨 {course.restaurant.nutrition.sodium}mg ({course.restaurant.nutrition.sodiumGrade || "안심"})</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1 py-1.5 px-2 rounded-lg bg-emerald-500/10 font-mono text-center">
                                   <div>
                                     <span className="text-[10px] text-gray-400 block">열량</span>
-                                    <strong className="text-emerald-600 font-bold">{course.restaurant.nutrition.calories} kcal</strong>
+                                    <strong className="text-emerald-400 font-bold">{course.restaurant.nutrition.calories} kcal</strong>
                                   </div>
                                   <div>
                                     <span className="text-[10px] text-gray-400 block">탄수화물</span>
-                                    <strong className="text-emerald-600 font-bold">{course.restaurant.nutrition.carbohydrate}g</strong>
+                                    <strong className="text-emerald-400 font-bold">{course.restaurant.nutrition.carbohydrate}g</strong>
                                   </div>
                                   <div>
                                     <span className="text-[10px] text-gray-400 block">단백질</span>
-                                    <strong className="text-emerald-600 font-bold">{course.restaurant.nutrition.protein}g</strong>
+                                    <strong className="text-emerald-400 font-bold">{course.restaurant.nutrition.protein}g</strong>
                                   </div>
                                 </div>
                                 <p className={`text-[11px] leading-snug flex items-start gap-1 font-medium ${
                                   isLight ? "text-emerald-950 font-semibold" : "text-emerald-300"
                                 }`}>
                                   <span>💡</span>
-                                  <span>{course.restaurant.nutrition.nutritionTip || "식약처 기준 당류 및 나트륨 안심 건강 식단입니다."}</span>
+                                  <span className="break-keep">{course.restaurant.nutrition.nutritionTip || "식약처 기준 당류 및 나트륨 안심 건강 식단입니다."}</span>
                                 </p>
                               </div>
                             )}

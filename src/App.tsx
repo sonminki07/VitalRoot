@@ -6,7 +6,6 @@ import { AuthModal } from "./components/auth/AuthModal";
 import { LocationModal } from "./components/common/LocationModal";
 import { OnboardingModal } from "./components/auth/OnboardingModal";
 import { SettingsModal } from "./components/common/SettingsModal";
-import { HealthProfileAlertBanner } from "./components/common/HealthProfileAlertBanner";
 import { useAuthStore } from "./store/authStore";
 import { useWellnessStore, checkIsOnboardingComplete } from "./store/wellnessStore";
 
@@ -61,8 +60,6 @@ function App() {
       <OnboardingModal />
       {/* VitalRoot 통합 환경 설정 모달 (건강/여행/시스템 확장) */}
       <SettingsModal />
-      {/* 우측 하단 지속 미완료 알림 위젯 */}
-      <HealthProfileAlertBanner />
     </div>
   );
 }
