@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 import { ChronicCondition } from "../../types/wellness.types";
 import { calculateDistanceMeters } from "../../utils/pedestrianRouter";
 import { getNaverMapDetailUrl } from "../../utils/naverMapUtils";
+import { QuestWalkSessionCard } from "./tabs/QuestWalkSessionCard";
 
 const ALL_CONDITIONS: ChronicCondition[] = [
   "당뇨",
@@ -14,11 +16,6 @@ const ALL_CONDITIONS: ChronicCondition[] = [
   "관절/근골격계",
 ];
 
-function formatTimerSeconds(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-}
 
 export function ControlPanel() {
   const [activeTab, setActiveTab] = useState<
@@ -26,6 +23,81 @@ export function ControlPanel() {
   >("courses");
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
   const [expandedNutritionCourseIds, setExpandedNutritionCourseIds] = useState<Record<string, boolean>>({});
+
+  // 사이드바 가로/세로/대각선 3방향 리사이즈 및 접힘 상태 (크기 영구 기억)
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 380;
+    const saved = localStorage.getItem("vital_panel_width");
+    return saved ? Math.min(Math.max(Number(saved), 280), 750) : 380;
+  });
+  const [panelHeight, setPanelHeight] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const saved = localStorage.getItem("vital_panel_height");
+    return saved ? Math.max(Number(saved), 360) : null;
+  });
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+
+  // CSS custom property 동기화 (--vital-sidebar-width) -> 지도 플로팅 위젯들과 유동 간격 연동
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const effectiveWidth = isCollapsed ? 0 : panelWidth;
+      document.documentElement.style.setProperty(
+        "--vital-sidebar-width",
+        `${effectiveWidth}px`
+      );
+    }
+  }, [panelWidth, isCollapsed]);
+
+  // 전역 UI 초기화 이벤트 리스너 (설정 모달의 UI 초기화 버튼과 연동)
+  useEffect(() => {
+    const handleResetUI = () => {
+      setPanelWidth(380);
+      setPanelHeight(null);
+      setIsCollapsed(false);
+      localStorage.removeItem("vital_panel_width");
+      localStorage.removeItem("vital_panel_height");
+      document.documentElement.style.setProperty("--vital-sidebar-width", "380px");
+    };
+    window.addEventListener("vital-reset-ui", handleResetUI);
+    return () => window.removeEventListener("vital-reset-ui", handleResetUI);
+  }, []);
+
+  // 3방향 드래그 리사이즈 핸들러 (horizontal, vertical, both/diagonal)
+  const handleStartResize = (direction: "horizontal" | "vertical" | "both") => (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = panelWidth;
+    const startH = panelHeight ?? (window.innerHeight - 24);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (direction === "horizontal" || direction === "both") {
+        // 지도 우측 컨트롤 영역(최소 450px)을 침범하지 않도록 최대 가로폭 동적 제한
+        const maxW = Math.max(Math.min(window.innerWidth - 450, 750), 380);
+        const nextW = Math.min(Math.max(startW + (moveEvent.clientX - startX), 280), maxW);
+        setPanelWidth(nextW);
+        localStorage.setItem("vital_panel_width", String(nextW));
+        document.documentElement.style.setProperty("--vital-sidebar-width", `${nextW}px`);
+      }
+      if (direction === "vertical" || direction === "both") {
+        const maxH = window.innerHeight - 24;
+        const nextH = Math.min(Math.max(startH + (moveEvent.clientY - startY), 360), maxH);
+        setPanelHeight(nextH);
+        localStorage.setItem("vital_panel_height", String(nextH));
+      }
+    };
+
+    const onMouseUp = () => {
+      setIsResizing(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 
   const toggleNutritionExpand = (courseId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -35,7 +107,7 @@ export function ControlPanel() {
     }));
   };
 
-  // 스토어 구독
+  // 스토어 구독 (useShallow 적용으로 필요한 필드 변경 시에만 리렌더링)
   const {
     profile,
     filteredCourses,
@@ -55,12 +127,7 @@ export function ControlPanel() {
     earnedTitles,
     equippedTitle,
     equipTitle,
-    activeWalkSession,
     startWalkSession,
-    updateWalkSessionTick,
-    cancelWalkSession,
-    claimQuestTitle,
-    fastForwardWalkSession,
     toggleCondition,
     userLocation,
     setIsLocationModalOpen,
@@ -71,18 +138,44 @@ export function ControlPanel() {
     themeMode,
     currentRegionName,
     isRegionLoading,
-  } = useWellnessStore();
+  } = useWellnessStore(
+    useShallow((s) => ({
+      profile: s.profile,
+      filteredCourses: s.filteredCourses,
+      activeCourseId: s.activeCourseId,
+      setActiveCourseId: s.setActiveCourseId,
+      multiDayCourses: s.multiDayCourses,
+      activeMultiDayCourseId: s.activeMultiDayCourseId,
+      setActiveMultiDayCourseId: s.setActiveMultiDayCourseId,
+      stays: s.stays,
+      activeStayId: s.activeStayId,
+      setActiveStayId: s.setActiveStayId,
+      stayFilter: s.stayFilter,
+      toggleStayFilter: s.toggleStayFilter,
+      quests: s.quests,
+      activeQuestId: s.activeQuestId,
+      setActiveQuestId: s.setActiveQuestId,
+      earnedTitles: s.earnedTitles,
+      equippedTitle: s.equippedTitle,
+      equipTitle: s.equipTitle,
+      startWalkSession: s.startWalkSession,
+      toggleCondition: s.toggleCondition,
+      userLocation: s.userLocation,
+      setIsLocationModalOpen: s.setIsLocationModalOpen,
+      setIsPinningHome: s.setIsPinningHome,
+      courseMode: s.courseMode,
+      setCourseMode: s.setCourseMode,
+      openSettingsModal: s.openSettingsModal,
+      themeMode: s.themeMode,
+      currentRegionName: s.currentRegionName,
+      isRegionLoading: s.isRegionLoading,
+    }))
+  );
+
+  // 활성 퀘스트 세션 ID (원시값으로 구독하여 1초 타이머 틱에 의한 ControlPanel 리렌더링 완전 차단)
+  const activeQuestSessionId = useWellnessStore((s) => s.activeWalkSession?.questId ?? null);
 
   const isLight = themeMode === "light";
-
-  // 완보 세션 실시간 타이머 틱
-  useEffect(() => {
-    if (!activeWalkSession) return;
-    const interval = setInterval(() => {
-      updateWalkSessionTick();
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [activeWalkSession, updateWalkSessionTick]);
 
   const { flyToPlace } = useMapStore();
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -162,11 +255,34 @@ export function ControlPanel() {
     return true;
   });
 
+  if (isCollapsed) {
+    return (
+      <button
+        onClick={() => setIsCollapsed(false)}
+        className={`hidden sm:flex fixed sm:absolute z-40 sm:z-20 sm:top-3 sm:left-3 items-center gap-2 px-3.5 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md font-bold text-xs transition-all active:scale-95 border ${
+          isLight
+            ? "bg-white/95 text-emerald-700 hover:text-emerald-800 border-emerald-500/40 shadow-slate-300/50"
+            : "bg-gray-900/95 text-emerald-400 hover:text-emerald-300 border-emerald-500/50 shadow-black/80"
+        }`}
+        title="VitalRoot 사이드바 펼치기"
+      >
+        <span className="text-base">🌿</span>
+        <span>패널 열기</span>
+        <span className="text-[11px] bg-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-400 font-bold">▶</span>
+      </button>
+    );
+  }
+
   return (
     <div
-      className={`fixed sm:absolute z-40 sm:z-20 transition-all duration-300 ease-in-out flex flex-col backdrop-blur-md shadow-2xl overflow-hidden
+      style={{
+        width: typeof window !== "undefined" && window.innerWidth >= 640 ? `${panelWidth}px` : undefined,
+        height: typeof window !== "undefined" && window.innerWidth >= 640 && panelHeight ? `${panelHeight}px` : undefined,
+        transition: isResizing ? "none" : undefined,
+      }}
+      className={`fixed sm:absolute z-40 sm:z-20 transition-all duration-300 ease-in-out flex flex-col backdrop-blur-md shadow-2xl
         bottom-0 left-0 right-0 rounded-t-3xl sm:rounded-2xl
-        sm:top-3 sm:left-3 sm:right-auto sm:bottom-auto sm:w-[350px] lg:w-96 sm:max-h-[calc(100vh-1.5rem)]
+        sm:top-3 sm:left-3 sm:right-auto sm:bottom-auto sm:max-h-[calc(100vh-1.5rem)]
         ${
           isLight
             ? "bg-white/98 border border-slate-200 text-slate-900"
@@ -232,6 +348,17 @@ export function ControlPanel() {
               </h1>
             </div>
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsCollapsed(true)}
+                className={`hidden sm:flex items-center justify-center w-7 h-7 rounded-lg border text-xs transition-colors shadow-sm ${
+                  isLight
+                    ? "bg-white hover:bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900"
+                    : "bg-gray-800/90 hover:bg-gray-700 border-gray-700 text-gray-400 hover:text-white"
+                }`}
+                title="사이드바 접기 (지도 넓게 보기)"
+              >
+                ◀
+              </button>
               <button
                 onClick={() => openSettingsModal("health")}
                 className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors shadow-sm ${
@@ -1153,7 +1280,7 @@ export function ControlPanel() {
 
                 {quests.map((q) => {
                   const isSelected = q.id === activeQuestId;
-                  const isCurrentSession = activeWalkSession?.questId === q.id;
+                  const isCurrentSession = activeQuestSessionId === q.id;
 
                   return (
                     <div
@@ -1202,110 +1329,9 @@ export function ControlPanel() {
                         </span>
                       </div>
 
-                      {/* 실시간 진행 중 위젯 */}
-                      {isCurrentSession && (
-                        <div className="p-2.5 rounded-xl bg-purple-950/50 border border-purple-500/40 space-y-2 animate-in fade-in duration-200">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-purple-300 font-bold flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                              실시간 완보 시간 측정 중
-                            </span>
-                            <span className="font-mono font-bold text-amber-300">
-                              {formatTimerSeconds(activeWalkSession.elapsedSeconds)} /{" "}
-                              {formatTimerSeconds(activeWalkSession.targetSeconds)}
-                            </span>
-                          </div>
-
-                          {/* 타이머 진행바 */}
-                          <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-purple-500 via-teal-400 to-emerald-400 transition-all duration-300"
-                              style={{
-                                width: `${Math.min(
-                                  100,
-                                  (activeWalkSession.elapsedSeconds /
-                                    activeWalkSession.targetSeconds) *
-                                    100
-                                )}%`,
-                              }}
-                            />
-                          </div>
-
-                          {/* GPS 상태 & 시연용 임시 가속 버튼 */}
-                          <div className="flex items-center justify-between text-[10px] pt-0.5">
-                            <span
-                              className={
-                                activeWalkSession.isGpsValid
-                                  ? "text-emerald-300 font-medium"
-                                  : "text-amber-300 font-medium"
-                              }
-                            >
-                              {activeWalkSession.isGpsValid
-                                ? `🟢 현장 체류 인증 완료 (${activeWalkSession.distanceMeters}m)`
-                                : `⚠️ 현장 500m 이탈 (${activeWalkSession.distanceMeters}m)`}
-                            </span>
-
-                            {/* === [DEMO_ACCELERATOR: 시연/심사용 임시 가속 버튼 - 차후 즉시 삭제 가능] === */}
-                            {!activeWalkSession.isEligible && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  fastForwardWalkSession();
-                                }}
-                                className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/40 border border-amber-400/40 font-bold transition-colors"
-                                title="심사 및 시연용: 목표 완보 시간을 즉시 충족하고 완보 자격을 부여합니다"
-                              >
-                                ⚡ 즉시 완보 자격 획득 (시연용 가속)
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 퀘스트 하단 액션 버튼 */}
+                      {/* 실시간 진행 중 위젯 및 세션 액션 버튼 (1초 틱 리렌더링 격리 위젯) */}
                       {isCurrentSession ? (
-                        activeWalkSession.isEligible ? (
-                          <div className="pt-1 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                cancelWalkSession();
-                              }}
-                              className="text-xs text-gray-400 hover:text-gray-200 px-2"
-                            >
-                              취소
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                claimQuestTitle(q.id);
-                              }}
-                              className="w-full py-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:brightness-110 text-gray-950 font-black text-xs rounded-xl shadow-xl animate-bounce border-2 border-amber-300 transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                            >
-                              <span>🏅</span>
-                              <span>완보 자격 획득! 칭호 획득하기</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="pt-1 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                cancelWalkSession();
-                              }}
-                              className="text-xs text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded-lg hover:bg-red-500/10"
-                            >
-                              도전 취소 ✕
-                            </button>
-                            <span className="text-[11px] text-gray-400 font-medium animate-pulse">
-                              목표 시간까지 현장 완보 진행 중...
-                            </span>
-                          </div>
-                        )
+                        <QuestWalkSessionCard quest={q} />
                       ) : q.isCompleted ? (
                         <div className="pt-1 flex items-center justify-between gap-2">
                           <button
@@ -1491,6 +1517,38 @@ export function ControlPanel() {
             <span className={isLight ? "text-slate-800 font-bold" : ""}>NAVER Maps API v3 연동 완료</span>
           </div>
           <span className={isLight ? "text-slate-500 font-medium" : "text-gray-500"}>한국관광공사 Tour API</span>
+        </div>
+      </div>
+
+      {/* 데스크톱 3방향 자유 리사이즈 핸들 (좌우 폭, 상하 높이, 우하단 대각선 코너) */}
+      <div className="hidden sm:block select-none pointer-events-auto">
+        {/* 1. 우측 세로 테두리 핸들 (가로 폭 조절) */}
+        <div
+          onMouseDown={handleStartResize("horizontal")}
+          className="absolute top-0 right-0 w-2.5 h-full cursor-ew-resize hover:bg-emerald-500/30 active:bg-emerald-500/50 transition-colors z-50 group"
+          title="마우스로 좌우 드래그하여 패널 너비 조절"
+        >
+          <div className="absolute top-1/2 -translate-y-1/2 right-0.5 w-1 h-12 rounded-full bg-gray-500/30 group-hover:bg-emerald-400 group-active:bg-emerald-400 transition-colors" />
+        </div>
+
+        {/* 2. 하단 가로 테두리 핸들 (세로 높이 조절) */}
+        <div
+          onMouseDown={handleStartResize("vertical")}
+          className="absolute bottom-0 left-0 h-2.5 w-full cursor-ns-resize hover:bg-emerald-500/30 active:bg-emerald-500/50 transition-colors z-50 group"
+          title="마우스로 상하 드래그하여 패널 높이 조절"
+        >
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-0.5 h-1 w-12 rounded-full bg-gray-500/30 group-hover:bg-emerald-400 group-active:bg-emerald-400 transition-colors" />
+        </div>
+
+        {/* 3. 우측 하단 대각선 코너 핸들 (가로+세로 동시 조절) */}
+        <div
+          onMouseDown={handleStartResize("both")}
+          className="absolute bottom-0.5 right-0.5 w-5 h-5 cursor-nwse-resize z-50 flex items-end justify-end p-1 text-gray-400/80 hover:text-emerald-400 active:text-emerald-300 transition-colors"
+          title="마우스로 대각선 드래그하여 패널 크기 동시 조절"
+        >
+          <svg className="w-3.5 h-3.5 drop-shadow" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22 22h-2v-2h2v2zm0-4h-2v-2h2v2zm-4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm-4 4h-2v-2h2v2zm8-8h-2v-2h2v2z" />
+          </svg>
         </div>
       </div>
     </div>

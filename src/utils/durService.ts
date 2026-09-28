@@ -251,3 +251,83 @@ export function inferConditionsFromMedications(medications: MedicationItem[]): {
     detectedClasses,
   };
 }
+
+/**
+ * 의약품명 또는 자연어 검색어로부터 기저 만성질환을 지능형 역추론하는 엔진
+ */
+export function inferConditionFromQuery(query: string): {
+  condition: ChronicCondition;
+  matchedKeyword: string;
+  reason: string;
+} | null {
+  const clean = query.trim().toLowerCase();
+  if (!clean || clean.length < 2) return null;
+
+  // 1. 직접 질환 키워드 매칭
+  if (clean.includes("당뇨") || clean.includes("혈당") || clean.includes("인슐린")) {
+    return { condition: "당뇨", matchedKeyword: "당뇨/혈당", reason: "혈당 조절 및 당뇨 케어 권장" };
+  }
+  if (clean.includes("고혈압") || clean.includes("혈압")) {
+    return { condition: "고혈압", matchedKeyword: "혈압 강하", reason: "보행 시 혈압 급상승 방지 및 완만 산책 권장" };
+  }
+  if (clean.includes("저혈압")) {
+    return { condition: "저혈압", matchedKeyword: "저혈압", reason: "식후 저혈압 방지 및 평지 코스 권장" };
+  }
+  if (clean.includes("고지혈") || clean.includes("지질") || clean.includes("콜레스테롤")) {
+    return { condition: "이상지질혈증", matchedKeyword: "지질 개선", reason: "혈관 건강 및 안심 저지방 식단 권장" };
+  }
+  if (clean.includes("신장") || clean.includes("콩팥") || clean.includes("투석")) {
+    return { condition: "신장질환", matchedKeyword: "신장 케어", reason: "칼륨/나트륨 조절 식단 및 저강도 산책 권장" };
+  }
+  if (clean.includes("관절") || clean.includes("근골격") || clean.includes("디스크") || clean.includes("무릎")) {
+    return { condition: "관절/근골격계", matchedKeyword: "관절 보호", reason: "무릎 부담 없는 평지 데크길 권장" };
+  }
+
+  // 2. 의약품 성분명 및 대표 상품명 역추론 매칭
+  const DRUG_REVERSE_MAP: Array<{ keywords: string[]; condition: ChronicCondition; reason: string }> = [
+    {
+      keywords: ["메트포르민", "다이아벡스", "글루코", "자누비아", "시타글립틴", "트라젠타", "리나글립틴", "포시가", "다파글리", "자디앙", "엠파글리", "아마릴", "글리메피"],
+      condition: "당뇨",
+      reason: "당뇨병 혈당강하제 복용에 따른 식후 혈당 스파이크 방지 케어",
+    },
+    {
+      keywords: ["암로디핀", "노바스크", "로사르탄", "코자", "발사르탄", "엑스포지", "올메사르탄", "세비카", "텔미사르탄", "미카르디스", "카르베딜롤", "딜라트렌", "아스피린"],
+      condition: "고혈압",
+      reason: "혈압강하제 복용에 따른 보행 중 혈압 안정 및 화장실 인프라 확보",
+    },
+    {
+      keywords: ["아토르바", "리피토", "로수바", "크레스토", "스타틴", "에제티미브", "페노피브레이트"],
+      condition: "이상지질혈증",
+      reason: "지질저하제 복용에 따른 근육 피로도 완화 및 저염·저지방 식단 연동",
+    },
+    {
+      keywords: ["알로푸리놀", "자이로릭", "페북소스타트", "페브릭", "탄산칼슘", "레나젤"],
+      condition: "신장질환",
+      reason: "신장·요산 대사제 복용에 따른 칼륨/나트륨 균형 식단 권장",
+    },
+    {
+      keywords: ["록소닌", "록소프로펜", "쎄레브렉스", "세레콕시브", "낙센", "나프록센", "이부프로펜", "아세클로페낙", "에어탈", "트라마돌"],
+      condition: "관절/근골격계",
+      reason: "소염진통제 복용에 따른 관절 무리 배제 및 무장애 평지길 권장",
+    },
+    {
+      keywords: ["미도드린", "구трон", "플루드로코르티손"],
+      condition: "저혈압",
+      reason: "승압제 복용에 따른 기립성 혈압 변화 유의 및 평지 코스 권장",
+    },
+  ];
+
+  for (const entry of DRUG_REVERSE_MAP) {
+    for (const kw of entry.keywords) {
+      if (clean.includes(kw)) {
+        return {
+          condition: entry.condition,
+          matchedKeyword: kw,
+          reason: entry.reason,
+        };
+      }
+    }
+  }
+
+  return null;
+}

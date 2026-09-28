@@ -27,3 +27,6 @@ vite.config.d.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Agent workspace artifacts
+.agents/

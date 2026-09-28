@@ -665,8 +665,9 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       alert("🏅 칭호 획득 및 퀘스트 완보 인증은 로그인 회원만 가능합니다.\n로그인 창으로 이동합니다.");
-      const { useAuthStore } = await import("./authStore");
-      useAuthStore.getState().openModal("signin");
+      window.dispatchEvent(
+        new CustomEvent("vital-auth-required", { detail: { mode: "signin" } })
+      );
       return;
     }
 

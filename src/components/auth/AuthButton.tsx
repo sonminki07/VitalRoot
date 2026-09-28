@@ -1,10 +1,18 @@
 import { useState, useRef, useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useAuthStore } from "../../store/authStore";
 import { useWellnessStore } from "../../store/wellnessStore";
 
 export function AuthButton() {
-  const { user, isInitializing, openModal, signOut } = useAuthStore();
-  const { equippedTitle } = useWellnessStore();
+  const { user, isInitializing, openModal, signOut } = useAuthStore(
+    useShallow((s) => ({
+      user: s.user,
+      isInitializing: s.isInitializing,
+      openModal: s.openModal,
+      signOut: s.signOut,
+    }))
+  );
+  const equippedTitle = useWellnessStore((s) => s.equippedTitle);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -21,7 +29,7 @@ export function AuthButton() {
 
   if (isInitializing) {
     return (
-      <div className="h-8 w-24 bg-gray-800/80 rounded-xl animate-pulse border border-gray-700/60" />
+      <div className="h-9 w-24 bg-gray-800/80 rounded-xl animate-pulse border border-gray-700/60" />
     );
   }
 
@@ -30,7 +38,7 @@ export function AuthButton() {
     return (
       <button
         onClick={() => openModal("emailInput")}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md text-emerald-400 hover:text-emerald-300 font-medium text-xs rounded-xl border border-emerald-500/40 shadow-xl transition-all active:scale-95"
+        className="h-9 inline-flex items-center justify-center gap-1.5 px-3 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md text-emerald-400 hover:text-emerald-300 font-semibold text-xs rounded-xl border border-emerald-500/40 shadow-md transition-all active:scale-95 shrink-0"
       >
         <span className="text-sm">👤</span>
         <span>로그인 / 가입</span>
@@ -50,7 +58,7 @@ export function AuthButton() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center gap-2 px-2.5 py-1 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md text-white text-xs rounded-xl border border-gray-700/70 shadow-xl transition-all shrink-0"
+        className="h-9 inline-flex items-center justify-center gap-2 px-3 bg-gray-900/90 hover:bg-gray-800 backdrop-blur-md text-white text-xs font-semibold rounded-xl border border-gray-700/70 shadow-md transition-all shrink-0"
       >
         {userAvatar ? (
           <img

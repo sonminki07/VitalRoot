@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useAuthStore } from "../../store/authStore";
 import { ChronicCondition, MedicationItem } from "../../types/wellness.types";
 import {
   searchMedications,
+  inferConditionFromQuery,
 } from "../../utils/durService";
 import {
   getTmapApiKey,
@@ -44,16 +46,38 @@ export function SettingsModal() {
     setFontSize,
     savedCustomCourses,
     removeCustomCourse,
-  } = useWellnessStore();
+  } = useWellnessStore(
+    useShallow((s) => ({
+      profile: s.profile,
+      updateProfile: s.updateProfile,
+      isSettingsModalOpen: s.isSettingsModalOpen,
+      closeSettingsModal: s.closeSettingsModal,
+      settingsInitialTab: s.settingsInitialTab,
+      userLocation: s.userLocation,
+      setIsPinningHome: s.setIsPinningHome,
+      earnedTitles: s.earnedTitles,
+      themeMode: s.themeMode,
+      setThemeMode: s.setThemeMode,
+      fontSize: s.fontSize,
+      setFontSize: s.setFontSize,
+      savedCustomCourses: s.savedCustomCourses,
+      removeCustomCourse: s.removeCustomCourse,
+    }))
+  );
 
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
 
   const [activeTab, setActiveTab] = useState<"health" | "travel" | "system">(
     settingsInitialTab || "health"
   );
 
-  // 약물 검색 상태
+  // 약물 검색 및 실시간 기저 질환 역추론 상태
   const [searchQuery, setSearchQuery] = useState("");
+  const [inferredConditionInfo, setInferredConditionInfo] = useState<{
+    condition: ChronicCondition;
+    matchedKeyword: string;
+    reason: string;
+  } | null>(null);
   const [searchResults, setSearchResults] = useState<
     Array<{
       name: string;
@@ -79,20 +103,23 @@ export function SettingsModal() {
 
   if (!isSettingsModalOpen) return null;
 
-  // 약물 검색
+  // 약물 검색 및 기저 질환 역추론 실행
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
     if (!q.trim()) {
       setSearchResults([]);
+      setInferredConditionInfo(null);
       return;
     }
+    const inferred = inferConditionFromQuery(q);
+    setInferredConditionInfo(inferred);
     setIsSearching(true);
     const res = await searchMedications(q);
     setSearchResults(res);
     setIsSearching(false);
   };
 
-  // 약물 추가
+  // 약물 추가 (약물에 연관된 기저 만성질환 자동 체크·연동)
   const handleAddMed = (item: {
     name: string;
     ingredientName: string;
@@ -112,12 +139,33 @@ export function SettingsModal() {
       durWarningTags: item.durWarningTags,
       inferredCondition: item.inferredCondition,
     };
+
+    // 약물 복용 시 관련 질환을 프로필에 자동 연동
+    const currentConds = profile.chronicConditions || [];
+    const updatedConds =
+      item.inferredCondition && !currentConds.includes(item.inferredCondition)
+        ? [...currentConds, item.inferredCondition]
+        : currentConds;
+
     updateProfile({
       medications: [...currentMeds, newMed],
+      chronicConditions: updatedConds,
       hasNoMedications: false,
     });
     setSearchQuery("");
     setSearchResults([]);
+    setInferredConditionInfo(null);
+  };
+
+  // UI 레이아웃 기본값 초기화 핸들러 (사이드바 및 하단 바 위치 복원)
+  const handleResetUILayout = () => {
+    if (confirm("사이드바 크기와 하단 길찾기 바의 이동 위치를 기본 상태로 초기화하시겠습니까?")) {
+      localStorage.removeItem("vital_panel_width");
+      localStorage.removeItem("vital_panel_height");
+      localStorage.removeItem("vital_course_bar_pos");
+      window.dispatchEvent(new CustomEvent("vital-reset-ui"));
+      alert("화면 UI 크기와 배치가 기본값으로 초기화되었습니다.");
+    }
   };
 
   // 약물 삭제
@@ -291,6 +339,38 @@ export function SettingsModal() {
                         </div>
                       )}
                     </div>
+
+                    {/* 실시간 약물 기반 기저 질환 역추론 가이드 배너 */}
+                    {inferredConditionInfo && (
+                      <div className="p-2.5 bg-emerald-950/60 border border-emerald-500/50 rounded-xl flex items-center justify-between gap-2 text-xs animate-in fade-in">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span className="text-base shrink-0 mt-0.5">💡</span>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-1.5 font-bold text-emerald-300">
+                              <span>복약 질환 역추론:</span>
+                              <span className="bg-emerald-500/20 px-2 py-0.5 rounded text-white border border-emerald-400/40">
+                                {inferredConditionInfo.condition}
+                              </span>
+                              <span className="text-[11px] text-gray-300 font-normal">
+                                (검색어: {inferredConditionInfo.matchedKeyword})
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-emerald-200/80 mt-0.5">
+                              {inferredConditionInfo.reason}
+                            </p>
+                          </div>
+                        </div>
+                        {!(profile.chronicConditions || []).includes(inferredConditionInfo.condition) && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCondition(inferredConditionInfo.condition)}
+                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-sm"
+                          >
+                            + 질환에 자동 반영
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     {/* 등록된 약물 목록 */}
                     <div className="space-y-2">
@@ -743,16 +823,46 @@ export function SettingsModal() {
                   </p>
                 </div>
               </div>
+              {/* 화면 UI 레이아웃 초기화 설정 */}
+              <div className="p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>🔄</span>
+                      <span>화면 UI 레이아웃 초기화</span>
+                    </span>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      사이드바 너비·높이 및 하단 길찾기 바의 이동 위치를 기본 상태로 되돌립니다.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetUILayout}
+                    className="px-3 py-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 rounded-xl text-xs font-semibold transition-all active:scale-95 shrink-0"
+                  >
+                    레이아웃 초기화
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* 하단 닫기 */}
-        <div className="p-4 border-t border-gray-800 bg-gray-950/80 flex items-center justify-end">
+        {/* 하단 버튼 바 (UI 초기화 및 닫기) */}
+        <div className="p-4 border-t border-gray-800 bg-gray-950/80 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleResetUILayout}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-gray-700/60 hover:bg-gray-800 transition-colors"
+            title="사이드바 크기 및 하단 바 위치를 기본값으로 복원"
+          >
+            <span>🔄</span>
+            <span>UI 위치·크기 초기화</span>
+          </button>
           <button
             type="button"
             onClick={closeSettingsModal}
-            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-colors"
+            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-colors shadow-md"
           >
             확인 및 닫기
           </button>

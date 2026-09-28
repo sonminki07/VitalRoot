@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 
@@ -62,7 +63,15 @@ export function LocationModal() {
     setUserLocation,
     setIsPinningHome,
     loadRegionData,
-  } = useWellnessStore();
+  } = useWellnessStore(
+    useShallow((s) => ({
+      isLocationModalOpen: s.isLocationModalOpen,
+      setIsLocationModalOpen: s.setIsLocationModalOpen,
+      setUserLocation: s.setUserLocation,
+      setIsPinningHome: s.setIsPinningHome,
+      loadRegionData: s.loadRegionData,
+    }))
+  );
   const { flyToPlace } = useMapStore();
   const [selectedRegion, setSelectedRegion] = useState<string>("전체");
   const [isLoading, setIsLoading] = useState(false);

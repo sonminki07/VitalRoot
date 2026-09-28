@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWellnessStore, WaypointFilterType } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 import { AuthButton } from "../auth/AuthButton";
 import { HealthProfileAlertBanner } from "../common/HealthProfileAlertBanner";
+import { MapWalkSessionBanner } from "./widgets/MapWalkSessionBanner";
 import {
   fetchPedestrianRoute,
   calculateDistanceMeters,
@@ -32,10 +34,11 @@ export function MapContainer() {
   const userMarkerRef = useRef<naver.maps.Marker | null>(null);
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null);
   const prevCourseRef = useRef<{ id: string; lat: number; lng: number } | null>(null);
+  const flightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isMapLoaded, setIsMapLoaded] = useState(false);
 
-  // 스토어 구독
+  // 스토어 구독 (useShallow를 적용하여 불필요한 리렌더링 차단, activeWalkSession은 전용 배너로 격리)
   const {
     filteredCourses,
     activeCourseId,
@@ -57,10 +60,32 @@ export function MapContainer() {
     saveCustomCourse,
     isOnboardingModalOpen,
     isSettingsModalOpen,
-    activeWalkSession,
-    cancelWalkSession,
     themeMode,
-  } = useWellnessStore();
+  } = useWellnessStore(
+    useShallow((s) => ({
+      filteredCourses: s.filteredCourses,
+      activeCourseId: s.activeCourseId,
+      activeWaypointFilter: s.activeWaypointFilter,
+      setActiveWaypointFilter: s.setActiveWaypointFilter,
+      stays: s.stays,
+      activeStayId: s.activeStayId,
+      quests: s.quests,
+      activeQuestId: s.activeQuestId,
+      userLocation: s.userLocation,
+      setUserLocation: s.setUserLocation,
+      setIsLocationModalOpen: s.setIsLocationModalOpen,
+      isPinningHome: s.isPinningHome,
+      setIsPinningHome: s.setIsPinningHome,
+      mapType: s.mapType,
+      setMapType: s.setMapType,
+      distanceUnit: s.distanceUnit,
+      toggleDistanceUnit: s.toggleDistanceUnit,
+      saveCustomCourse: s.saveCustomCourse,
+      isOnboardingModalOpen: s.isOnboardingModalOpen,
+      isSettingsModalOpen: s.isSettingsModalOpen,
+      themeMode: s.themeMode,
+    }))
+  );
 
   const isLight = themeMode === "light";
   const isModalActive = isOnboardingModalOpen || isSettingsModalOpen;
@@ -78,6 +103,89 @@ export function MapContainer() {
   );
   // 하단 코스 길찾기 바 닫기(X) 상태
   const [isCourseBarDismissed, setIsCourseBarDismissed] = useState(false);
+
+  // 사이드바 너비에 따른 레이더 칩 지능형 2단 줄바꿈 상태 (겹침 방지)
+  const [isRadarStacked, setIsRadarStacked] = useState(false);
+
+  // 하단 코스 바 자유 드래그 위치 상태
+  const [courseBarPos, setCourseBarPos] = useState<{ x: number; y: number } | null>(() => {
+    if (typeof window === "undefined") return null;
+    const saved = localStorage.getItem("vital_course_bar_pos");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+  const [isDraggingCourseBar, setIsDraggingCourseBar] = useState(false);
+
+  // 상단 바 충돌 감지 및 2단 자동 전환 리스너
+  useEffect(() => {
+    const checkOverlap = () => {
+      if (typeof window === "undefined") return;
+      const sidebarWidthStr = getComputedStyle(document.documentElement).getPropertyValue("--vital-sidebar-width");
+      const sidebarWidth = parseFloat(sidebarWidthStr) || 380;
+      // 우측 컨트롤 버튼 폭(~460px) + 레이더 폭(~330px) + 최소 여유
+      const spaceAvailable = window.innerWidth - sidebarWidth - 480;
+      setIsRadarStacked(spaceAvailable < 340);
+    };
+
+    checkOverlap();
+    window.addEventListener("resize", checkOverlap);
+    const observer = new MutationObserver(checkOverlap);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    return () => {
+      window.removeEventListener("resize", checkOverlap);
+      observer.disconnect();
+    };
+  }, []);
+
+  // UI 초기화 이벤트 리스너 (설정 모달의 UI 초기화 버튼과 연동)
+  useEffect(() => {
+    const handleResetUI = () => {
+      setCourseBarPos(null);
+      localStorage.removeItem("vital_course_bar_pos");
+    };
+    window.addEventListener("vital-reset-ui", handleResetUI);
+    return () => window.removeEventListener("vital-reset-ui", handleResetUI);
+  }, []);
+
+  // 하단 코스 길찾기 바 자유 드래그 핸들러
+  const handleCourseBarMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button, a, input")) return;
+    e.preventDefault();
+    setIsDraggingCourseBar(true);
+
+    const barEl = e.currentTarget as HTMLElement;
+    const rect = barEl.getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const barW = rect.width;
+      const barH = rect.height;
+      const newX = Math.min(Math.max(moveEvent.clientX - offsetX, 8), window.innerWidth - barW - 8);
+      const newY = Math.min(Math.max(moveEvent.clientY - offsetY, 8), window.innerHeight - barH - 8);
+      setCourseBarPos({ x: newX, y: newY });
+    };
+
+    const onMouseUp = (upEvent: MouseEvent) => {
+      setIsDraggingCourseBar(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      const barW = rect.width;
+      const barH = rect.height;
+      const finalX = Math.min(Math.max(upEvent.clientX - offsetX, 8), window.innerWidth - barW - 8);
+      const finalY = Math.min(Math.max(upEvent.clientY - offsetY, 8), window.innerHeight - barH - 8);
+      const finalPos = { x: finalX, y: finalY };
+      setCourseBarPos(finalPos);
+      localStorage.setItem("vital_course_bar_pos", JSON.stringify(finalPos));
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 
   useEffect(() => {
     setIsCourseBarDismissed(false);
@@ -325,51 +433,86 @@ export function MapContainer() {
 
     const map = mapRef.current;
 
-    // 2km 미만 근거리 코스 이동 시: 줌아웃 없이 목표 코스 중심으로 여유롭고 부드러운 단일 활공 (700ms)
-    if (distKm < 2) {
+    // 진행 중인 이전 비행(Flight)이 있다면 즉시 타이머 정리
+    if (flightTimerRef.current) {
+      clearTimeout(flightTimerRef.current);
+      flightTimerRef.current = null;
+    }
+
+    // 1.5km 미만 근거리 코스 이동 시: 고도 유지하면서 부드럽게 목표 코스로 활공
+    if (distKm < 1.5) {
       if (typeof (map as any).morph === "function") {
-        (map as any).morph(targetCenter, targetZoom, { duration: 700 });
+        (map as any).morph(targetCenter, targetZoom, {
+          duration: 700,
+          easing: "easeInOutCubic",
+        });
       } else {
         map.panTo(targetCenter, { duration: 500 });
       }
       return;
     }
 
-    // 2km 이상 원거리 이동 (예: 서울 ↔ 수원, 안산, 제주 등):
-    // 거리에 따른 1단계 적응형 축소 레벨
-    let zoomOutLevel = 12;
-    if (distKm > 150) {
-      zoomOutLevel = 7; // 전국 단위 (서울 ↔ 제주, 부산)
-    } else if (distKm > 50) {
-      zoomOutLevel = 9; // 수도권 ↔ 강원/충청
-    } else if (distKm > 15) {
-      zoomOutLevel = 10; // 서울 ↔ 수원
+    // 1.5km 이상 원거리 이동: 구글 어스 스타일 시네마틱 포커스 비행
+    // 거리에 따른 최적 줌아웃 고도 및 비행 시간(ms) 계산
+    let zoomOutLevel: number;
+    let t1: number;
+    let t2: number;
+
+    if (distKm > 100) {
+      // 100km 초과 (전국/제주 단위): 우주/대기권 시점
+      zoomOutLevel = 7.5;
+      t1 = 700;
+      t2 = 850;
+    } else if (distKm > 25) {
+      // 25km ~ 100km (수도권 ↔ 광역 시/도)
+      zoomOutLevel = 9.5;
+      t1 = 600;
+      t2 = 720;
+    } else if (distKm > 6) {
+      // 6km ~ 25km (구/시 간 이동)
+      zoomOutLevel = 11.5;
+      t1 = 500;
+      t2 = 620;
     } else {
-      zoomOutLevel = 12; // 시/구 단위
+      // 1.5km ~ 6km (동 간 이동)
+      zoomOutLevel = 13.5;
+      t1 = 420;
+      t2 = 520;
     }
 
-    // 1단계: 시점을 띄우며(Zoom-out) 중간 지점으로 여유롭게 상승 활공 (650ms)
+    // Phase 1 (상승 비행): A에서 중간 지점으로 이동하며 easeInCubic(가속)으로 줌아웃
     if (typeof (map as any).morph === "function") {
-      (map as any).morph(midCoord, zoomOutLevel, { duration: 650 });
+      (map as any).morph(midCoord, zoomOutLevel, {
+        duration: t1,
+        easing: "easeInCubic",
+      });
     } else {
       map.setZoom(zoomOutLevel);
       map.panTo(midCoord, { duration: 500 });
     }
 
-    // 2단계: 680ms 시점에 B 코스 중심 좌표로 부드럽게 하강(Zoom-in) 착륙 (750ms)
-    // (어떠한 fitBounds나 추가 점프 없이 morph 자체로 완벽 착륙하여 텔레포트 및 새로고침 현상 100% 제거)
-    const timer = setTimeout(() => {
+    // Phase 2 (하강 착륙): 중간 지점에서 B 코스로 이동하며 easeOutCubic(감속)으로 줌인
+    // t1이 끝나기 약 15ms 전에 전환하여 속도 단절(멈칫 현상) 없는 매끄러운 비행 궤적 형성
+    const handoverDelay = Math.max(t1 - 15, 0);
+    flightTimerRef.current = setTimeout(() => {
       if (!mapRef.current) return;
       if (typeof (mapRef.current as any).morph === "function") {
-        (mapRef.current as any).morph(targetCenter, targetZoom, { duration: 750 });
+        (mapRef.current as any).morph(targetCenter, targetZoom, {
+          duration: t2,
+          easing: "easeOutCubic",
+        });
       } else {
         mapRef.current.setZoom(targetZoom);
         mapRef.current.panTo(targetCenter, { duration: 500 });
       }
-    }, 680);
+      flightTimerRef.current = null;
+    }, handoverDelay);
 
     return () => {
-      clearTimeout(timer);
+      if (flightTimerRef.current) {
+        clearTimeout(flightTimerRef.current);
+        flightTimerRef.current = null;
+      }
     };
   }, [activeCourse?.id]);
 
@@ -1164,28 +1307,28 @@ export function MapContainer() {
         {/* 전체 경로 한눈에 보기 맞춤 버튼 */}
         <button
           onClick={() => focusActiveCourse(true)}
-          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 shrink-0 border ${
+          className={`h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold shadow-md transition-all active:scale-95 shrink-0 border backdrop-blur-md ${
             isLight
               ? "bg-white/95 hover:bg-slate-50 text-emerald-700 hover:text-emerald-800 border-emerald-500/50 shadow-slate-300/40"
               : "bg-gray-900/90 hover:bg-gray-800 text-emerald-400 hover:text-emerald-300 border-emerald-500/40"
           }`}
           title="선택된 웰니스 코스 전체를 화면 한눈에 포커스합니다."
         >
-          <span>⛶</span>
+          <span className="text-sm">⛶</span>
           <span className="hidden 2xl:inline">코스 전체 맞춤</span>
         </button>
 
         {/* 내 위치 기반 찾기 버튼 */}
         <button
           onClick={() => setIsLocationModalOpen(true)}
-          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 shrink-0 ${
+          className={`h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold shadow-md transition-all active:scale-95 shrink-0 border backdrop-blur-md ${
             userLocation
-              ? "bg-sky-600 hover:bg-sky-500 text-white border border-sky-400/50"
-              : "bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/50 animate-pulse"
+              ? "bg-sky-600/90 hover:bg-sky-600 text-white border-sky-400/60"
+              : "bg-emerald-600/90 hover:bg-emerald-600 text-white border-emerald-400/60 animate-pulse"
           }`}
           title={userLocation ? "내 위치 재설정" : "내 위치 코스 찾기"}
         >
-          <span>📍</span>
+          <span className="text-sm">📍</span>
           <span className="hidden 2xl:inline">
             {userLocation ? "내 위치 재설정" : "내 위치 코스 찾기"}
           </span>
@@ -1195,16 +1338,16 @@ export function MapContainer() {
         {/* 내 집 핀 찍기 버튼 */}
         <button
           onClick={() => setIsPinningHome(!isPinningHome)}
-          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xl transition-all active:scale-95 border shrink-0 ${
+          className={`h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold shadow-md transition-all active:scale-95 border shrink-0 backdrop-blur-md ${
             isPinningHome
               ? "bg-amber-500 text-gray-950 border-amber-300 animate-pulse ring-2 ring-amber-400"
               : isLight
-              ? "bg-white/95 text-amber-800 hover:text-amber-900 border-amber-400 hover:bg-amber-50 shadow-slate-300/40"
-              : "bg-gray-900/90 text-amber-300 hover:text-white border-amber-500/40 hover:bg-gray-800"
+              ? "bg-white/95 text-amber-800 hover:text-amber-900 border-amber-400/60 hover:bg-amber-50 shadow-slate-300/40"
+              : "bg-gray-900/90 text-amber-300 hover:text-amber-200 border-amber-500/40 hover:bg-gray-800"
           }`}
           title="지도 화면을 직접 클릭하여 내 집(출발지) 위치를 지정합니다."
         >
-          <span>🎯</span>
+          <span className="text-sm">🎯</span>
           <span className="hidden 2xl:inline">
             {isPinningHome ? "지도 클릭 대기중..." : "집 핀 찍기"}
           </span>
@@ -1216,14 +1359,14 @@ export function MapContainer() {
         {/* 일반 / 위성 단일 토글 스위치 버튼 (공간 낭비 제거) */}
         <button
           onClick={() => handleChangeMapType(storeMapType === "NORMAL" ? "satellite" : "street")}
-          className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-medium shadow-xl transition-all active:scale-95 shrink-0 ${
+          className={`h-9 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl border text-xs font-semibold shadow-md transition-all active:scale-95 shrink-0 backdrop-blur-md ${
             isLight
               ? "bg-white/95 hover:bg-slate-50 text-slate-800 hover:text-slate-900 border-slate-300 shadow-slate-300/40"
-              : "bg-gray-900/90 hover:bg-gray-800 text-gray-300 hover:text-white border-gray-700/60"
+              : "bg-gray-900/90 hover:bg-gray-800 text-gray-200 hover:text-white border-gray-700/70"
           }`}
           title={storeMapType === "NORMAL" ? "위성 지도로 변경" : "일반 도로 지도로 변경"}
         >
-          <span>{storeMapType === "NORMAL" ? "🛰️" : "🗺️"}</span>
+          <span className="text-sm">{storeMapType === "NORMAL" ? "🛰️" : "🗺️"}</span>
           <span>{storeMapType === "NORMAL" ? "위성" : "일반"}</span>
         </button>
 
@@ -1231,12 +1374,21 @@ export function MapContainer() {
         <HealthProfileAlertBanner />
       </div>
 
-      {/* 상단 편의시설 레이더 필터 칩 (데스크톱에서는 사이드바 우측 sm:left-[368px] lg:left-[412px]에 안전하게 위치) */}
-      <div className={`absolute top-16 sm:top-4 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-20 flex items-center gap-1 backdrop-blur-md border rounded-2xl p-1 sm:p-1.5 shadow-xl max-w-[95vw] sm:max-w-none overflow-x-auto ${
-        isLight
-          ? "bg-white/95 border-slate-300 shadow-slate-300/40"
-          : "bg-gray-900/95 border-gray-700/80 shadow-2xl"
-      }`}>
+      {/* 상단 편의시설 레이더 필터 칩 (공간 여유 시 1단 top-4, 좁아지면 지능형 2단 top-16 자동 전환으로 겹침 완벽 차단) */}
+      <div
+        style={{
+          left: typeof window !== "undefined" && window.innerWidth >= 640
+            ? "calc(var(--vital-sidebar-width, 390px) + 24px)"
+            : undefined,
+        }}
+        className={`absolute ${
+          isRadarStacked ? "top-16 sm:top-16" : "top-16 sm:top-4"
+        } left-1/2 -translate-x-1/2 sm:translate-x-0 z-20 flex items-center gap-1 backdrop-blur-md border rounded-2xl p-1 sm:p-1.5 shadow-xl max-w-[95vw] sm:max-w-none overflow-x-auto transition-all duration-200 ease-out ${
+          isLight
+            ? "bg-white/95 border-slate-300 shadow-slate-300/40"
+            : "bg-gray-900/95 border-gray-700/80 shadow-2xl"
+        }`}
+      >
         <div className={`hidden 2xl:flex items-center gap-1 px-2 text-[11px] font-semibold border-r mr-1 shrink-0 ${
           isLight ? "text-slate-600 border-slate-200" : "text-gray-400 border-gray-700/80"
         }`}>
@@ -1261,51 +1413,43 @@ export function MapContainer() {
         ))}
       </div>
 
-      {/* 실시간 도보 완보 세션 플로팅 배너 */}
-      {activeWalkSession && (
-        <div className="absolute top-28 sm:top-16 left-1/2 -translate-x-1/2 sm:left-[368px] lg:left-[412px] sm:translate-x-0 z-20 flex items-center gap-2.5 bg-gray-950/95 border border-purple-500/80 backdrop-blur-md px-3.5 py-1.5 rounded-2xl shadow-2xl text-xs text-white animate-in slide-in-from-top-2 duration-200">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-          <span className="font-bold text-purple-200">
-            🏃 {activeWalkSession.targetName}
-          </span>
-          <span className="font-mono font-bold text-amber-300">
-            {Math.floor(activeWalkSession.elapsedSeconds / 60)}:{(activeWalkSession.elapsedSeconds % 60).toString().padStart(2, "0")} / {Math.floor(activeWalkSession.targetSeconds / 60)}:00
-          </span>
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-              activeWalkSession.isEligible
-                ? "bg-amber-500 text-gray-950 animate-bounce"
-                : activeWalkSession.isGpsValid
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                : "bg-red-500/20 text-red-300 border border-red-500/40"
-            }`}
-          >
-            {activeWalkSession.isEligible
-              ? "🏅 완보 자격 획득!"
-              : activeWalkSession.isGpsValid
-              ? "현장 체류 정상"
-              : "500m 이탈"}
-          </span>
-          <button
-            type="button"
-            onClick={cancelWalkSession}
-            className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs shrink-0 ml-1 font-bold transition-colors"
-            title="도보 완보 세션 닫기/종료"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {/* 실시간 도보 완보 세션 플로팅 배너 (1초 틱 리렌더링 격리 위젯) */}
+      <MapWalkSessionBanner />
 
-      {/* 지도 하단: 실제 도로 보행로 길찾기 바 (가시 영역 정중앙 배치 & 글씨 세로 깨짐 완전 방지) */}
+      {/* 지도 하단: 실제 도로 보행로 길찾기 바 (자유 드래그 이동 지원 & 기본 정중앙 가시 배치) */}
       {activeCourse && !isCourseBarDismissed && (
         <div
-          className={`absolute bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[calc(50%+190px)] z-30 backdrop-blur-md border rounded-2xl px-3.5 py-2.5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-3 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[95vw] sm:max-w-max select-none ${
+          onMouseDown={handleCourseBarMouseDown}
+          style={
+            courseBarPos
+              ? {
+                  left: `${courseBarPos.x}px`,
+                  top: `${courseBarPos.y}px`,
+                  bottom: "auto",
+                  transform: "none",
+                  cursor: isDraggingCourseBar ? "grabbing" : "grab",
+                  userSelect: isDraggingCourseBar ? "none" : undefined,
+                }
+              : {
+                  cursor: "grab",
+                }
+          }
+          className={`absolute ${
+            courseBarPos
+              ? ""
+              : "bottom-16 sm:bottom-4 left-1/2 -translate-x-1/2 sm:left-[calc(50%+var(--vital-sidebar-width,390px)/2)]"
+          } z-30 backdrop-blur-md border rounded-2xl px-3.5 py-2.5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-3 text-xs animate-in fade-in select-none group transition-shadow hover:shadow-emerald-500/20 ${
             isLight
               ? "bg-white/98 text-slate-900 border-emerald-600/40 shadow-slate-400/30"
               : "bg-gray-900/95 text-white border-emerald-500/60 shadow-black/60"
           }`}
+          title="클릭하고 드래그하여 화면 원하는 위치로 이동할 수 있습니다."
         >
+          {/* 드래그 핸들 그립 표시 */}
+          <div className="hidden sm:flex items-center text-gray-400/80 group-hover:text-emerald-400 cursor-grab active:cursor-grabbing px-0.5" title="드래그하여 이동">
+            <span className="text-sm font-mono tracking-tighter">⠿</span>
+          </div>
+
           {/* 좌측 영역: 코스 저장 핀 버튼 + 코스 정보 */}
           <div className="flex items-center gap-2.5 min-w-0 shrink">
             {/* 코스 저장 (텍스트 없이 📌 아이콘 단독) */}

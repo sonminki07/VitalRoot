@@ -1,8 +1,15 @@
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWellnessStore, checkIsOnboardingComplete } from "../../store/wellnessStore";
 
 export function HealthProfileAlertBanner() {
-  const { profile, openOnboardingModal, themeMode } = useWellnessStore();
+  const { profile, openOnboardingModal, themeMode } = useWellnessStore(
+    useShallow((s) => ({
+      profile: s.profile,
+      openOnboardingModal: s.openOnboardingModal,
+      themeMode: s.themeMode,
+    }))
+  );
   const isLight = themeMode === "light";
   const [isDismissed, setIsDismissed] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);

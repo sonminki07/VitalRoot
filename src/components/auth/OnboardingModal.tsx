@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useWellnessStore } from "../../store/wellnessStore";
 import { ChronicCondition, MedicationItem } from "../../types/wellness.types";
 import {
@@ -36,7 +37,14 @@ export function OnboardingModal() {
     updateProfile,
     isOnboardingModalOpen,
     closeOnboardingModal,
-  } = useWellnessStore();
+  } = useWellnessStore(
+    useShallow((s) => ({
+      profile: s.profile,
+      updateProfile: s.updateProfile,
+      isOnboardingModalOpen: s.isOnboardingModalOpen,
+      closeOnboardingModal: s.closeOnboardingModal,
+    }))
+  );
 
   // 로컬 편집 상태
   const [selectedConditions, setSelectedConditions] = useState<ChronicCondition[]>(
