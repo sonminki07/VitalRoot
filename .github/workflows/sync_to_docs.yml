@@ -1,0 +1,126 @@
+name: Sync Web Code to Google Docs
+
+on:
+  workflow_dispatch: # 수동 실행 지원
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install google-api-python-client google-auth
+
+      - name: Extract Scripts & Update Google Docs
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GDRIVE_DOC_ID: ${{ secrets.GDRIVE_DOC_ID }}
+        run: |
+          python - << 'EOF'
+          import os
+          import glob
+          import json
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+
+          # 1. 구글 인증 설정
+          sa_info = json.loads(os.environ['GCP_SA_KEY'])
+          creds = service_account.Credentials.from_service_account_info(
+              sa_info,
+              scopes=['https://www.googleapis.com/auth/documents']
+          )
+          docs_service = build('docs', 'v1', credentials=creds)
+          doc_id = os.environ['GDRIVE_DOC_ID']
+
+          # 2. 웹 프로젝트 소스코드 수집 (.ts, .tsx, .js, .jsx)
+          collected_text = []
+          target_extensions = ('*.ts', '*.tsx', '*.js', '*.jsx', '*.json')
+          all_files = []
+          
+          # src 디렉터리 내 핵심 코드 수집
+          for ext in target_extensions:
+              all_files.extend(glob.glob(f'src/**/{ext}', recursive=True))
+
+          # 루트 설정 파일 추가 (주요 아키텍처 파악용)
+          for root_config in ['package.json', 'vite.config.ts', 'tsconfig.json']:
+              if os.path.exists(root_config):
+                  all_files.append(root_config)
+
+          code_files = sorted(list(set(all_files)))
+
+          # 제외할 키워드 (빌드 결과물, 의존성 패키지)
+          filtered_files = []
+          skip_keywords = ['node_modules', 'dist', '.git', 'coverage', 'vite-env.d.ts']
+          for path in code_files:
+              if any(k in path for k in skip_keywords):
+                  continue
+              filtered_files.append(path)
+
+          print(f"--- 수집 대상 파일 목록 ({len(filtered_files)}개) ---")
+          for p in filtered_files:
+              print(p)
+
+          for path in filtered_files:
+              try:
+                  with open(path, 'r', encoding='utf-8') as f:
+                      content = f.read()
+                      collected_text.append("// =========================================")
+                      collected_text.append(f"// FILE: {path}")
+                      collected_text.append("// =========================================\n")
+                      collected_text.append(content)
+                      collected_text.append("\n\n")
+              except Exception as e:
+                  print(f"Error reading {path}: {e}")
+
+          full_content = "\n".join(collected_text)
+
+          # Google Docs 용량 안전 마진 (90만 자 제한)
+          if len(full_content) > 900000:
+              full_content = full_content[:900000] + "\n// ... [용량 제한으로 일부 생략됨] ..."
+
+          if not full_content.strip():
+              full_content = "// 수집된 웹 소스코드 파일이 없습니다."
+
+          # 3. 구글 문서 본문 교체
+          doc = docs_service.documents().get(documentId=doc_id).execute()
+          content_elements = doc.get('body', {}).get('content', [])
+          end_index = content_elements[-1].get('endIndex', 1) - 1
+
+          requests = []
+          if end_index > 1:
+              requests.append({
+                  'deleteContentRange': {
+                      'range': {
+                          'startIndex': 1,
+                          'endIndex': end_index
+                      }
+                  }
+              })
+
+          requests.append({
+              'insertText': {
+                  'location': {'index': 1},
+                  'text': full_content
+              }
+          })
+
+          docs_service.documents().batchUpdate(
+              documentId=doc_id,
+              body={'requests': requests}
+          ).execute()
+
+          print(f"동기화 완료: 총 {len(filtered_files)}개 파일이 문서에 반영되었습니다.")
+          EOF
