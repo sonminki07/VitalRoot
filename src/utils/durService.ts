@@ -1,8 +1,10 @@
 import { ChronicCondition, MedicationItem } from "../types/wellness.types";
+import { getApiConfig } from "../config/apiConfig";
 
-export const DUR_API_KEY = "403b2fe19eec414cb6ba3fbdaed716ee3a54adb732b82e1c9aca7e2d1835e9d7";
-export const DUR_API_ENDPOINT = "https://apis.data.go.kr/1471000/DURIrdntInfoService03";
-export const BUNDLE_API_ENDPOINT = "https://apis.data.go.kr/1471000/DrbBundleInfoService02";
+export const getDurConfig = () => getApiConfig().dur;
+export const DUR_API_KEY = getApiConfig().dur.serviceKey;
+export const DUR_API_ENDPOINT = getApiConfig().dur.ingredientEndpoint;
+export const BUNDLE_API_ENDPOINT = getApiConfig().dur.bundleEndpoint;
 
 // 식약처 DUR 7대 안전 카테고리
 export interface DURDetailAnalysis {

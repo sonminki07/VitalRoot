@@ -1,10 +1,9 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { getApiConfig } from "../config/apiConfig";
 
-const DEFAULT_URL = "https://biruuwsoinqtlhdwbajh.supabase.co";
-const DEFAULT_KEY = "sb_publishable_Rx-4GGZmbY2eZwIkTAvqTw_Yrxk_13Y";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY;
+const apiConfig = getApiConfig();
+const supabaseUrl = apiConfig.supabase.url;
+const supabaseAnonKey = apiConfig.supabase.anonKey;
 
 function initSupabase(): SupabaseClient {
   try {
@@ -18,7 +17,7 @@ function initSupabase(): SupabaseClient {
     });
   } catch (err) {
     console.warn("Supabase init failed, creating fallback client:", err);
-    return createClient(DEFAULT_URL, DEFAULT_KEY);
+    return createClient(supabaseUrl, supabaseAnonKey);
   }
 }
 

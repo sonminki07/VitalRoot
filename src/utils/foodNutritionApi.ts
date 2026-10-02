@@ -1,8 +1,7 @@
-// 식품의약품안전처 식품 영양성분 DB API 연계 유틸리티
 import { NutritionInfo } from "../types/wellness.types";
+import { getApiConfig } from "../config/apiConfig";
 
-const FOOD_API_KEY = "403b2fe19eec414cb6ba3fbdaed716ee3a54adb732b82e1c9aca7e2d1835e9d7";
-const BASE_URL = "https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo03/getFoodNtrCpntDbInq03";
+const getFoodConfig = () => getApiConfig().foodNutrition;
 
 /**
  * 당뇨 및 고혈압 기준에 맞춘 영양성분 안전 등급 계산
@@ -23,15 +22,18 @@ export function calculateNutritionGrades(sugars: number, sodium: number): {
  */
 export async function fetchFoodNutrition(foodName: string): Promise<NutritionInfo | null> {
   try {
+    const foodConfig = getFoodConfig();
     const query = new URLSearchParams({
-      serviceKey: FOOD_API_KEY,
+      serviceKey: foodConfig.serviceKey,
       FOOD_NM_KR: foodName,
       pageNo: "1",
       numOfRows: "1",
       type: "json",
     });
 
-    const response = await fetch(`${BASE_URL}?${query.toString()}`);
+    const response = await fetch(`${foodConfig.baseUrl}?${query.toString()}`, {
+      signal: AbortSignal.timeout(foodConfig.timeoutMs || 5000),
+    });
     if (!response.ok) {
       throw new Error(`Food Nutrition API HTTP error: ${response.status}`);
     }

@@ -4,8 +4,11 @@
 // 3. 의료관광정보 서비스 (MdclTursmService)
 // 4. 웰니스관광정보 서비스 (WellnessTursmService)
 
-const TOUR_API_KEY =
-  import.meta.env.VITE_TOUR_API_KEY || "403b2fe19eec414cb6ba3fbdaed716ee3a54adb732b82e1c9aca7e2d1835e9d7";
+import { getApiConfig } from "../config/apiConfig";
+
+function getTourConfig() {
+  return getApiConfig().tourApi;
+}
 
 export interface UnifiedTourItem {
   id: string;
@@ -85,8 +88,9 @@ export async function fetchKorTourPlaces(
   numOfRows: number = 15
 ): Promise<UnifiedTourItem[]> {
   try {
+    const tourConfig = getTourConfig();
     const query = new URLSearchParams({
-      serviceKey: TOUR_API_KEY,
+      serviceKey: tourConfig.serviceKey,
       numOfRows: numOfRows.toString(),
       pageNo: "1",
       MobileOS: "ETC",
@@ -99,8 +103,8 @@ export async function fetchKorTourPlaces(
     });
 
     const res = await fetch(
-      `https://apis.data.go.kr/B551011/KorService2/locationBasedList2?${query.toString()}`,
-      { signal: AbortSignal.timeout(4500) }
+      `${tourConfig.baseUrl}${tourConfig.endpoints.kor}/locationBasedList2?${query.toString()}`,
+      { signal: AbortSignal.timeout(tourConfig.timeoutMs || 4500) }
     );
     if (!res.ok) throw new Error(`KorService2 HTTP Error ${res.status}`);
     const data = await res.json();
@@ -139,8 +143,9 @@ export async function fetchBarrierFreePlaces(
   numOfRows: number = 15
 ): Promise<UnifiedTourItem[]> {
   try {
+    const tourConfig = getTourConfig();
     const query = new URLSearchParams({
-      serviceKey: TOUR_API_KEY,
+      serviceKey: tourConfig.serviceKey,
       numOfRows: numOfRows.toString(),
       pageNo: "1",
       MobileOS: "ETC",
@@ -152,8 +157,8 @@ export async function fetchBarrierFreePlaces(
     });
 
     const res = await fetch(
-      `https://apis.data.go.kr/B551011/KorWithService2/locationBasedList2?${query.toString()}`,
-      { signal: AbortSignal.timeout(4500) }
+      `${tourConfig.baseUrl}${tourConfig.endpoints.barrierFree}/locationBasedList2?${query.toString()}`,
+      { signal: AbortSignal.timeout(tourConfig.timeoutMs || 4500) }
     );
     if (!res.ok) throw new Error(`KorWithService2 HTTP Error ${res.status}`);
     const data = await res.json();
@@ -192,8 +197,9 @@ export async function fetchMedicalTourPlaces(
   numOfRows: number = 10
 ): Promise<UnifiedTourItem[]> {
   try {
+    const tourConfig = getTourConfig();
     const query = new URLSearchParams({
-      serviceKey: TOUR_API_KEY,
+      serviceKey: tourConfig.serviceKey,
       numOfRows: numOfRows.toString(),
       pageNo: "1",
       MobileOS: "ETC",
@@ -206,8 +212,8 @@ export async function fetchMedicalTourPlaces(
     });
 
     const res = await fetch(
-      `https://apis.data.go.kr/B551011/MdclTursmService/locationBasedList?${query.toString()}`,
-      { signal: AbortSignal.timeout(4500) }
+      `${tourConfig.baseUrl}${tourConfig.endpoints.medical}/locationBasedList?${query.toString()}`,
+      { signal: AbortSignal.timeout(tourConfig.timeoutMs || 4500) }
     );
     if (!res.ok) throw new Error(`MdclTursmService HTTP Error ${res.status}`);
     const data = await res.json();
@@ -245,8 +251,9 @@ export async function fetchWellnessTourPlaces(
   numOfRows: number = 10
 ): Promise<UnifiedTourItem[]> {
   try {
+    const tourConfig = getTourConfig();
     const query = new URLSearchParams({
-      serviceKey: TOUR_API_KEY,
+      serviceKey: tourConfig.serviceKey,
       numOfRows: numOfRows.toString(),
       pageNo: "1",
       MobileOS: "ETC",
@@ -259,8 +266,8 @@ export async function fetchWellnessTourPlaces(
     });
 
     const res = await fetch(
-      `https://apis.data.go.kr/B551011/WellnessTursmService/locationBasedList?${query.toString()}`,
-      { signal: AbortSignal.timeout(4500) }
+      `${tourConfig.baseUrl}${tourConfig.endpoints.wellness}/locationBasedList?${query.toString()}`,
+      { signal: AbortSignal.timeout(tourConfig.timeoutMs || 4500) }
     );
     if (!res.ok) throw new Error(`WellnessTursmService HTTP Error ${res.status}`);
     const data = await res.json();

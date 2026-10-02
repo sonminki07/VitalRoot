@@ -1,20 +1,20 @@
-// Tmap 보행자 API 표준 연동 및 공공 도로망 기반 3중 안전 라우팅 엔진
+import { getApiConfig } from "../config/apiConfig";
 
 export const STORAGE_KEY_TMAP = "vitalroot_tmap_key";
 
 const routeCache = new Map<string, { coordinates: [number, number][]; distanceMeters: number }>();
 
 /**
- * 저장된 Tmap API 키 조회 (로컬 스토리지 우선, 환경 변수 차순위)
+ * 저장된 Tmap API 키 조회 (로컬 스토리지 우선, 환경 변수/API 설정 차순위)
  */
 export function getTmapApiKey(): string | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_TMAP);
     if (saved && saved.trim()) return saved.trim();
   } catch {}
-  const envKey = import.meta.env.VITE_TMAP_API_KEY;
-  if (envKey && typeof envKey === "string" && envKey.trim()) {
-    return envKey.trim();
+  const configKey = getApiConfig().tmap.appKey;
+  if (configKey && typeof configKey === "string" && configKey.trim()) {
+    return configKey.trim();
   }
   return null;
 }
@@ -42,7 +42,7 @@ export async function testTmapApiKey(apiKey: string): Promise<{ success: boolean
     if (!cleanKey) {
       return { success: false, message: "API 키를 입력해주세요." };
     }
-    const res = await fetch("https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1", {
+    const res = await fetch(getApiConfig().tmap.pedestrianUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -88,7 +88,7 @@ async function fetchTmapPedestrian(
   apiKey: string
 ): Promise<{ coordinates: [number, number][]; distanceMeters: number } | null> {
   try {
-    const res = await fetch("https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1", {
+    const res = await fetch(getApiConfig().tmap.pedestrianUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -8,6 +8,7 @@ import { LocationModal } from "./components/common/LocationModal";
 import { OnboardingModal } from "./components/auth/OnboardingModal";
 import { SettingsModal } from "./components/common/SettingsModal";
 import { WalkSessionTimerController } from "./components/walk/WalkSessionTimerController";
+import { MobileViewportContainer } from "./components/common/MobileViewportContainer";
 import { useAuthStore } from "./store/authStore";
 import { useWellnessStore, checkIsOnboardingComplete } from "./store/wellnessStore";
 
@@ -75,26 +76,28 @@ function App() {
   }, [profile, openOnboardingModal]);
 
   return (
-    <div
-      className={`relative w-screen h-screen ${
-        themeMode === "light" ? "bg-slate-100" : "bg-gray-900"
-      } overflow-hidden`}
-    >
-      {/* 완보 세션 실시간 1초 틱 헤드리스 컨트롤러 (0 UI 렌더링, 전역 격리) */}
-      <WalkSessionTimerController />
-      {/* 반응형 컨트롤 패널 (데스크톱: 좌측 플로팅 / 모바일: 하단 바텀 시트) */}
-      <ControlPanel />
-      {/* 지도 컴포넌트 & 상단 유틸 바 & 하단 코스 요약/길찾기 바 */}
-      <MapContainer />
-      {/* 로그인 / 회원가입 오버레이 모달 */}
-      <AuthModal />
-      {/* 사용자 위치(GPS) 사용 동의 모달 */}
-      <LocationModal />
-      {/* 3단계 헬스케어 온보딩 모달 (이미지 2 기반) */}
-      <OnboardingModal />
-      {/* VitalRoot 통합 환경 설정 모달 (건강/여행/시스템 확장) */}
-      <SettingsModal />
-    </div>
+    <MobileViewportContainer>
+      <div
+        className={`relative w-full h-full ${
+          themeMode === "light" ? "bg-slate-100" : "bg-gray-900"
+        } overflow-hidden`}
+      >
+        {/* 완보 세션 실시간 1초 틱 헤드리스 컨트롤러 (0 UI 렌더링, 전역 격리) */}
+        <WalkSessionTimerController />
+        {/* 반응형 컨트롤 패널 (데스크톱: 좌측 플로팅 / 모바일: 하단 바텀 시트) */}
+        <ControlPanel />
+        {/* 지도 컴포넌트 & 상단 유틸 바 & 하단 코스 요약/길찾기 바 */}
+        <MapContainer />
+        {/* 로그인 / 회원가입 오버레이 모달 */}
+        <AuthModal />
+        {/* 사용자 위치(GPS) 사용 동의 모달 */}
+        <LocationModal />
+        {/* 3단계 헬스케어 온보딩 모달 (이미지 2 기반) */}
+        <OnboardingModal />
+        {/* VitalRoot 통합 환경 설정 모달 (건강/여행/시스템 확장) */}
+        <SettingsModal />
+      </div>
+    </MobileViewportContainer>
   );
 }
 
