@@ -29,4 +29,5 @@ vite.config.d.ts
 *.sw?
 
 # Agent workspace artifacts
-.agents/
+.agents/scratch/
+.agents/tmp/
