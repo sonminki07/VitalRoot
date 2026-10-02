@@ -156,6 +156,9 @@ export interface WellnessQuest {
   isCompleted: boolean;
   progressMinutes?: number;
   naverPlaceName?: string;
+  imageUrl?: string;
+  distanceMeters?: number;
+  sourceApi?: string;
 }
 
 // 실시간 GPS 완보 세션 상태

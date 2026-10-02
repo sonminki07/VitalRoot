@@ -29,25 +29,31 @@ export function MapContainer() {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const polylineRef = useRef<naver.maps.Polyline | null>(null);
+  const passedPolylineRef = useRef<naver.maps.Polyline | null>(null);
+  const hoveredPolylineRef = useRef<naver.maps.Polyline | null>(null);
   const userConnectorPolylineRef = useRef<naver.maps.Polyline | null>(null);
   const markersRef = useRef<naver.maps.Marker[]>([]);
   const userMarkerRef = useRef<naver.maps.Marker | null>(null);
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null);
   const prevCourseRef = useRef<{ id: string; lat: number; lng: number } | null>(null);
   const flightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevActiveQuestIdRef = useRef<string | null>(null);
+  const prevActiveStayIdRef = useRef<string | null>(null);
 
   const [isMapLoaded, setIsMapLoaded] = useState(false);
 
-  // 스토어 구독 (useShallow를 적용하여 불필요한 리렌더링 차단, activeWalkSession은 전용 배너로 격리)
+  // 스토어 구독 (useShallow를 적용하여 불필요한 리렌더링 차단)
   const {
     filteredCourses,
     activeCourseId,
+    hoveredCourseId,
     activeWaypointFilter,
     setActiveWaypointFilter,
     stays,
     activeStayId,
     quests,
     activeQuestId,
+    activeWalkSession,
     userLocation,
     setUserLocation,
     setIsLocationModalOpen,
@@ -65,12 +71,14 @@ export function MapContainer() {
     useShallow((s) => ({
       filteredCourses: s.filteredCourses,
       activeCourseId: s.activeCourseId,
+      hoveredCourseId: s.hoveredCourseId,
       activeWaypointFilter: s.activeWaypointFilter,
       setActiveWaypointFilter: s.setActiveWaypointFilter,
       stays: s.stays,
       activeStayId: s.activeStayId,
       quests: s.quests,
       activeQuestId: s.activeQuestId,
+      activeWalkSession: s.activeWalkSession,
       userLocation: s.userLocation,
       setUserLocation: s.setUserLocation,
       setIsLocationModalOpen: s.setIsLocationModalOpen,
@@ -633,34 +641,110 @@ export function MapContainer() {
     };
   }, [userLocation, activeCourse?.id]);
 
-  // 6. 보행 경로선 (Polyline) 네이버 지도에 렌더링
+  // 6. 보행 경로선 (Polyline) 네이버 지도에 렌더링 (카카오맵 내비게이션 & 호버 미리보기 지원)
   useEffect(() => {
     if (!mapRef.current || !window.naver?.maps) return;
     const map = mapRef.current;
 
-    // (A) 코스 보행로 (식당 ➔ 산책로, 실제 도로를 따라 꺾어지는 에메랄드 라인)
+    // (A) 코스 보행로 (식당 ➔ 산책로)
     if (polylineRef.current) {
       polylineRef.current.setMap(null);
       polylineRef.current = null;
     }
-
-    if (roadRouteCoords.length > 0) {
-      const path = roadRouteCoords.map(
-        ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
-      );
-
-      polylineRef.current = new window.naver.maps.Polyline({
-        map,
-        path,
-        strokeColor: "#10b981",
-        strokeWeight: 6,
-        strokeOpacity: 0.95,
-        strokeLineCap: "round",
-        strokeLineJoin: "round",
-      });
+    if (passedPolylineRef.current) {
+      passedPolylineRef.current.setMap(null);
+      passedPolylineRef.current = null;
     }
 
-    // (B) 사용자 위치 ➔ 식당 연결 보행로 (스카이블루 실선 도로망 길찾기)
+    if (roadRouteCoords.length > 0) {
+      // 카카오맵 스타일 내비게이션: 보행 세션 진행 중일 때 지나온 길은 딤드/투명화, 남은 길만 선명하게 표시
+      if (activeWalkSession && activeWalkSession.targetSeconds > 0) {
+        const progressRatio = Math.min(
+          activeWalkSession.elapsedSeconds / activeWalkSession.targetSeconds,
+          1
+        );
+        const splitIdx = Math.min(
+          Math.floor(progressRatio * (roadRouteCoords.length - 1)),
+          roadRouteCoords.length - 1
+        );
+
+        // 1) 지나온 경로 (Passed Route): 딤드 회색 점선으로 사라지듯이 표시
+        if (splitIdx > 0) {
+          const passedPath = roadRouteCoords
+            .slice(0, splitIdx + 1)
+            .map(([lng, lat]) => new window.naver.maps.LatLng(lat, lng));
+
+          passedPolylineRef.current = new window.naver.maps.Polyline({
+            map,
+            path: passedPath,
+            strokeColor: "#64748b",
+            strokeWeight: 4,
+            strokeOpacity: 0.35,
+            strokeStyle: "shortdash",
+            strokeLineCap: "round",
+          });
+        }
+
+        // 2) 앞으로 걸어갈 남은 경로 (Remaining Route): 선명한 네온 에메랄드 실선
+        const remainingCoords = roadRouteCoords.slice(splitIdx);
+        const remainingPath = remainingCoords.map(
+          ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
+        );
+
+        polylineRef.current = new window.naver.maps.Polyline({
+          map,
+          path: remainingPath,
+          strokeColor: "#10b981",
+          strokeWeight: 7,
+          strokeOpacity: 0.98,
+          strokeLineCap: "round",
+          strokeLineJoin: "round",
+        });
+      } else {
+        // 일반 탐색 모드: 전체 보행로를 선명한 에메랄드 라인으로 표시
+        const path = roadRouteCoords.map(
+          ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
+        );
+
+        polylineRef.current = new window.naver.maps.Polyline({
+          map,
+          path,
+          strokeColor: "#10b981",
+          strokeWeight: 6,
+          strokeOpacity: 0.95,
+          strokeLineCap: "round",
+          strokeLineJoin: "round",
+        });
+      }
+    }
+
+    // (B) 마우스 호버(Hover) 시 다른 코스 임시 미리보기 폴리라인 (네온 퍼플 점선)
+    if (hoveredPolylineRef.current) {
+      hoveredPolylineRef.current.setMap(null);
+      hoveredPolylineRef.current = null;
+    }
+
+    if (hoveredCourseId && hoveredCourseId !== activeCourse?.id) {
+      const hoveredCourse = filteredCourses.find((c) => c.id === hoveredCourseId);
+      if (hoveredCourse?.walkingRoute && hoveredCourse.walkingRoute.length > 0) {
+        const hoverPath = hoveredCourse.walkingRoute.map(
+          ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
+        );
+
+        hoveredPolylineRef.current = new window.naver.maps.Polyline({
+          map,
+          path: hoverPath,
+          strokeColor: "#a855f7",
+          strokeWeight: 6,
+          strokeOpacity: 0.9,
+          strokeStyle: "shortdash",
+          strokeLineCap: "round",
+          strokeLineJoin: "round",
+        });
+      }
+    }
+
+    // (C) 사용자 위치 ➔ 식당 연결 보행로 (스카이블루 실선 도로망 길찾기)
     if (userConnectorPolylineRef.current) {
       userConnectorPolylineRef.current.setMap(null);
       userConnectorPolylineRef.current = null;
@@ -681,7 +765,16 @@ export function MapContainer() {
         strokeLineJoin: "round",
       });
     }
-  }, [isMapLoaded, roadRouteCoords, userToRestCoords]);
+  }, [
+    isMapLoaded,
+    roadRouteCoords,
+    userToRestCoords,
+    hoveredCourseId,
+    activeWalkSession?.elapsedSeconds,
+    activeWalkSession?.targetSeconds,
+    filteredCourses,
+    activeCourse?.id,
+  ]);
 
   // 7. 마커 렌더링 (내 위치, 안심식당, 산책로, 공공편의시설, 숙소, 퀘스트)
   useEffect(() => {
@@ -1138,8 +1231,9 @@ export function MapContainer() {
         infoWindowRef.current?.open(map, stayMarker);
       });
 
-      // 사이드바에서 숙소 선택 시 마커가 자동으로 클릭된 상태로 팝업 오픈
-      if (isStayActive) {
+      // 사이드바에서 숙소를 명시적으로 변경했을 때만 팝업 오픈 (레이더 필터 변경 시 오작동 방어)
+      if (isStayActive && prevActiveStayIdRef.current !== activeStayId) {
+        prevActiveStayIdRef.current = activeStayId;
         setTimeout(() => {
           (window.naver?.maps?.Event as any)?.trigger(stayMarker, "click");
         }, 150);
@@ -1212,8 +1306,9 @@ export function MapContainer() {
         infoWindowRef.current?.open(map, questMarker);
       });
 
-      // 사이드바에서 퀘스트 선택 시 마커가 자동으로 클릭된 상태로 팝업 오픈
-      if (isQuestActive) {
+      // 사이드바에서 퀘스트를 명시적으로 변경했을 때만 팝업 오픈 (레이더 필터 변경 시 오작동 원천 차단)
+      if (isQuestActive && prevActiveQuestIdRef.current !== activeQuestId) {
+        prevActiveQuestIdRef.current = activeQuestId;
         setTimeout(() => {
           (window.naver?.maps?.Event as any)?.trigger(questMarker, "click");
         }, 150);

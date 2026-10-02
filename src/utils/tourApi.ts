@@ -98,7 +98,10 @@ export async function fetchKorTourPlaces(
       contentTypeId,
     });
 
-    const res = await fetch(`https://apis.data.go.kr/B551011/KorService2/locationBasedList2?${query.toString()}`);
+    const res = await fetch(
+      `https://apis.data.go.kr/B551011/KorService2/locationBasedList2?${query.toString()}`,
+      { signal: AbortSignal.timeout(4500) }
+    );
     if (!res.ok) throw new Error(`KorService2 HTTP Error ${res.status}`);
     const data = await res.json();
     const rawItems = data?.response?.body?.items?.item;
@@ -148,7 +151,10 @@ export async function fetchBarrierFreePlaces(
       radius: radius.toString(),
     });
 
-    const res = await fetch(`https://apis.data.go.kr/B551011/KorWithService2/locationBasedList2?${query.toString()}`);
+    const res = await fetch(
+      `https://apis.data.go.kr/B551011/KorWithService2/locationBasedList2?${query.toString()}`,
+      { signal: AbortSignal.timeout(4500) }
+    );
     if (!res.ok) throw new Error(`KorWithService2 HTTP Error ${res.status}`);
     const data = await res.json();
     const rawItems = data?.response?.body?.items?.item;
@@ -199,7 +205,10 @@ export async function fetchMedicalTourPlaces(
       langDivCd: "KOR",
     });
 
-    const res = await fetch(`https://apis.data.go.kr/B551011/MdclTursmService/locationBasedList?${query.toString()}`);
+    const res = await fetch(
+      `https://apis.data.go.kr/B551011/MdclTursmService/locationBasedList?${query.toString()}`,
+      { signal: AbortSignal.timeout(4500) }
+    );
     if (!res.ok) throw new Error(`MdclTursmService HTTP Error ${res.status}`);
     const data = await res.json();
     const rawItems = data?.response?.body?.items?.item;
@@ -249,7 +258,10 @@ export async function fetchWellnessTourPlaces(
       langDivCd: "KOR",
     });
 
-    const res = await fetch(`https://apis.data.go.kr/B551011/WellnessTursmService/locationBasedList?${query.toString()}`);
+    const res = await fetch(
+      `https://apis.data.go.kr/B551011/WellnessTursmService/locationBasedList?${query.toString()}`,
+      { signal: AbortSignal.timeout(4500) }
+    );
     if (!res.ok) throw new Error(`WellnessTursmService HTTP Error ${res.status}`);
     const data = await res.json();
     const rawItems = data?.response?.body?.items?.item;

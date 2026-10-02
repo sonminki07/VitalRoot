@@ -16,7 +16,6 @@ import {
   INITIAL_WELLNESS_COURSES,
   INITIAL_MULTI_DAY_COURSES,
   INITIAL_WELLNESS_STAYS,
-  INITIAL_WELLNESS_QUESTS,
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
 import { calculateDistanceMeters } from "../utils/pedestrianRouter";
@@ -232,6 +231,7 @@ interface WellnessState {
   courses: WellnessCourseSet[];
   filteredCourses: WellnessCourseSet[];
   activeCourseId: string;
+  hoveredCourseId: string | null;
   courseMode: "local" | "theme";
   multiDayCourses: MultiDayCourseSet[];
   activeMultiDayCourseId: string;
@@ -289,6 +289,7 @@ interface WellnessState {
   toggleCondition: (condition: ChronicCondition) => void;
   setCourseMode: (mode: "local" | "theme") => void;
   setActiveCourseId: (id: string) => void;
+  setHoveredCourseId: (id: string | null) => void;
   setActiveMultiDayCourseId: (id: string) => void;
   setActiveWaypointFilter: (filter: WaypointFilterType) => void;
   setActiveStayId: (id: string | null) => void;
@@ -318,6 +319,10 @@ const initialFiltered = computeFilteredCourses(
   "local"
 );
 const initialQuestData = getSavedQuests();
+const initialCenterLat = initialSavedLoc?.latitude ?? initialFiltered[0]?.trail.latitude ?? 37.5512;
+const initialCenterLng = initialSavedLoc?.longitude ?? initialFiltered[0]?.trail.longitude ?? 126.9882;
+const initialGeneratedQuests = buildRegionalQuests(initialCenterLat, initialCenterLng);
+
 const initialTheme = getSavedTheme();
 const initialFontSize = getSavedFontSize();
 const initialMapType = getSavedMapType();
@@ -325,7 +330,7 @@ const initialDistUnit = getSavedDistanceUnit();
 const initialSavedCourses = getSavedCustomCourses();
 const initialRegion = initialSavedLoc
   ? resolveKoreaRegion(initialSavedLoc.latitude, initialSavedLoc.longitude).shortName
-  : "서울";
+  : resolveKoreaRegion(initialCenterLat, initialCenterLng).shortName;
 
 if (typeof document !== "undefined") {
   try {
@@ -341,6 +346,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   courses: INITIAL_WELLNESS_COURSES,
   filteredCourses: initialFiltered,
   activeCourseId: initialFiltered[0]?.id ?? "course-1",
+  hoveredCourseId: null,
   courseMode: "local",
   multiDayCourses: INITIAL_MULTI_DAY_COURSES,
   activeMultiDayCourseId: INITIAL_MULTI_DAY_COURSES[0]?.id ?? "multi-course-1",
@@ -352,11 +358,11 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
     roomrefrigerator: false,
     fitness: false,
   },
-  quests: INITIAL_WELLNESS_QUESTS.map((q) => ({
+  quests: initialGeneratedQuests.map((q) => ({
     ...q,
     isCompleted: initialQuestData.completedIds.includes(q.id),
   })),
-  activeQuestId: INITIAL_WELLNESS_QUESTS[0]?.id ?? null,
+  activeQuestId: initialGeneratedQuests[0]?.id ?? null,
   earnedTitles: initialQuestData.earnedTitles,
   equippedTitle: getSavedEquippedTitle(),
   activeWalkSession: null,
@@ -795,7 +801,37 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
     });
   },
 
-  setActiveCourseId: (activeCourseId) => set({ activeCourseId }),
+  setActiveCourseId: (activeCourseId) => {
+    const { courses } = get();
+    const targetCourse = courses.find((c) => c.id === activeCourseId);
+    if (targetCourse) {
+      const targetLat = targetCourse.trail.latitude;
+      const targetLng = targetCourse.trail.longitude;
+      const region = resolveKoreaRegion(targetLat, targetLng);
+
+      // 1단계: 즉시 해당 코스 좌표 기준 최단거리 실제 명소 퀘스트 목록으로 동기화 (0ms 즉각 반응)
+      const immediateQuests = buildRegionalQuests(targetLat, targetLng);
+      const savedQuestData = getSavedQuests();
+      const mergedQuests = immediateQuests.map((q) => ({
+        ...q,
+        isCompleted: savedQuestData.completedIds.includes(q.id),
+      }));
+
+      set({
+        activeCourseId,
+        currentRegionName: region.shortName,
+        quests: mergedQuests,
+        activeQuestId: mergedQuests[0]?.id || null,
+      });
+
+      // 2단계: 백그라운드에서 TourAPI 실시간 데이터 비동기 조회 및 최신화
+      get().loadRegionData(targetLat, targetLng);
+    } else {
+      set({ activeCourseId });
+    }
+  },
+
+  setHoveredCourseId: (hoveredCourseId) => set({ hoveredCourseId }),
 
   setActiveMultiDayCourseId: (activeMultiDayCourseId) => set({ activeMultiDayCourseId }),
 

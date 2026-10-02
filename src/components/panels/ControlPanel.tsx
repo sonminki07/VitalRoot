@@ -113,6 +113,7 @@ export function ControlPanel() {
     filteredCourses,
     activeCourseId,
     setActiveCourseId,
+    setHoveredCourseId,
     multiDayCourses,
     activeMultiDayCourseId,
     setActiveMultiDayCourseId,
@@ -144,6 +145,7 @@ export function ControlPanel() {
       filteredCourses: s.filteredCourses,
       activeCourseId: s.activeCourseId,
       setActiveCourseId: s.setActiveCourseId,
+      setHoveredCourseId: s.setHoveredCourseId,
       multiDayCourses: s.multiDayCourses,
       activeMultiDayCourseId: s.activeMultiDayCourseId,
       setActiveMultiDayCourseId: s.setActiveMultiDayCourseId,
@@ -476,6 +478,41 @@ export function ControlPanel() {
           {/* TAB 1: 추천 코스 */}
           {activeTab === "courses" && (
             <div className="space-y-3">
+              {/* 처음 방문한 사용자를 위한 직관적인 3단계 산책 길잡이 */}
+              <div className={`p-3 rounded-2xl border ${
+                isLight
+                  ? "bg-emerald-50/80 border-emerald-200 text-slate-800"
+                  : "bg-gradient-to-r from-emerald-950/40 via-purple-950/30 to-slate-900/50 border-emerald-500/30 text-gray-200"
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <span className="text-emerald-400">🌿</span>
+                    <span className={isLight ? "text-emerald-900 font-extrabold" : "text-emerald-300"}>VitalRoot 건강 산책 3단계 가이드</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400">식후 루틴</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+                  <div className={`p-1.5 rounded-xl border flex flex-col items-center justify-center ${
+                    isLight ? "bg-white border-emerald-300 text-emerald-900 font-bold shadow-xs" : "bg-slate-900/80 border-emerald-500/40 text-emerald-300"
+                  }`}>
+                    <span className="text-[9px] font-black tracking-wider text-emerald-500 mb-0.5">STEP 1</span>
+                    <span className="font-bold leading-tight">식후 코스 선택</span>
+                  </div>
+                  <div className={`p-1.5 rounded-xl border flex flex-col items-center justify-center ${
+                    isLight ? "bg-white border-sky-300 text-sky-900 font-bold shadow-xs" : "bg-slate-900/80 border-sky-500/40 text-sky-300"
+                  }`}>
+                    <span className="text-[9px] font-black tracking-wider text-sky-500 mb-0.5">STEP 2</span>
+                    <span className="font-bold leading-tight">편의시설 확인</span>
+                  </div>
+                  <div className={`p-1.5 rounded-xl border flex flex-col items-center justify-center ${
+                    isLight ? "bg-white border-purple-300 text-purple-900 font-bold shadow-xs" : "bg-slate-900/80 border-purple-500/40 text-purple-300"
+                  }`}>
+                    <span className="text-[9px] font-black tracking-wider text-purple-500 mb-0.5">STEP 3</span>
+                    <span className="font-bold leading-tight">명소 완보 도전</span>
+                  </div>
+                </div>
+              </div>
+
               {/* 내 위치 연동 상태 배너 */}
               {!userLocation ? (
                 <div className="p-3 bg-gradient-to-r from-emerald-950/60 to-teal-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between gap-2 shadow-sm">
@@ -692,6 +729,8 @@ export function ControlPanel() {
                     <div
                       key={course.id}
                       onClick={() => handleSelectCourse(course.id)}
+                      onMouseEnter={() => setHoveredCourseId(course.id)}
+                      onMouseLeave={() => setHoveredCourseId(null)}
                       className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isActive
                           ? isLight
@@ -762,7 +801,10 @@ export function ControlPanel() {
                       }`}>
                         {/* 안심식당 헤더 (상단에 상호명 명확히 표출) */}
                         <div className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className={isLight ? "text-slate-600 font-semibold" : "text-gray-400"}>🍽️ 안심식당:</span>
+                          <div className="flex items-center gap-1 font-semibold">
+                            <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-extrabold text-[10px]">STEP 1</span>
+                            <span className={isLight ? "text-slate-700" : "text-gray-300"}>🍽️ 안심 식당:</span>
+                          </div>
                           <span className={`font-bold ${isLight ? "text-slate-900" : "text-gray-100"}`}>
                             {course.restaurant.name}
                           </span>
@@ -839,7 +881,10 @@ export function ControlPanel() {
                         )}
 
                         <div className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className={isLight ? "text-slate-600 font-semibold" : "text-gray-400"}>🚶 힐링산책:</span>
+                          <div className="flex items-center gap-1 font-semibold">
+                            <span className="px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-400 font-extrabold text-[10px]">STEP 2</span>
+                            <span className={isLight ? "text-slate-700" : "text-gray-300"}>🚶 완만 산책로:</span>
+                          </div>
                           <span className={`font-bold ${isLight ? "text-slate-900" : "text-gray-200"}`}>
                             {course.trail.name}
                           </span>
@@ -847,13 +892,17 @@ export function ControlPanel() {
 
                         {/* 경로 3~5분 공공 편의시설 보유 안내 - 글자 크기 상향 */}
                         {course.waypoints && (
-                          <div className={`text-xs sm:text-[13px] font-bold flex items-center gap-1.5 ${
-                            isLight ? "text-sky-700" : "text-sky-300"
+                          <div className={`text-xs sm:text-[13px] font-bold flex items-center justify-between gap-1.5 p-2 rounded-lg border ${
+                            isLight
+                              ? "bg-purple-50/70 border-purple-200 text-purple-900"
+                              : "bg-purple-950/30 border-purple-500/30 text-purple-200"
                           }`}>
-                            <span>🧭</span>
-                            <span>
-                              경로 3~5분 안심 편의시설:{" "}
-                              <strong className="underline decoration-sky-400 font-extrabold">{course.waypoints.length}곳</strong> 레이더 안내
+                            <div className="flex items-center gap-1.5">
+                              <span className="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-400 font-extrabold text-[10px]">STEP 3</span>
+                              <span>🧭 안심 편의시설:</span>
+                            </div>
+                            <span className="font-extrabold text-purple-400">
+                              화장실·쉼터 {course.waypoints.length}곳 레이더 안내
                             </span>
                           </div>
                         )}
@@ -1271,16 +1320,25 @@ export function ControlPanel() {
                     <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 text-[10px] shrink-0">
                       📍 {currentRegionName}
                     </span>
-                    <span className="font-semibold text-gray-200 truncate">실시간 명소 완보 퀘스트</span>
+                    <span className="font-semibold text-gray-200 truncate">근접 명소 완보 퀘스트</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hidden sm:inline">
+                      TourAPI 연계
+                    </span>
                   </div>
                   <span className="text-purple-400 font-semibold text-[11px] shrink-0">
-                    {isRegionLoading ? "로딩 중..." : `${quests.length}개 챌린지`}
+                    {isRegionLoading ? "TourAPI 조회 중..." : `${quests.length}개 챌린지`}
                   </span>
                 </div>
 
                 {quests.map((q) => {
                   const isSelected = q.id === activeQuestId;
                   const isCurrentSession = activeQuestSessionId === q.id;
+                  const distLabel =
+                    typeof q.distanceMeters === "number"
+                      ? q.distanceMeters < 1000
+                        ? `${q.distanceMeters}m`
+                        : `${(q.distanceMeters / 1000).toFixed(1)}km`
+                      : null;
 
                   return (
                     <div
@@ -1292,15 +1350,42 @@ export function ControlPanel() {
                           : "bg-gray-800/40 border-gray-700/50 hover:bg-gray-800/80"
                       }`}
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-base">{q.badgeIcon}</span>
-                          <h4 className="font-bold text-xs text-white">
-                            {q.landmarkName}
-                          </h4>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {q.imageUrl ? (
+                            <img
+                              src={q.imageUrl}
+                              alt={q.landmarkName}
+                              className="w-10 h-10 rounded-xl object-cover border border-purple-500/30 shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xl shrink-0 p-1.5 bg-gray-800/80 rounded-xl border border-gray-700">
+                              {q.badgeIcon}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-xs text-white truncate">
+                                {q.landmarkName}
+                              </h4>
+                              {distLabel && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
+                                  {distLabel}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-[10px] text-gray-400 truncate mt-0.5">
+                              <span className="text-indigo-400 font-medium">공공 TourAPI</span>
+                              <span>•</span>
+                              <span className="truncate">{q.address}</span>
+                            </div>
+                          </div>
                         </div>
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
                             q.isCompleted
                               ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                               : isCurrentSession
@@ -1316,7 +1401,7 @@ export function ControlPanel() {
                         </span>
                       </div>
 
-                      <p className="text-[11px] text-gray-300 leading-relaxed">
+                      <p className="text-[11px] text-gray-300 leading-relaxed line-clamp-2">
                         {q.description}
                       </p>
 

@@ -8,6 +8,7 @@ import {
 import { RegionalTourCollection, UnifiedTourItem } from "./tourApi";
 import { resolveKoreaRegion } from "./koreaRegionResolver";
 import { calculateDistanceMeters } from "./pedestrianRouter";
+import { VERIFIED_REGIONAL_LANDMARKS } from "../config/verifiedLandmarks";
 
 /**
  * 지역별 고유 칭호 리워드 생성기
@@ -89,30 +90,35 @@ export function buildRegionalCourses(
         ? "고혈압 (탈수 방지 및 완경사 혈관 안정)"
         : "저혈압/대사증후군 (평지 보행 및 활력 증진)";
 
-    // 공공 편의시설(화장실, 쉼터, 무장애) 웨이포인트 보강 (도착지/식당 핀과 좌표 중복 겹침 방지)
+    // 공공 편의시설(화장실, 쉼터, 무장애) 웨이포인트 보강 (보행로 선상 30m 이내 초밀착 스냅)
+    const wp1Lat = Number((rest.latitude * 0.55 + trail.latitude * 0.45).toFixed(6));
+    const wp1Lng = Number((rest.longitude * 0.55 + trail.longitude * 0.45).toFixed(6));
+    const wp2Lat = Number((rest.latitude * 0.25 + trail.latitude * 0.75).toFixed(6));
+    const wp2Lng = Number((rest.longitude * 0.25 + trail.longitude * 0.75).toFixed(6));
+
     const waypoints: WaypointFacility[] = [
       {
         id: `wp-${region.shortName}-${i}-1`,
-        name: `${trail.title} 힐링 안심 쉼터`,
+        name: `${trail.title} 안심 그늘 쉼터`,
         category: "쉼터",
-        description: "피톤치드 그늘 벤치 및 평지 휴게 공간",
+        description: "보행 동선 바로 옆 피톤치드 그늘 벤치 및 평지 휴게 쉼터",
         address: trail.address,
-        latitude: Number((rest.latitude * 0.6 + trail.latitude * 0.4 + 0.0003).toFixed(6)),
-        longitude: Number((rest.longitude * 0.6 + trail.longitude * 0.4 + 0.0004).toFixed(6)),
-        walkingMinutesFromRoute: 2,
-        distanceMetersFromRoute: 80,
+        latitude: wp1Lat,
+        longitude: wp1Lng,
+        walkingMinutesFromRoute: 1,
+        distanceMetersFromRoute: 25,
         features: ["그늘 벤치", "음수대", "비상벨"],
       },
       {
         id: `wp-${region.shortName}-${i}-2`,
         name: `${trail.title} 공공 무장애 화장실`,
         category: "화장실",
-        description: "휠체어 접근 가능 및 24시간 청결 유지 안심 화장실",
+        description: "보행 동선 인접 휠체어 접근 가능 및 청결 안심 화장실",
         address: trail.address,
-        latitude: Number((rest.latitude * 0.3 + trail.latitude * 0.7 - 0.0004).toFixed(6)),
-        longitude: Number((rest.longitude * 0.3 + trail.longitude * 0.7 + 0.0003).toFixed(6)),
-        walkingMinutesFromRoute: 3,
-        distanceMetersFromRoute: 120,
+        latitude: wp2Lat,
+        longitude: wp2Lng,
+        walkingMinutesFromRoute: 1,
+        distanceMetersFromRoute: 35,
         features: ["장애인 화장실", "비데", "자동문"],
       },
     ];
@@ -176,70 +182,146 @@ export function buildRegionalCourses(
 }
 
 /**
- * 4대 Tour API 수집 명소를 기반으로 해당 시·군·구 맞춤형 웰니스 퀘스트 생성
+ * 4대 Tour API 수집 명소 및 공식 검증 명소 DB를 기반으로
+ * 현재 위치(또는 선택 코스)에서 가장 가까운 실제 명소별 완보 퀘스트 생성
  */
 export function buildRegionalQuests(
   lat: number,
   lng: number,
-  collection: RegionalTourCollection
+  collection?: RegionalTourCollection | null
 ): WellnessQuest[] {
   const region = resolveKoreaRegion(lat, lng);
-  const quests: WellnessQuest[] = [];
-
-  // 1순위: 웰니스 테마 스팟 + 무장애 여행지 + 일반 관광지 중 중복 제거된 상위 4개
-  const combined = [
-    ...collection.wellnessSpots,
-    ...collection.barrierFreePlaces,
-    ...collection.trailsAndAttractions,
-  ];
+  const candidateSpots: Array<{
+    id: string;
+    title: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    category: string;
+    imageUrl?: string;
+    isBarrierFree?: boolean;
+    isWellness?: boolean;
+    distMeters: number;
+    titleReward?: string;
+    badgeIcon?: string;
+    description?: string;
+  }> = [];
 
   const seenTitles = new Set<string>();
-  const topSpots: UnifiedTourItem[] = [];
 
-  for (const item of combined) {
-    const cleanTitle = item.title.trim();
-    if (!seenTitles.has(cleanTitle)) {
+  // 1. TourAPI 실시간 수집 명소들 (있을 경우)
+  if (collection) {
+    const apiSpots = [
+      ...collection.wellnessSpots,
+      ...collection.barrierFreePlaces,
+      ...collection.trailsAndAttractions,
+    ];
+    for (const item of apiSpots) {
+      const cleanTitle = item.title.replace(/\[.*?\]|\(.*?\)/g, "").trim();
+      if (!cleanTitle || seenTitles.has(cleanTitle)) continue;
       seenTitles.add(cleanTitle);
-      topSpots.push(item);
+
+      const dist = Math.round(calculateDistanceMeters(lat, lng, item.latitude, item.longitude));
+      candidateSpots.push({
+        id: item.id,
+        title: cleanTitle,
+        address: item.address || `${region.fullName} 일원`,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        category: item.category || "관광명소",
+        imageUrl: item.imageUrl,
+        isBarrierFree: item.sourceApi === "barrierFree" || item.category.includes("무장애"),
+        isWellness: item.sourceApi === "wellness",
+        distMeters: dist,
+      });
     }
-    if (topSpots.length >= 4) break;
   }
 
-  // 데이터가 없을 경우 기본 명소 폴백
-  if (topSpots.length === 0) {
-    topSpots.push({
-      id: `fallback-quest-${region.shortName}-1`,
-      sourceApi: "wellness",
-      title: `${region.shortName} 생태 자연공원`,
-      address: `${region.fullName} 공원로 일원`,
-      category: "자연/산책로",
-      longitude: Number((lng + 0.003).toFixed(6)),
-      latitude: Number((lat + 0.003).toFixed(6)),
-    });
+  // 2. 한국관광공사 공식 인증 전국 실제 명소 데이터베이스 (VERIFIED_REGIONAL_LANDMARKS)
+  for (const landmark of VERIFIED_REGIONAL_LANDMARKS) {
+    const cleanTitle = landmark.name.replace(/\[.*?\]|\(.*?\)/g, "").trim();
+    if (seenTitles.has(cleanTitle)) continue;
+
+    const dist = Math.round(calculateDistanceMeters(lat, lng, landmark.latitude, landmark.longitude));
+    // 해당 지역이거나 반경 40km 이내인 명소를 우선 후보군으로 등록
+    if (landmark.region === region.shortName || dist <= 40000) {
+      seenTitles.add(cleanTitle);
+      candidateSpots.push({
+        id: `verified-${landmark.region}-${cleanTitle}`,
+        title: landmark.name,
+        address: landmark.address,
+        latitude: landmark.latitude,
+        longitude: landmark.longitude,
+        category: landmark.category,
+        imageUrl: landmark.imageUrl,
+        isBarrierFree: landmark.category.includes("무장애") || landmark.name.includes("무장애"),
+        isWellness: true,
+        distMeters: dist,
+        titleReward: landmark.titleReward,
+        badgeIcon: landmark.badgeIcon,
+        description: landmark.description,
+      });
+    }
   }
 
-  topSpots.forEach((spot, idx) => {
-    const isBarrierFree = spot.sourceApi === "barrierFree" || spot.category.includes("무장애");
-    const isWellness = spot.sourceApi === "wellness";
-    const badgeIcon = isBarrierFree ? "♿" : isWellness ? "🌿" : ["🌲", "🌊", "🌸", "🏛️"][idx % 4] ?? "🌿";
+  // 만약 후보군이 아직 적다면 (외곽 지역 등), 전국 전체 명소 중 최단거리 명소로 보충
+  if (candidateSpots.length < 4) {
+    for (const landmark of VERIFIED_REGIONAL_LANDMARKS) {
+      const cleanTitle = landmark.name.replace(/\[.*?\]|\(.*?\)/g, "").trim();
+      if (seenTitles.has(cleanTitle)) continue;
+      seenTitles.add(cleanTitle);
+      const dist = Math.round(calculateDistanceMeters(lat, lng, landmark.latitude, landmark.longitude));
+      candidateSpots.push({
+        id: `verified-${landmark.region}-${cleanTitle}`,
+        title: landmark.name,
+        address: landmark.address,
+        latitude: landmark.latitude,
+        longitude: landmark.longitude,
+        category: landmark.category,
+        imageUrl: landmark.imageUrl,
+        isBarrierFree: landmark.category.includes("무장애"),
+        isWellness: true,
+        distMeters: dist,
+        titleReward: landmark.titleReward,
+        badgeIcon: landmark.badgeIcon,
+        description: landmark.description,
+      });
+    }
+  }
+
+  // 3. 현재 좌표(lat, lng)로부터의 실제 거리 오름차순 정렬 (가장 가까운 명소 우선!)
+  candidateSpots.sort((a, b) => a.distMeters - b.distMeters);
+
+  // 상위 5개 추출하여 WellnessQuest로 가공
+  const quests: WellnessQuest[] = candidateSpots.slice(0, 5).map((spot, idx) => {
+    const badgeIcon =
+      spot.badgeIcon ||
+      (spot.isBarrierFree ? "♿" : spot.isWellness ? "🌿" : ["🌲", "🌊", "🌸", "🏛️", "⛰️"][idx % 5] ?? "🌿");
     const duration = 20 + (idx % 3) * 5; // 20분, 25분, 30분
+    const distText = spot.distMeters < 1000 ? `${spot.distMeters}m` : `${(spot.distMeters / 1000).toFixed(1)}km`;
+    const titleReward = spot.titleReward || getRegionalTitleReward(region.shortName, idx);
 
-    quests.push({
-      id: `quest-${region.shortName}-${idx + 1}`,
-      title: `${region.shortName} [${isBarrierFree ? "무장애" : isWellness ? "웰니스" : "명소"}] ${spot.title} ${duration}분 완보`,
-      description: `${spot.address || region.fullName}에 위치한 ${spot.title}에서 피톤치드를 호흡하며 ${duration}분간 편안하게 산책하여 혈압/혈당을 안정화하세요.`,
+    return {
+      id: `quest-${region.shortName}-${idx + 1}-${spot.id}`,
+      title: `${spot.title} ${duration}분 완보 (${distText})`,
+      description:
+        spot.description ||
+        `${spot.address}에 위치한 ${spot.title}에서 피톤치드를 호흡하며 ${duration}분간 편안하게 산책하여 혈압/혈당을 안정화하세요.`,
       landmarkName: spot.title,
-      category: spot.category || (isBarrierFree ? "무장애 둘레길" : "웰니스 힐링"),
-      address: spot.address || `${region.fullName} 일원`,
+      category: spot.category,
+      address: spot.address,
       latitude: spot.latitude,
       longitude: spot.longitude,
       targetDurationMinutes: duration,
-      titleReward: getRegionalTitleReward(region.shortName, idx),
+      titleReward,
       badgeIcon,
       isCompleted: false,
       progressMinutes: 0,
       naverPlaceName: spot.title,
-    });
+      imageUrl: spot.imageUrl,
+      distanceMeters: spot.distMeters,
+      sourceApi: "한국관광공사 TourAPI",
+    };
   });
 
   return quests;
