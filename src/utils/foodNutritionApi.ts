@@ -1,5 +1,5 @@
-import { NutritionInfo } from "../types/wellness.types";
-import { getApiConfig } from "../config/apiConfig";
+import type { NutritionInfo } from "../types/wellness.types.ts";
+import { getApiConfig } from "../config/apiConfig.ts";
 
 const getFoodConfig = () => getApiConfig().foodNutrition;
 
@@ -9,25 +9,45 @@ const getFoodConfig = () => getApiConfig().foodNutrition;
  * - 나트륨(Sodium): 1회 500mg 이하 '안심', 900mg 이하 '보통', 초과 '주의' (대한고혈압학회 가이드)
  */
 export function calculateNutritionGrades(sugars: number, sodium: number): {
-  sugarGrade: '안심' | '보통' | '주의';
-  sodiumGrade: '안심' | '보통' | '주의';
+  sugarGrade: "안심" | "보통" | "주의";
+  sodiumGrade: "안심" | "보통" | "주의";
 } {
-  const sugarGrade = sugars <= 8 ? '안심' : sugars <= 15 ? '보통' : '주의';
-  const sodiumGrade = sodium <= 500 ? '안심' : sodium <= 900 ? '보통' : '주의';
+  const sugarGrade = sugars <= 8 ? "안심" : sugars <= 15 ? "보통" : "주의";
+  const sodiumGrade = sodium <= 500 ? "안심" : sodium <= 900 ? "보통" : "주의";
   return { sugarGrade, sodiumGrade };
 }
 
 /**
- * 식약처 공공 API를 통해 식품 영양성분 검색
+ * 식약처 공공 API를 통해 단일 식품 영양성분 검색
+ * FoodNtrCpntDbInfo03 / getFoodNtrCpntDbInq03
  */
 export async function fetchFoodNutrition(foodName: string): Promise<NutritionInfo | null> {
+  try {
+    const list = await searchFoodNutritionList(foodName, 1);
+    return list.length > 0 && list[0] ? list[0] : null;
+  } catch (error) {
+    console.warn(`[FoodNutritionApi] ${foodName} API 조회 실패, 스마트 폴백 사용:`, error);
+    return null;
+  }
+}
+
+/**
+ * 식약처 식품영양성분DB 목록 검색
+ */
+export async function searchFoodNutritionList(
+  queryName: string,
+  maxItems: number = 5
+): Promise<NutritionInfo[]> {
+  const clean = queryName.trim();
+  if (!clean) return [];
+
   try {
     const foodConfig = getFoodConfig();
     const query = new URLSearchParams({
       serviceKey: foodConfig.serviceKey,
-      FOOD_NM_KR: foodName,
+      FOOD_NM_KR: clean,
       pageNo: "1",
-      numOfRows: "1",
+      numOfRows: maxItems.toString(),
       type: "json",
     });
 
@@ -39,31 +59,38 @@ export async function fetchFoodNutrition(foodName: string): Promise<NutritionInf
     }
 
     const json = await response.json();
-    const item = json?.body?.items?.[0];
+    const rawItems = json?.body?.items;
+    if (!rawItems) return [];
+    const items = Array.isArray(rawItems) ? rawItems : [rawItems];
 
-    if (!item) return null;
+    return items
+      .map((entry: any) => entry?.item || entry)
+      .filter((item: any) => item && (item.FOOD_NM_KR || item.foodNmKr))
+      .map((item: any) => {
+        const name = item.FOOD_NM_KR || item.foodNmKr || clean;
+        const calories = Math.round(parseFloat(item.AMT_NUM1 || item.enerc || "350")); // 에너지(kcal)
+        const carbohydrate = Math.round(parseFloat(item.AMT_NUM7 || item.chocdf || "50")); // 탄수화물(g)
+        const sugars = Math.round(parseFloat(item.AMT_NUM8 || item.sugar || "5")); // 당류(g)
+        const sodium = Math.round(parseFloat(item.AMT_NUM14 || item.nat || "400")); // 나트륨(mg)
+        const protein = Math.round(parseFloat(item.AMT_NUM3 || item.prot || "12")); // 단백질(g)
+        const serving = item.SERVING_SIZE || "1회 제공량";
 
-    const calories = Math.round(parseFloat(item.AMT_NUM1 || "400")); // 에너지(kcal)
-    const carbohydrate = Math.round(parseFloat(item.AMT_NUM7 || "60")); // 탄수화물(g)
-    const sugars = Math.round(parseFloat(item.AMT_NUM8 || "5")); // 당류(g)
-    const sodium = Math.round(parseFloat(item.AMT_NUM14 || "450")); // 나트륨(mg)
-    const protein = Math.round(parseFloat(item.AMT_NUM3 || "15")); // 단백질(g)
+        const { sugarGrade, sodiumGrade } = calculateNutritionGrades(sugars, sodium);
 
-    const { sugarGrade, sodiumGrade } = calculateNutritionGrades(sugars, sodium);
-
-    return {
-      menuName: item.FOOD_NM_KR || foodName,
-      calories,
-      carbohydrate,
-      sugars,
-      sodium,
-      protein,
-      sugarGrade,
-      sodiumGrade,
-      nutritionTip: `식약처 인증 데이터: 복합탄수화물 및 저염 레시피 기준 적합`,
-    };
+        return {
+          menuName: name,
+          calories,
+          carbohydrate,
+          sugars,
+          sodium,
+          protein,
+          sugarGrade,
+          sodiumGrade,
+          nutritionTip: `식약처 인증 DB (${serving} 기준): 당류 ${sugarGrade}, 나트륨 ${sodiumGrade}`,
+        };
+      });
   } catch (error) {
-    console.warn(`[FoodNutritionApi] ${foodName} API 조회 실패, 스마트 폴백 사용:`, error);
-    return null;
+    console.warn(`[FoodNutritionApi] ${queryName} 목록 조회 실패:`, error);
+    return [];
   }
 }

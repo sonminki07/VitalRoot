@@ -1,0 +1,2532 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "식품의약품안전처 「의약품안전사용서비스(DUR) 성분정보」 OpenAPI는 의약품의 구성 성분별로 안전사용 관련 정보를 제공합니다. 주요 제공 항목은 DUR번호, DUR유형, 단일/복합, DUR성분코드, DUR성분(영문), DUR성분, 복합제, 관계성분, 제형, 고시일자, 금기내용 등을 포함하고 있습니다.\\n이 데이터를 통해 의료진과 약사는 DUR 성분정보를 통해 환자 상태에 맞는 처방·조제를 지원할 수 있으며, 환자는 불필요한 부작용이나 약물 상호작용 위험을 줄이는 데 도움을 받을 수 있습니다",
+    "version": "1.0.0",
+    "title": "식품의약품안전처_의약품안전사용서비스(DUR)성분정보"
+  },
+  "host": "apis.data.go.kr/1471000/DURIrdntInfoService03",
+  "basePath": "",
+  "schemes": [
+    "https",
+    "http"
+  ],
+  "paths": {
+    "/getUsjntTabooInfoList02": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "성공",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "description": "header",
+                  "properties": {
+                    "resultCode": {
+                      "type": "string",
+                      "description": "결과코드",
+                      "properties": {}
+                    },
+                    "resultMsg": {
+                      "type": "string",
+                      "description": "결과메시지",
+                      "properties": {}
+                    }
+                  }
+                },
+                "body": {
+                  "type": "object",
+                  "description": "body",
+                  "properties": {
+                    "numOfRows": {
+                      "type": "integer",
+                      "description": "한 페이지 결과수",
+                      "properties": {}
+                    },
+                    "pageNo": {
+                      "type": "integer",
+                      "description": "페이지 번호",
+                      "properties": {}
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "description": "전체 결과 수 ",
+                      "properties": {}
+                    },
+                    "items": {
+                      "type": "object",
+                      "description": "items",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "description": "item",
+                          "properties": {
+                            "TYPE_NAME": {
+                              "type": "string",
+                              "description": "DUR유형",
+                              "properties": {}
+                            },
+                            "MIX_TYPE": {
+                              "type": "string",
+                              "description": "단일/복합",
+                              "properties": {}
+                            },
+                            "INGR_CODE": {
+                              "type": "string",
+                              "description": "DUR성분코드",
+                              "properties": {}
+                            },
+                            "INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "INGR_KOR_NAME": {
+                              "type": "string",
+                              "description": "DUR성분",
+                              "properties": {}
+                            },
+                            "MIX": {
+                              "type": "string",
+                              "description": "복합제",
+                              "properties": {}
+                            },
+                            "ORI": {
+                              "type": "string",
+                              "description": "관계성분",
+                              "properties": {}
+                            },
+                            "CLASS": {
+                              "type": "string",
+                              "description": "약효분류",
+                              "properties": {}
+                            },
+                            "MIXTURE_MIX_TYPE": {
+                              "type": "string",
+                              "description": "병용금기단일/복합",
+                              "properties": {}
+                            },
+                            "MIXTURE_INGR_CODE": {
+                              "type": "string",
+                              "description": "병용금기DUR성분코드",
+                              "properties": {}
+                            },
+                            "MIXTURE_INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "병용금기DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "MIXTURE_INGR_KOR_NAME": {
+                              "type": "string",
+                              "description": "병용금기DUR성분",
+                              "properties": {}
+                            },
+                            "MIXTURE_MIX": {
+                              "type": "string",
+                              "description": "병용금기복합제",
+                              "properties": {}
+                            },
+                            "MIXTURE_ORI": {
+                              "type": "string",
+                              "description": "병용금기관계성분",
+                              "properties": {}
+                            },
+                            "MIXTURE_CLASS": {
+                              "type": "string",
+                              "description": "병용금기약효분류",
+                              "properties": {}
+                            },
+                            "NOTIFICATION_DATE": {
+                              "type": "string",
+                              "description": "고시일자",
+                              "properties": {}
+                            },
+                            "PROHBT_CONTENT": {
+                              "type": "string",
+                              "description": "금기내용",
+                              "properties": {}
+                            },
+                            "REMARK": {
+                              "type": "string",
+                              "description": "비고",
+                              "properties": {}
+                            },
+                            "DEL_YN": {
+                              "type": "string",
+                              "description": "상태",
+                              "properties": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "response"
+              }
+            }
+          }
+        },
+        "tags": [
+          "API 목록"
+        ],
+        "summary": "병용금기 정보조회",
+        "description": "DUR성분정보의 병용금기 정보를 목록으로 제공",
+        "operationId": "getUsjntTabooInfoList02",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "serviceKey",
+          "description": "공공데이터포털에서 발급 받은 인증키",
+          "type": "string",
+          "required": true,
+          "in": "query"
+        },
+        {
+          "name": "pageNo",
+          "description": "페이지 번호",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "numOfRows",
+          "description": "한 페이지 결과수",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "type",
+          "description": "응답데이터 형식(xml/json) default : xml",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "typeName",
+          "description": "DUR유형",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrCode",
+          "description": "DUR성분코드",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrKorName",
+          "description": "DUR성분",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        }
+      ]
+    },
+    "/getPwnmTabooInfoList02": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "성공",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "description": "header",
+                  "properties": {
+                    "resultCode": {
+                      "type": "string",
+                      "description": "결과코드",
+                      "properties": {}
+                    },
+                    "resultMsg": {
+                      "type": "string",
+                      "description": "결과메시지",
+                      "properties": {}
+                    }
+                  }
+                },
+                "body": {
+                  "type": "object",
+                  "description": "body",
+                  "properties": {
+                    "numOfRows": {
+                      "type": "integer",
+                      "description": "한 페이지 결과수",
+                      "properties": {}
+                    },
+                    "pageNo": {
+                      "type": "integer",
+                      "description": "페이지 번호",
+                      "properties": {}
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "description": "전체 결과 수 ",
+                      "properties": {}
+                    },
+                    "items": {
+                      "type": "object",
+                      "description": "items",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "description": "item",
+                          "properties": {
+                            "DUR_SEQ": {
+                              "type": "string",
+                              "description": "DUR번호",
+                              "properties": {}
+                            },
+                            "TYPE_NAME": {
+                              "type": "string",
+                              "description": "DUR유형",
+                              "properties": {}
+                            },
+                            "MIX_TYPE": {
+                              "type": "string",
+                              "description": "단일/복합",
+                              "properties": {}
+                            },
+                            "INGR_CODE": {
+                              "type": "string",
+                              "description": "DUR성분코드",
+                              "properties": {}
+                            },
+                            "INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "INGR_NAME": {
+                              "type": "string",
+                              "description": "DUR성분",
+                              "properties": {}
+                            },
+                            "MIX_INGR": {
+                              "type": "string",
+                              "description": "복합제",
+                              "properties": {}
+                            },
+                            "ORI_INGR": {
+                              "type": "string",
+                              "description": "관계성분",
+                              "properties": {}
+                            },
+                            "CLASS_NAME": {
+                              "type": "string",
+                              "description": "약효분류",
+                              "properties": {}
+                            },
+                            "FORM_NAME": {
+                              "type": "string",
+                              "description": "제형",
+                              "properties": {}
+                            },
+                            "GRADE": {
+                              "type": "string",
+                              "description": "등급",
+                              "properties": {}
+                            },
+                            "NOTIFICATION_DATE": {
+                              "type": "string",
+                              "description": "고시일자",
+                              "properties": {}
+                            },
+                            "PROHBT_CONTENT": {
+                              "type": "string",
+                              "description": "금기내용",
+                              "properties": {}
+                            },
+                            "REMARK": {
+                              "type": "string",
+                              "description": "비고",
+                              "properties": {}
+                            },
+                            "DEL_YN": {
+                              "type": "string",
+                              "description": "상태",
+                              "properties": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "response"
+              }
+            }
+          }
+        },
+        "tags": [
+          "API 목록"
+        ],
+        "summary": "임부금기 정보조회",
+        "description": "DUR성분정보의 임부금기 정보를 목록으로 제공",
+        "operationId": "getPwnmTabooInfoList02",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "serviceKey",
+          "description": "공공데이터포털에서 발급 받은 인증키",
+          "type": "string",
+          "required": true,
+          "in": "query"
+        },
+        {
+          "name": "pageNo",
+          "description": "페이지 번호",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "numOfRows",
+          "description": "한 페이지 결과수",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "type",
+          "description": "응답데이터 형식(xml/json) default : xml",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "typeName",
+          "description": "DUR유형",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrCode",
+          "description": "DUR성분코드",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrName",
+          "description": "DUR성분",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        }
+      ]
+    },
+    "/getCpctyAtentInfoList02": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "성공",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "description": "header",
+                  "properties": {
+                    "resultCode": {
+                      "type": "string",
+                      "description": "결과코드",
+                      "properties": {}
+                    },
+                    "resultMsg": {
+                      "type": "string",
+                      "description": "결과메시지",
+                      "properties": {}
+                    }
+                  }
+                },
+                "body": {
+                  "type": "object",
+                  "description": "body",
+                  "properties": {
+                    "numOfRows": {
+                      "type": "integer",
+                      "description": "한 페이지 결과수",
+                      "properties": {}
+                    },
+                    "pageNo": {
+                      "type": "integer",
+                      "description": "페이지 번호",
+                      "properties": {}
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "description": "전체 결과 수 ",
+                      "properties": {}
+                    },
+                    "items": {
+                      "type": "object",
+                      "description": "items",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "description": "item",
+                          "properties": {
+                            "DUR_SEQ": {
+                              "type": "string",
+                              "description": "DUR번호",
+                              "properties": {}
+                            },
+                            "TYPE_NAME": {
+                              "type": "string",
+                              "description": "DUR유형",
+                              "properties": {}
+                            },
+                            "MIX_TYPE": {
+                              "type": "string",
+                              "description": "단일/복합",
+                              "properties": {}
+                            },
+                            "INGR_CODE": {
+                              "type": "string",
+                              "description": "DUR성분코드",
+                              "properties": {}
+                            },
+                            "INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "INGR_NAME": {
+                              "type": "string",
+                              "description": "DUR성분",
+                              "properties": {}
+                            },
+                            "MIX_INGR": {
+                              "type": "string",
+                              "description": "복합제",
+                              "properties": {}
+                            },
+                            "ORI_INGR": {
+                              "type": "string",
+                              "description": "관계성분",
+                              "properties": {}
+                            },
+                            "CLASS_NAME": {
+                              "type": "string",
+                              "description": "약효분류",
+                              "properties": {}
+                            },
+                            "FORM_NAME": {
+                              "type": "string",
+                              "description": "제형",
+                              "properties": {}
+                            },
+                            "MAX_QTY": {
+                              "type": "string",
+                              "description": "1일최대용량",
+                              "properties": {}
+                            },
+                            "NOTIFICATION_DATE": {
+                              "type": "string",
+                              "description": "고시일자",
+                              "properties": {}
+                            },
+                            "PROHBT_CONTENT": {
+                              "type": "string",
+                              "description": "금기내용",
+                              "properties": {}
+                            },
+                            "REMARK": {
+                              "type": "string",
+                              "description": "비고",
+                              "properties": {}
+                            },
+                            "DEL_YN": {
+                              "type": "string",
+                              "description": "상태",
+                              "properties": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "response"
+              }
+            }
+          }
+        },
+        "tags": [
+          "API 목록"
+        ],
+        "summary": "용량주의 정보조회",
+        "description": "DUR성분정보의 용량주의 정보를 목록으로 제공",
+        "operationId": "getCpctyAtentInfoList02",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "serviceKey",
+          "description": "공공데이터포털에서 발급 받은 인증키",
+          "type": "string",
+          "required": true,
+          "in": "query"
+        },
+        {
+          "name": "pageNo",
+          "description": "페이지 번호",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "numOfRows",
+          "description": "한 페이지 결과수",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "type",
+          "description": "응답데이터 형식(xml/json) default : xml",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "typeName",
+          "description": "DUR유형",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrCode",
+          "description": "DUR성분코드",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrName",
+          "description": "DUR성분",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        }
+      ]
+    },
+    "/getMdctnPdAtentInfoList02": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "성공",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "description": "header",
+                  "properties": {
+                    "resultCode": {
+                      "type": "string",
+                      "description": "결과코드",
+                      "properties": {}
+                    },
+                    "resultMsg": {
+                      "type": "string",
+                      "description": "결과메시지",
+                      "properties": {}
+                    }
+                  }
+                },
+                "body": {
+                  "type": "object",
+                  "description": "body",
+                  "properties": {
+                    "numOfRows": {
+                      "type": "integer",
+                      "description": "한 페이지 결과수",
+                      "properties": {}
+                    },
+                    "pageNo": {
+                      "type": "integer",
+                      "description": "페이지 번호",
+                      "properties": {}
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "description": "전체 결과 수 ",
+                      "properties": {}
+                    },
+                    "items": {
+                      "type": "object",
+                      "description": "items",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "description": "item",
+                          "properties": {
+                            "DUR_SEQ": {
+                              "type": "string",
+                              "description": "DUR번호",
+                              "properties": {}
+                            },
+                            "TYPE_NAME": {
+                              "type": "string",
+                              "description": "DUR유형",
+                              "properties": {}
+                            },
+                            "MIX_TYPE": {
+                              "type": "string",
+                              "description": "단일/복합",
+                              "properties": {}
+                            },
+                            "INGR_CODE": {
+                              "type": "string",
+                              "description": "DUR성분코드",
+                              "properties": {}
+                            },
+                            "INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "INGR_NAME": {
+                              "type": "string",
+                              "description": "DUR성분",
+                              "properties": {}
+                            },
+                            "MIX_INGR": {
+                              "type": "string",
+                              "description": "복합제",
+                              "properties": {}
+                            },
+                            "ORI_INGR": {
+                              "type": "string",
+                              "description": "관계성분",
+                              "properties": {}
+                            },
+                            "CLASS_NAME": {
+                              "type": "string",
+                              "description": "약효분류",
+                              "properties": {}
+                            },
+                            "FORM_NAME": {
+                              "type": "string",
+                              "description": "제형",
+                              "properties": {}
+                            },
+                            "MAX_DOSAGE_TERM": {
+                              "type": "string",
+                              "description": "최대투여기간",
+                              "properties": {}
+                            },
+                            "NOTIFICATION_DATE": {
+                              "type": "string",
+                              "description": "고시일자",
+                              "properties": {}
+                            },
+                            "PROHBT_CONTENT": {
+                              "type": "string",
+                              "description": "금기내용",
+                              "properties": {}
+                            },
+                            "REMARK": {
+                              "type": "string",
+                              "description": "비고",
+                              "properties": {}
+                            },
+                            "DEL_YN": {
+                              "type": "string",
+                              "description": "상태",
+                              "properties": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "response"
+              }
+            }
+          }
+        },
+        "tags": [
+          "API 목록"
+        ],
+        "summary": "투여기간주의 정보조회",
+        "description": "DUR성분정보의 투여기간주의 정보를 목록으로 제공",
+        "operationId": "getMdctnPdAtentInfoList02",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "serviceKey",
+          "description": "공공데이터포털에서 발급 받은 인증키",
+          "type": "string",
+          "required": true,
+          "in": "query"
+        },
+        {
+          "name": "pageNo",
+          "description": "페이지 번호",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "numOfRows",
+          "description": "한 페이지 결과수",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "type",
+          "description": "응답데이터 형식(xml/json) default : xml",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "typeName",
+          "description": "DUR유형",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrCode",
+          "description": "DUR성분코드",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrName",
+          "description": "DUR성분",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        }
+      ]
+    },
+    "/getOdsnAtentInfoList02": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "성공",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "description": "header",
+                  "properties": {
+                    "resultCode": {
+                      "type": "string",
+                      "description": "결과코드",
+                      "properties": {}
+                    },
+                    "resultMsg": {
+                      "type": "string",
+                      "description": "결과메시지",
+                      "properties": {}
+                    }
+                  }
+                },
+                "body": {
+                  "type": "object",
+                  "description": "body",
+                  "properties": {
+                    "numOfRows": {
+                      "type": "integer",
+                      "description": "한 페이지 결과수",
+                      "properties": {}
+                    },
+                    "pageNo": {
+                      "type": "integer",
+                      "description": "페이지 번호",
+                      "properties": {}
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "description": "전체 결과 수 ",
+                      "properties": {}
+                    },
+                    "items": {
+                      "type": "object",
+                      "description": "items",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "description": "item",
+                          "properties": {
+                            "DUR_SEQ": {
+                              "type": "string",
+                              "description": "DUR번호",
+                              "properties": {}
+                            },
+                            "TYPE_NAME": {
+                              "type": "string",
+                              "description": "DUR유형",
+                              "properties": {}
+                            },
+                            "MIX_TYPE": {
+                              "type": "string",
+                              "description": "단일/복합",
+                              "properties": {}
+                            },
+                            "INGR_CODE": {
+                              "type": "string",
+                              "description": "DUR성분코드",
+                              "properties": {}
+                            },
+                            "INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "INGR_NAME": {
+                              "type": "string",
+                              "description": "DUR성분",
+                              "properties": {}
+                            },
+                            "MIX_INGR": {
+                              "type": "string",
+                              "description": "복합제",
+                              "properties": {}
+                            },
+                            "ORI_INGR": {
+                              "type": "string",
+                              "description": "관계성분",
+                              "properties": {}
+                            },
+                            "FORM_NAME": {
+                              "type": "string",
+                              "description": "제형",
+                              "properties": {}
+                            },
+                            "NOTIFICATION_DATE": {
+                              "type": "string",
+                              "description": "고시일자",
+                              "properties": {}
+                            },
+                            "PROHBT_CONTENT": {
+                              "type": "string",
+                              "description": "금기내용",
+                              "properties": {}
+                            },
+                            "REMARK": {
+                              "type": "string",
+                              "description": "비고",
+                              "properties": {}
+                            },
+                            "DEL_YN": {
+                              "type": "string",
+                              "description": "상태",
+                              "properties": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "response"
+              }
+            }
+          }
+        },
+        "tags": [
+          "API 목록"
+        ],
+        "summary": "노인주의 정보조회",
+        "description": "DUR성분정보의 노인주의 정보를 목록으로 제공",
+        "operationId": "getOdsnAtentInfoList02",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "serviceKey",
+          "description": "공공데이터포털에서 발급 받은 인증키",
+          "type": "string",
+          "required": true,
+          "in": "query"
+        },
+        {
+          "name": "pageNo",
+          "description": "페이지 번호",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "numOfRows",
+          "description": "한 페이지 결과수",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "type",
+          "description": "응답데이터 형식(xml/json) default : xml",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "typeName",
+          "description": "DUR유형",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrCode",
+          "description": "DUR성분코드",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrName",
+          "description": "DUR성분",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        }
+      ]
+    },
+    "/getSpcifyAgrdeTabooInfoList02": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "성공",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "description": "header",
+                  "properties": {
+                    "resultCode": {
+                      "type": "string",
+                      "description": "결과코드",
+                      "properties": {}
+                    },
+                    "resultMsg": {
+                      "type": "string",
+                      "description": "결과메시지",
+                      "properties": {}
+                    }
+                  }
+                },
+                "body": {
+                  "type": "object",
+                  "description": "body",
+                  "properties": {
+                    "numOfRows": {
+                      "type": "integer",
+                      "description": "한 페이지 결과수",
+                      "properties": {}
+                    },
+                    "pageNo": {
+                      "type": "integer",
+                      "description": "페이지 번호",
+                      "properties": {}
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "description": "전체 결과 수 ",
+                      "properties": {}
+                    },
+                    "items": {
+                      "type": "object",
+                      "description": "items",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "description": "item",
+                          "properties": {
+                            "DUR_SEQ": {
+                              "type": "string",
+                              "description": "DUR번호",
+                              "properties": {}
+                            },
+                            "TYPE_NAME": {
+                              "type": "string",
+                              "description": "DUR유형",
+                              "properties": {}
+                            },
+                            "MIX_TYPE": {
+                              "type": "string",
+                              "description": "단일/복합",
+                              "properties": {}
+                            },
+                            "INGR_CODE": {
+                              "type": "string",
+                              "description": "DUR성분코드",
+                              "properties": {}
+                            },
+                            "INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "INGR_NAME": {
+                              "type": "string",
+                              "description": "DUR성분",
+                              "properties": {}
+                            },
+                            "MIX_INGR": {
+                              "type": "string",
+                              "description": "복합제",
+                              "properties": {}
+                            },
+                            "ORI_INGR": {
+                              "type": "string",
+                              "description": "관계성분",
+                              "properties": {}
+                            },
+                            "CLASS_NAME": {
+                              "type": "string",
+                              "description": "약효분류",
+                              "properties": {}
+                            },
+                            "FORM_NAME": {
+                              "type": "string",
+                              "description": "제형",
+                              "properties": {}
+                            },
+                            "NOTIFICATION_DATE": {
+                              "type": "string",
+                              "description": "고시일자",
+                              "properties": {}
+                            },
+                            "PROHBT_CONTENT": {
+                              "type": "string",
+                              "description": "금기내용",
+                              "properties": {}
+                            },
+                            "REMARK": {
+                              "type": "string",
+                              "description": "비고",
+                              "properties": {}
+                            },
+                            "DEL_YN": {
+                              "type": "string",
+                              "description": "상태",
+                              "properties": {}
+                            },
+                            "AGE_BASE": {
+                              "type": "string",
+                              "description": "연령기준",
+                              "properties": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "response"
+              }
+            }
+          }
+        },
+        "tags": [
+          "API 목록"
+        ],
+        "summary": "특정연령대금기 정보조회",
+        "description": "DUR성분정보의 특정연령대금기 정보를 목록으로 제공",
+        "operationId": "getSpcifyAgrdeTabooInfoList02",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "serviceKey",
+          "description": "공공데이터포털에서 발급 받은 인증키",
+          "type": "string",
+          "required": true,
+          "in": "query"
+        },
+        {
+          "name": "pageNo",
+          "description": "페이지 번호",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "numOfRows",
+          "description": "한 페이지 결과수",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "type",
+          "description": "응답데이터 형식(xml/json) default : xml",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "typeName",
+          "description": "DUR유형",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrCode",
+          "description": "DUR성분코드",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrName",
+          "description": "DUR성분",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        }
+      ]
+    },
+    "/getEfcyDplctInfoList02": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "성공",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "description": "header",
+                  "properties": {
+                    "resultCode": {
+                      "type": "string",
+                      "description": "결과코드",
+                      "properties": {}
+                    },
+                    "resultMsg": {
+                      "type": "string",
+                      "description": "결과메시지",
+                      "properties": {}
+                    }
+                  }
+                },
+                "body": {
+                  "type": "object",
+                  "description": "body",
+                  "properties": {
+                    "numOfRows": {
+                      "type": "integer",
+                      "description": "한 페이지 결과수",
+                      "properties": {}
+                    },
+                    "pageNo": {
+                      "type": "integer",
+                      "description": "페이지 번호",
+                      "properties": {}
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "description": "전체 결과 수 ",
+                      "properties": {}
+                    },
+                    "items": {
+                      "type": "object",
+                      "description": "items",
+                      "properties": {
+                        "item": {
+                          "type": "object",
+                          "description": "item",
+                          "properties": {
+                            "DUR_SEQ": {
+                              "type": "string",
+                              "description": "DUR번호",
+                              "properties": {}
+                            },
+                            "TYPE_NAME": {
+                              "type": "string",
+                              "description": "DUR유형",
+                              "properties": {}
+                            },
+                            "MIX_TYPE": {
+                              "type": "string",
+                              "description": "단일/복합",
+                              "properties": {}
+                            },
+                            "INGR_CODE": {
+                              "type": "string",
+                              "description": "DUR성분코드",
+                              "properties": {}
+                            },
+                            "INGR_ENG_NAME": {
+                              "type": "string",
+                              "description": "DUR성분(영문)",
+                              "properties": {}
+                            },
+                            "INGR_NAME": {
+                              "type": "string",
+                              "description": "DUR성분",
+                              "properties": {}
+                            },
+                            "MIX_INGR": {
+                              "type": "string",
+                              "description": "복합제",
+                              "properties": {}
+                            },
+                            "ORI_INGR": {
+                              "type": "string",
+                              "description": "관계성분",
+                              "properties": {}
+                            },
+                            "CLASS_NAME": {
+                              "type": "string",
+                              "description": "약효분류",
+                              "properties": {}
+                            },
+                            "EFFECT_CODE": {
+                              "type": "string",
+                              "description": "효능군",
+                              "properties": {}
+                            },
+                            "NOTIFICATION_DATE": {
+                              "type": "string",
+                              "description": "고시일자",
+                              "properties": {}
+                            },
+                            "PROHBT_CONTENT": {
+                              "type": "string",
+                              "description": "금기내용",
+                              "properties": {}
+                            },
+                            "REMARK": {
+                              "type": "string",
+                              "description": "비고",
+                              "properties": {}
+                            },
+                            "DEL_YN": {
+                              "type": "string",
+                              "description": "상태",
+                              "properties": {}
+                            },
+                            "SERS_NAME": {
+                              "type": "string",
+                              "description": "계열명",
+                              "properties": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "xml": {
+                "name": "response"
+              }
+            }
+          }
+        },
+        "tags": [
+          "API 목록"
+        ],
+        "summary": "효능군중복 정보조회",
+        "description": "DUR성분정보의 효능군중복 정보를 목록으로 제공",
+        "operationId": "getEfcyDplctInfoList02",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "serviceKey",
+          "description": "공공데이터포털에서 발급 받은 인증키",
+          "type": "string",
+          "required": true,
+          "in": "query"
+        },
+        {
+          "name": "pageNo",
+          "description": "페이지 번호",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "numOfRows",
+          "description": "한 페이지 결과수",
+          "type": "integer",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "type",
+          "description": "응답데이터 형식(xml/json) default : xml",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "typeName",
+          "description": "DUR유형",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrCode",
+          "description": "DUR성분코드",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        },
+        {
+          "name": "ingrName",
+          "description": "DUR성분",
+          "type": "string",
+          "required": false,
+          "in": "query"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "getUsjntTabooInfoList02_response": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "description": "header",
+          "properties": {
+            "resultCode": {
+              "type": "string",
+              "description": "결과코드"
+            },
+            "resultMsg": {
+              "type": "string",
+              "description": "결과메시지"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "body",
+          "properties": {
+            "numOfRows": {
+              "type": "integer",
+              "description": "한 페이지 결과수"
+            },
+            "pageNo": {
+              "type": "integer",
+              "description": "페이지 번호"
+            },
+            "totalCount": {
+              "type": "integer",
+              "description": "전체 결과 수 "
+            },
+            "items": {
+              "type": "object",
+              "description": "items",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "description": "item",
+                  "properties": {
+                    "TYPE_NAME": {
+                      "type": "string",
+                      "description": "DUR유형"
+                    },
+                    "MIX_TYPE": {
+                      "type": "string",
+                      "description": "단일/복합"
+                    },
+                    "INGR_CODE": {
+                      "type": "string",
+                      "description": "DUR성분코드"
+                    },
+                    "INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "DUR성분(영문)"
+                    },
+                    "INGR_KOR_NAME": {
+                      "type": "string",
+                      "description": "DUR성분"
+                    },
+                    "MIX": {
+                      "type": "string",
+                      "description": "복합제"
+                    },
+                    "ORI": {
+                      "type": "string",
+                      "description": "관계성분"
+                    },
+                    "CLASS": {
+                      "type": "string",
+                      "description": "약효분류"
+                    },
+                    "MIXTURE_MIX_TYPE": {
+                      "type": "string",
+                      "description": "병용금기단일/복합"
+                    },
+                    "MIXTURE_INGR_CODE": {
+                      "type": "string",
+                      "description": "병용금기DUR성분코드"
+                    },
+                    "MIXTURE_INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "병용금기DUR성분(영문)"
+                    },
+                    "MIXTURE_INGR_KOR_NAME": {
+                      "type": "string",
+                      "description": "병용금기DUR성분"
+                    },
+                    "MIXTURE_MIX": {
+                      "type": "string",
+                      "description": "병용금기복합제"
+                    },
+                    "MIXTURE_ORI": {
+                      "type": "string",
+                      "description": "병용금기관계성분"
+                    },
+                    "MIXTURE_CLASS": {
+                      "type": "string",
+                      "description": "병용금기약효분류"
+                    },
+                    "NOTIFICATION_DATE": {
+                      "type": "string",
+                      "description": "고시일자"
+                    },
+                    "PROHBT_CONTENT": {
+                      "type": "string",
+                      "description": "금기내용"
+                    },
+                    "REMARK": {
+                      "type": "string",
+                      "description": "비고"
+                    },
+                    "DEL_YN": {
+                      "type": "string",
+                      "description": "상태"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "getPwnmTabooInfoList02_response": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "description": "header",
+          "properties": {
+            "resultCode": {
+              "type": "string",
+              "description": "결과코드"
+            },
+            "resultMsg": {
+              "type": "string",
+              "description": "결과메시지"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "body",
+          "properties": {
+            "numOfRows": {
+              "type": "integer",
+              "description": "한 페이지 결과수"
+            },
+            "pageNo": {
+              "type": "integer",
+              "description": "페이지 번호"
+            },
+            "totalCount": {
+              "type": "integer",
+              "description": "전체 결과 수 "
+            },
+            "items": {
+              "type": "object",
+              "description": "items",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "description": "item",
+                  "properties": {
+                    "DUR_SEQ": {
+                      "type": "string",
+                      "description": "DUR번호"
+                    },
+                    "TYPE_NAME": {
+                      "type": "string",
+                      "description": "DUR유형"
+                    },
+                    "MIX_TYPE": {
+                      "type": "string",
+                      "description": "단일/복합"
+                    },
+                    "INGR_CODE": {
+                      "type": "string",
+                      "description": "DUR성분코드"
+                    },
+                    "INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "DUR성분(영문)"
+                    },
+                    "INGR_NAME": {
+                      "type": "string",
+                      "description": "DUR성분"
+                    },
+                    "MIX_INGR": {
+                      "type": "string",
+                      "description": "복합제"
+                    },
+                    "ORI_INGR": {
+                      "type": "string",
+                      "description": "관계성분"
+                    },
+                    "CLASS_NAME": {
+                      "type": "string",
+                      "description": "약효분류"
+                    },
+                    "FORM_NAME": {
+                      "type": "string",
+                      "description": "제형"
+                    },
+                    "GRADE": {
+                      "type": "string",
+                      "description": "등급"
+                    },
+                    "NOTIFICATION_DATE": {
+                      "type": "string",
+                      "description": "고시일자"
+                    },
+                    "PROHBT_CONTENT": {
+                      "type": "string",
+                      "description": "금기내용"
+                    },
+                    "REMARK": {
+                      "type": "string",
+                      "description": "비고"
+                    },
+                    "DEL_YN": {
+                      "type": "string",
+                      "description": "상태"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "getCpctyAtentInfoList02_response": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "description": "header",
+          "properties": {
+            "resultCode": {
+              "type": "string",
+              "description": "결과코드"
+            },
+            "resultMsg": {
+              "type": "string",
+              "description": "결과메시지"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "body",
+          "properties": {
+            "numOfRows": {
+              "type": "integer",
+              "description": "한 페이지 결과수"
+            },
+            "pageNo": {
+              "type": "integer",
+              "description": "페이지 번호"
+            },
+            "totalCount": {
+              "type": "integer",
+              "description": "전체 결과 수 "
+            },
+            "items": {
+              "type": "object",
+              "description": "items",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "description": "item",
+                  "properties": {
+                    "DUR_SEQ": {
+                      "type": "string",
+                      "description": "DUR번호"
+                    },
+                    "TYPE_NAME": {
+                      "type": "string",
+                      "description": "DUR유형"
+                    },
+                    "MIX_TYPE": {
+                      "type": "string",
+                      "description": "단일/복합"
+                    },
+                    "INGR_CODE": {
+                      "type": "string",
+                      "description": "DUR성분코드"
+                    },
+                    "INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "DUR성분(영문)"
+                    },
+                    "INGR_NAME": {
+                      "type": "string",
+                      "description": "DUR성분"
+                    },
+                    "MIX_INGR": {
+                      "type": "string",
+                      "description": "복합제"
+                    },
+                    "ORI_INGR": {
+                      "type": "string",
+                      "description": "관계성분"
+                    },
+                    "CLASS_NAME": {
+                      "type": "string",
+                      "description": "약효분류"
+                    },
+                    "FORM_NAME": {
+                      "type": "string",
+                      "description": "제형"
+                    },
+                    "MAX_QTY": {
+                      "type": "string",
+                      "description": "1일최대용량"
+                    },
+                    "NOTIFICATION_DATE": {
+                      "type": "string",
+                      "description": "고시일자"
+                    },
+                    "PROHBT_CONTENT": {
+                      "type": "string",
+                      "description": "금기내용"
+                    },
+                    "REMARK": {
+                      "type": "string",
+                      "description": "비고"
+                    },
+                    "DEL_YN": {
+                      "type": "string",
+                      "description": "상태"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "getMdctnPdAtentInfoList02_response": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "description": "header",
+          "properties": {
+            "resultCode": {
+              "type": "string",
+              "description": "결과코드"
+            },
+            "resultMsg": {
+              "type": "string",
+              "description": "결과메시지"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "body",
+          "properties": {
+            "numOfRows": {
+              "type": "integer",
+              "description": "한 페이지 결과수"
+            },
+            "pageNo": {
+              "type": "integer",
+              "description": "페이지 번호"
+            },
+            "totalCount": {
+              "type": "integer",
+              "description": "전체 결과 수 "
+            },
+            "items": {
+              "type": "object",
+              "description": "items",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "description": "item",
+                  "properties": {
+                    "DUR_SEQ": {
+                      "type": "string",
+                      "description": "DUR번호"
+                    },
+                    "TYPE_NAME": {
+                      "type": "string",
+                      "description": "DUR유형"
+                    },
+                    "MIX_TYPE": {
+                      "type": "string",
+                      "description": "단일/복합"
+                    },
+                    "INGR_CODE": {
+                      "type": "string",
+                      "description": "DUR성분코드"
+                    },
+                    "INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "DUR성분(영문)"
+                    },
+                    "INGR_NAME": {
+                      "type": "string",
+                      "description": "DUR성분"
+                    },
+                    "MIX_INGR": {
+                      "type": "string",
+                      "description": "복합제"
+                    },
+                    "ORI_INGR": {
+                      "type": "string",
+                      "description": "관계성분"
+                    },
+                    "CLASS_NAME": {
+                      "type": "string",
+                      "description": "약효분류"
+                    },
+                    "FORM_NAME": {
+                      "type": "string",
+                      "description": "제형"
+                    },
+                    "MAX_DOSAGE_TERM": {
+                      "type": "string",
+                      "description": "최대투여기간"
+                    },
+                    "NOTIFICATION_DATE": {
+                      "type": "string",
+                      "description": "고시일자"
+                    },
+                    "PROHBT_CONTENT": {
+                      "type": "string",
+                      "description": "금기내용"
+                    },
+                    "REMARK": {
+                      "type": "string",
+                      "description": "비고"
+                    },
+                    "DEL_YN": {
+                      "type": "string",
+                      "description": "상태"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "getOdsnAtentInfoList02_response": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "description": "header",
+          "properties": {
+            "resultCode": {
+              "type": "string",
+              "description": "결과코드"
+            },
+            "resultMsg": {
+              "type": "string",
+              "description": "결과메시지"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "body",
+          "properties": {
+            "numOfRows": {
+              "type": "integer",
+              "description": "한 페이지 결과수"
+            },
+            "pageNo": {
+              "type": "integer",
+              "description": "페이지 번호"
+            },
+            "totalCount": {
+              "type": "integer",
+              "description": "전체 결과 수 "
+            },
+            "items": {
+              "type": "object",
+              "description": "items",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "description": "item",
+                  "properties": {
+                    "DUR_SEQ": {
+                      "type": "string",
+                      "description": "DUR번호"
+                    },
+                    "TYPE_NAME": {
+                      "type": "string",
+                      "description": "DUR유형"
+                    },
+                    "MIX_TYPE": {
+                      "type": "string",
+                      "description": "단일/복합"
+                    },
+                    "INGR_CODE": {
+                      "type": "string",
+                      "description": "DUR성분코드"
+                    },
+                    "INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "DUR성분(영문)"
+                    },
+                    "INGR_NAME": {
+                      "type": "string",
+                      "description": "DUR성분"
+                    },
+                    "MIX_INGR": {
+                      "type": "string",
+                      "description": "복합제"
+                    },
+                    "ORI_INGR": {
+                      "type": "string",
+                      "description": "관계성분"
+                    },
+                    "FORM_NAME": {
+                      "type": "string",
+                      "description": "제형"
+                    },
+                    "NOTIFICATION_DATE": {
+                      "type": "string",
+                      "description": "고시일자"
+                    },
+                    "PROHBT_CONTENT": {
+                      "type": "string",
+                      "description": "금기내용"
+                    },
+                    "REMARK": {
+                      "type": "string",
+                      "description": "비고"
+                    },
+                    "DEL_YN": {
+                      "type": "string",
+                      "description": "상태"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "getEfcyDplctInfoList02_response": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "description": "header",
+          "properties": {
+            "resultCode": {
+              "type": "string",
+              "description": "결과코드"
+            },
+            "resultMsg": {
+              "type": "string",
+              "description": "결과메시지"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "body",
+          "properties": {
+            "numOfRows": {
+              "type": "integer",
+              "description": "한 페이지 결과수"
+            },
+            "pageNo": {
+              "type": "integer",
+              "description": "페이지 번호"
+            },
+            "totalCount": {
+              "type": "integer",
+              "description": "전체 결과 수 "
+            },
+            "items": {
+              "type": "object",
+              "description": "items",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "description": "item",
+                  "properties": {
+                    "DUR_SEQ": {
+                      "type": "string",
+                      "description": "DUR번호"
+                    },
+                    "TYPE_NAME": {
+                      "type": "string",
+                      "description": "DUR유형"
+                    },
+                    "MIX_TYPE": {
+                      "type": "string",
+                      "description": "단일/복합"
+                    },
+                    "INGR_CODE": {
+                      "type": "string",
+                      "description": "DUR성분코드"
+                    },
+                    "INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "DUR성분(영문)"
+                    },
+                    "INGR_NAME": {
+                      "type": "string",
+                      "description": "DUR성분"
+                    },
+                    "MIX_INGR": {
+                      "type": "string",
+                      "description": "복합제"
+                    },
+                    "ORI_INGR": {
+                      "type": "string",
+                      "description": "관계성분"
+                    },
+                    "CLASS_NAME": {
+                      "type": "string",
+                      "description": "약효분류"
+                    },
+                    "EFFECT_CODE": {
+                      "type": "string",
+                      "description": "효능군"
+                    },
+                    "NOTIFICATION_DATE": {
+                      "type": "string",
+                      "description": "고시일자"
+                    },
+                    "PROHBT_CONTENT": {
+                      "type": "string",
+                      "description": "금기내용"
+                    },
+                    "REMARK": {
+                      "type": "string",
+                      "description": "비고"
+                    },
+                    "DEL_YN": {
+                      "type": "string",
+                      "description": "상태"
+                    },
+                    "SERS_NAME": {
+                      "type": "string",
+                      "description": "계열명"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "getSpcifyAgrdeTabooInfoList02_response": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "object",
+          "description": "header",
+          "properties": {
+            "resultCode": {
+              "type": "string",
+              "description": "결과코드"
+            },
+            "resultMsg": {
+              "type": "string",
+              "description": "결과메시지"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "description": "body",
+          "properties": {
+            "numOfRows": {
+              "type": "integer",
+              "description": "한 페이지 결과수"
+            },
+            "pageNo": {
+              "type": "integer",
+              "description": "페이지 번호"
+            },
+            "totalCount": {
+              "type": "integer",
+              "description": "전체 결과 수 "
+            },
+            "items": {
+              "type": "object",
+              "description": "items",
+              "properties": {
+                "item": {
+                  "type": "object",
+                  "description": "item",
+                  "properties": {
+                    "DUR_SEQ": {
+                      "type": "string",
+                      "description": "DUR번호"
+                    },
+                    "TYPE_NAME": {
+                      "type": "string",
+                      "description": "DUR유형"
+                    },
+                    "MIX_TYPE": {
+                      "type": "string",
+                      "description": "단일/복합"
+                    },
+                    "INGR_CODE": {
+                      "type": "string",
+                      "description": "DUR성분코드"
+                    },
+                    "INGR_ENG_NAME": {
+                      "type": "string",
+                      "description": "DUR성분(영문)"
+                    },
+                    "INGR_NAME": {
+                      "type": "string",
+                      "description": "DUR성분"
+                    },
+                    "MIX_INGR": {
+                      "type": "string",
+                      "description": "복합제"
+                    },
+                    "ORI_INGR": {
+                      "type": "string",
+                      "description": "관계성분"
+                    },
+                    "CLASS_NAME": {
+                      "type": "string",
+                      "description": "약효분류"
+                    },
+                    "FORM_NAME": {
+                      "type": "string",
+                      "description": "제형"
+                    },
+                    "NOTIFICATION_DATE": {
+                      "type": "string",
+                      "description": "고시일자"
+                    },
+                    "PROHBT_CONTENT": {
+                      "type": "string",
+                      "description": "금기내용"
+                    },
+                    "REMARK": {
+                      "type": "string",
+                      "description": "비고"
+                    },
+                    "DEL_YN": {
+                      "type": "string",
+                      "description": "상태"
+                    },
+                    "AGE_BASE": {
+                      "type": "string",
+                      "description": "연령기준"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "swaggerOprtinVOs": [
+    {
+      "oprtinUrl": "http://data.mfds.go.kr/openapi/DURIrdntInfoService/getEfcyDplctInfoList",
+      "oprtinNm": "효능군중복 정보조회",
+      "oprtinDc": "DUR성분정보의 효능군중복 정보를 목록으로 제공",
+      "gwSvcNm": "getEfcyDplctInfoList02",
+      "operationId": "getEfcyDplctInfoList02",
+      "publicDataTyDetailCode": "PRDE02",
+      "reqList": [
+        {
+          "paramtrNm": "serviceKey",
+          "paramtrDc": "공공데이터포털에서 발급 받은 인증키",
+          "paramtrBassValue": "인증키 (URL Encode)",
+          "paramtrTy": "string",
+          "paramtrDivision": "필수",
+          "ck": true
+        },
+        {
+          "paramtrNm": "pageNo",
+          "paramtrDc": "페이지 번호",
+          "paramtrBassValue": "1",
+          "paramtrTy": "integer",
+          "paramtrDivision": "옵션",
+          "ck": true
+        },
+        {
+          "paramtrNm": "numOfRows",
+          "paramtrDc": "한 페이지 결과수",
+          "paramtrBassValue": "3",
+          "paramtrTy": "integer",
+          "paramtrDivision": "옵션",
+          "ck": true
+        },
+        {
+          "paramtrNm": "type",
+          "paramtrDc": "응답데이터 형식(xml/json) default : xml",
+          "paramtrBassValue": "xml",
+          "paramtrTy": "string",
+          "paramtrDivision": "옵션",
+          "ck": true
+        },
+        {
+          "paramtrNm": "typeName",
+          "paramtrDc": "DUR유형",
+          "paramtrBassValue": "효능군중복",
+          "paramtrTy": "string",
+          "paramtrDivision": "옵션",
+          "ck": true
+        },
+        {
+          "paramtrNm": "ingrCode",
+          "paramtrDc": "DUR성분코드",
+          "paramtrBassValue": "D000739",
+          "paramtrTy": "string",
+          "paramtrDivision": "옵션",
+          "ck": true
+        },
+        {
+          "paramtrNm": "ingrName",
+          "paramtrDc": "DUR성분",
+          "paramtrBassValue": "아세클로페낙",
+          "paramtrTy": "string",
+          "paramtrDivision": "옵션",
+          "ck": true
+        }
+      ],
+      "resList": [
+        {
+          "paramtrNm": "header",
+          "paramtrDc": "header",
+          "arrayYn": "N",
+          "paramtrDefNm": "#/definitions/getEfcyDplctInfoList01-01-header",
+          "subDefNm": "getEfcyDplctInfoList01-01-header",
+          "paramtrTy": "object",
+          "paramtrDivision": "필수",
+          "ck": true,
+          "subParam": [
+            {
+              "paramtrNm": "resultCode",
+              "paramtrDc": "결과코드",
+              "arrayYn": "N",
+              "paramtrDefNm": "",
+              "paramtrTy": "string",
+              "paramtrDivision": "필수",
+              "ck": true
+            },
+            {
+              "paramtrNm": "resultMsg",
+              "paramtrDc": "결과메시지",
+              "arrayYn": "N",
+              "paramtrDefNm": "",
+              "paramtrTy": "string",
+              "paramtrDivision": "필수",
+              "ck": true
+            }
+          ]
+        },
+        {
+          "paramtrNm": "body",
+          "paramtrDc": "body",
+          "arrayYn": "N",
+          "paramtrDefNm": "#/definitions/getEfcyDplctInfoList01-01-body",
+          "subDefNm": "getEfcyDplctInfoList01-01-body",
+          "paramtrTy": "object",
+          "paramtrDivision": "필수",
+          "ck": true,
+          "subParam": [
+            {
+              "paramtrNm": "numOfRows",
+              "paramtrDc": "한 페이지 결과수",
+              "arrayYn": "N",
+              "paramtrDefNm": "",
+              "paramtrTy": "integer",
+              "paramtrDivision": "필수",
+              "ck": true
+            },
+            {
+              "paramtrNm": "pageNo",
+              "paramtrDc": "페이지 번호",
+              "arrayYn": "N",
+              "paramtrDefNm": "",
+              "paramtrTy": "integer",
+              "paramtrDivision": "필수",
+              "ck": true
+            },
+            {
+              "paramtrNm": "totalCount",
+              "paramtrDc": "전체 결과 수 ",
+              "arrayYn": "N",
+              "paramtrDefNm": "",
+              "paramtrTy": "integer",
+              "paramtrDivision": "필수",
+              "ck": true
+            },
+            {
+              "paramtrNm": "items",
+              "paramtrDc": "items",
+              "arrayYn": "N",
+              "paramtrDefNm": "#/definitions/getEfcyDplctInfoList01-01-items",
+              "subDefNm": "getEfcyDplctInfoList01-01-items",
+              "paramtrTy": "object",
+              "paramtrDivision": "필수",
+              "ck": true,
+              "subParam": [
+                {
+                  "paramtrNm": "item",
+                  "paramtrDc": "item",
+                  "arrayYn": "N",
+                  "paramtrDefNm": "#/definitions/getEfcyDplctInfoList01-01-item",
+                  "subDefNm": "getEfcyDplctInfoList01-01-item",
+                  "paramtrTy": "object",
+                  "paramtrDivision": "필수",
+                  "ck": true,
+                  "subParam": [
+                    {
+                      "paramtrNm": "DUR_SEQ",
+                      "paramtrDc": "DUR번호",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "TYPE_NAME",
+                      "paramtrDc": "DUR유형",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "MIX_TYPE",
+                      "paramtrDc": "단일/복합",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "INGR_CODE",
+                      "paramtrDc": "DUR성분코드",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "INGR_ENG_NAME",
+                      "paramtrDc": "DUR성분(영문)",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "INGR_NAME",
+                      "paramtrDc": "DUR성분",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "MIX_INGR",
+                      "paramtrDc": "복합제",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "ORI_INGR",
+                      "paramtrDc": "관계성분",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "CLASS_NAME",
+                      "paramtrDc": "약효분류",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "EFFECT_CODE",
+                      "paramtrDc": "효능군",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "NOTIFICATION_DATE",
+                      "paramtrDc": "고시일자",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "PROHBT_CONTENT",
+                      "paramtrDc": "금기내용",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "REMARK",
+                      "paramtrDc": "비고",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "DEL_YN",
+                      "paramtrDc": "상태",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    },
+                    {
+                      "paramtrNm": "SERS_NAME",
+                      "paramtrDc": "계열명",
+                      "arrayYn": "N",
+                      "paramtrDefNm": "",
+                      "paramtrTy": "string",
+                      "paramtrDivision": "옵션",
+                      "ck": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

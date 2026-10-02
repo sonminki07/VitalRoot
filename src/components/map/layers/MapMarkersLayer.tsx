@@ -354,7 +354,22 @@ export function MapMarkersLayer({
         const filteredWaypoints =
           activeWaypointFilter === "전체"
             ? course.waypoints
-            : course.waypoints.filter((wp) => wp.category === activeWaypointFilter);
+            : course.waypoints.filter((wp) => {
+                if (activeWaypointFilter === "배리어프리") {
+                  return (
+                    wp.category === "배리어프리" ||
+                    (wp.features &&
+                      wp.features.some(
+                        (f) =>
+                          f.includes("장애인") ||
+                          f.includes("무장애") ||
+                          f.includes("휠체어") ||
+                          f.includes("자동문")
+                      ))
+                  );
+                }
+                return wp.category === activeWaypointFilter;
+              });
 
         filteredWaypoints.forEach((wp) => {
           const wpDistToTrail = calculateDistanceMeters(

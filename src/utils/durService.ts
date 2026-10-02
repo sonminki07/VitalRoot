@@ -164,10 +164,187 @@ export const POPULAR_MEDICATIONS: Array<{
   },
 ];
 
+export interface DURCheckResult {
+  analysis: DURDetailAnalysis;
+  warningTags: string[];
+  isLiveSuccess: boolean;
+  totalHits: number;
+}
+
 /**
- * 의약품 검색 함수:
- * 1. 실시간 공공데이터 포털 API 호출 시도
- * 2. 실패/CORS/응답 지연 시 로컬 마스터 데이터셋에서 스마트 키워드 매칭
+ * 실시간 식약처 DUR 7대 안전 점검 API 호출
+ * DURIrdntInfoService03 (getUsjntTabooInfoList02, getPwnmTabooInfoList02 등)
+ */
+export async function checkLiveDurWarnings(ingredientName: string): Promise<DURCheckResult> {
+  const emptyAnalysis: DURDetailAnalysis = {
+    usjntTaboo: [],
+    spcifyAgrdeTaboo: [],
+    pwnmTaboo: [],
+    cpctyAtent: [],
+    mdctnPdAtent: [],
+    odsnAtent: [],
+    efcyDplct: [],
+  };
+
+  const clean = ingredientName.trim();
+  if (!clean) return { analysis: emptyAnalysis, warningTags: [], isLiveSuccess: false, totalHits: 0 };
+
+  const config = getDurConfig();
+  const durBase = config.ingredientEndpoint;
+  const key = encodeURIComponent(config.serviceKey);
+  let liveSuccessCount = 0;
+
+  const fetchOp = async (path: string, paramName: string): Promise<any[]> => {
+    try {
+      const url = `${durBase}${path}?serviceKey=${key}&type=json&numOfRows=5&${paramName}=${encodeURIComponent(clean)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(config.timeoutMs || 4500) });
+      if (!res.ok) return [];
+      const json = await res.json();
+      if (json?.header?.resultCode === "00") {
+        liveSuccessCount++;
+      }
+      const raw = json?.body?.items;
+      if (!raw) return [];
+      const list = Array.isArray(raw) ? raw : [raw];
+      return list.map((x) => x?.item || x);
+    } catch {
+      return [];
+    }
+  };
+
+  try {
+    const [usjnt, pwnm, odsn, cpcty, spcify, efcy, mdctn] = await Promise.all([
+      fetchOp(config.operations.usjntTaboo, "ingrKorName"),
+      fetchOp(config.operations.pwnmTaboo, "ingrName"),
+      fetchOp(config.operations.odsnAtent, "ingrName"),
+      fetchOp(config.operations.cpctyAtent, "ingrName"),
+      fetchOp(config.operations.spcifyAgrdeTaboo, "ingrName"),
+      fetchOp(config.operations.efcyDplct, "ingrName"),
+      fetchOp(config.operations.mdctnPdAtent, "ingrName"),
+    ]);
+
+    const analysis: DURDetailAnalysis = {
+      usjntTaboo: usjnt.map((it) => it.MIXTURE_INGR_KOR_NAME || it.PROHBT_CONTENT || "병용주의").filter(Boolean),
+      pwnmTaboo: pwnm.map((it) => it.PROHBT_CONTENT || "임부 투여 주의").filter(Boolean),
+      odsnAtent: odsn.map((it) => it.PROHBT_CONTENT || "노인 주의").filter(Boolean),
+      cpctyAtent: cpcty.map((it) => it.MAX_QTY ? `1일 최대 ${it.MAX_QTY}` : (it.PROHBT_CONTENT || "용량주의")).filter(Boolean),
+      spcifyAgrdeTaboo: spcify.map((it) => it.PROHBT_CONTENT || "특정연령금기").filter(Boolean),
+      efcyDplct: efcy.map((it) => it.EFFECT_NAME || it.PROHBT_CONTENT || "효능군중복").filter(Boolean),
+      mdctnPdAtent: mdctn.map((it) => it.PROHBT_CONTENT || "투여기간주의").filter(Boolean),
+    };
+
+    const tags: string[] = [];
+    if (analysis.usjntTaboo.length > 0) tags.push("병용금기");
+    if (analysis.pwnmTaboo.length > 0) tags.push("임부금기");
+    if (analysis.odsnAtent.length > 0) tags.push("노인주의");
+    if (analysis.cpctyAtent.length > 0) tags.push("용량주의");
+    if (analysis.spcifyAgrdeTaboo.length > 0) tags.push("특정연령대금기");
+    if (analysis.efcyDplct.length > 0) tags.push("효능군중복");
+    if (analysis.mdctnPdAtent.length > 0) tags.push("투여기간주의");
+
+    const totalHits =
+      analysis.usjntTaboo.length +
+      analysis.pwnmTaboo.length +
+      analysis.odsnAtent.length +
+      analysis.cpctyAtent.length +
+      analysis.spcifyAgrdeTaboo.length +
+      analysis.efcyDplct.length +
+      analysis.mdctnPdAtent.length;
+
+    return {
+      analysis,
+      warningTags: tags,
+      isLiveSuccess: liveSuccessCount > 0,
+      totalHits,
+    };
+  } catch {
+    return { analysis: emptyAnalysis, warningTags: [], isLiveSuccess: false, totalHits: 0 };
+  }
+}
+
+/**
+ * 실시간 식약처 묶음의약품정보서비스 (DrbBundleInfoService02) 전용 단독 검색
+ * (로컬 마스터 DB 사전 병합 없이 실제 공공 API 서버 응답만 검증)
+ */
+export async function searchMedicationsLiveOnly(query: string, maxRows: number = 5): Promise<Array<{
+  name: string;
+  ingredientName: string;
+  defaultTiming: string;
+  cautionNote: string;
+  durWarningTags: string[];
+  inferredCondition: ChronicCondition;
+  pharmacologicalClass?: string;
+}>> {
+  const clean = query.trim();
+  if (!clean) return [];
+
+  const results: Array<{
+    name: string;
+    ingredientName: string;
+    defaultTiming: string;
+    cautionNote: string;
+    durWarningTags: string[];
+    inferredCondition: ChronicCondition;
+    pharmacologicalClass?: string;
+  }> = [];
+
+  try {
+    const config = getDurConfig();
+    const key = encodeURIComponent(config.serviceKey);
+    const encQuery = encodeURIComponent(clean);
+
+    const urlCnsgn = `${config.bundleEndpoint}${config.operations.bundleList}?serviceKey=${key}&cnsgnItemName=${encQuery}&type=json&numOfRows=${maxRows}`;
+    const urlTrust = `${config.bundleEndpoint}${config.operations.bundleList}?serviceKey=${key}&trustItemName=${encQuery}&type=json&numOfRows=${maxRows}`;
+
+    const timeoutMs = config.timeoutMs || 5000;
+    const [resCnsgn, resTrust] = await Promise.allSettled([
+      fetch(urlCnsgn, { signal: AbortSignal.timeout(timeoutMs) }),
+      fetch(urlTrust, { signal: AbortSignal.timeout(timeoutMs) }),
+    ]);
+
+    const processItems = async (resPromise: PromiseSettledResult<Response>) => {
+      if (resPromise.status !== "fulfilled" || !resPromise.value.ok) return;
+      const data = await resPromise.value.json().catch(() => null);
+      const rawList = data?.body?.items;
+      if (!rawList) return;
+      const items = Array.isArray(rawList) ? rawList : [rawList];
+
+      for (const entry of items) {
+        const it = entry?.item || entry;
+        const itemName = (it?.cnsgnItemName || it?.trustItemName || "").trim();
+        const mainIngr = (it?.trustMainingr || "").trim() || "식약처 허가 성분";
+        const atcCode = (it?.trustAtcCode || "").trim();
+
+        if (itemName && !results.some((m) => m.name === itemName)) {
+          const inferred = inferConditionFromQuery(`${itemName} ${mainIngr}`) || {
+            condition: "당뇨" as ChronicCondition,
+            matchedKeyword: "복용 의약품",
+            reason: "식약처 허가 의약품 복용에 따른 건강 관리",
+          };
+
+          results.push({
+            name: itemName,
+            ingredientName: mainIngr,
+            defaultTiming: "아침 식후",
+            cautionNote: `⚠️ ${inferred.reason}. 보행 전후 수분을 충분히 섭취하세요.`,
+            durWarningTags: ["노인주의", "효능군중복"],
+            inferredCondition: inferred.condition,
+            pharmacologicalClass: atcCode || "식약처 허가 의약품",
+          });
+        }
+      }
+    };
+
+    await Promise.all([processItems(resCnsgn), processItems(resTrust)]);
+  } catch {}
+
+  return results;
+}
+
+/**
+ * 의약품 통합 검색 함수:
+ * 1. 로컬 마스터 데이터셋 즉시 매칭
+ * 2. 식약처 묶음의약품정보서비스 (DrbBundleInfoService02) 실시간 호출 및 병합
  */
 export async function searchMedications(query: string): Promise<Array<{
   name: string;
@@ -176,6 +353,7 @@ export async function searchMedications(query: string): Promise<Array<{
   cautionNote: string;
   durWarningTags: string[];
   inferredCondition: ChronicCondition;
+  pharmacologicalClass?: string;
 }>> {
   const clean = query.trim().toLowerCase();
   if (!clean) return [];
@@ -187,40 +365,19 @@ export async function searchMedications(query: string): Promise<Array<{
     med.inferredCondition.toLowerCase().includes(clean)
   );
 
-  // 2) 실시간 공공데이터 API 호출 백그라운드 시도 (CORS 허용 시 병합)
+  // 2) 실시간 식약처 묶음의약품정보서비스 호출 및 병합
   try {
-    const url = `${BUNDLE_API_ENDPOINT}/getDrbBundleList02?serviceKey=${encodeURIComponent(
-      DUR_API_KEY
-    )}&itemName=${encodeURIComponent(query)}&type=json&numOfRows=5`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1200);
-
-    const res = await fetch(url, { signal: controller.signal }).catch(() => null);
-    clearTimeout(timeoutId);
-
-    if (res && res.ok) {
-      const data = await res.json().catch(() => null);
-      const items = data?.body?.items;
-      if (Array.isArray(items) && items.length > 0) {
-        items.forEach((item: { itemName?: string; entpName?: string }) => {
-          const itemName = item.itemName || "";
-          if (itemName && !localMatches.some((m) => m.name.includes(itemName))) {
-            localMatches.push({
-              name: itemName,
-              ingredientName: "식약처 등록 성분",
-              defaultTiming: "아침 식후",
-              cautionNote: "⚠️ 복용 지침을 준수하시고 산책 시 수분을 충분히 섭취하세요.",
-              durWarningTags: ["노인주의", "효능군중복"],
-              inferredCondition: "당뇨",
-              pharmacologicalClass: "식약처 허가 의약품",
-            });
-          }
+    const liveItems = await searchMedicationsLiveOnly(query, 5);
+    for (const live of liveItems) {
+      if (!localMatches.some((m) => m.name.includes(live.name))) {
+        localMatches.push({
+          ...live,
+          pharmacologicalClass: live.pharmacologicalClass || "식약처 허가 의약품",
         });
       }
     }
   } catch {
-    // ignore CORS/network error, fallback seamlessly to local dataset
+    // 네트워크/CORS 에러 발생 시 로컬 마스터 데이터셋으로 안전 폴백
   }
 
   return localMatches;

@@ -12,6 +12,10 @@ import {
   setTmapApiKey,
   testTmapApiKey,
 } from "../../utils/pedestrianRouter";
+import {
+  runApiDiagnostics,
+  ApiDiagnosticsReport,
+} from "../../utils/apiDiagnostics";
 
 const ALL_CONDITIONS: ChronicCondition[] = [
   "당뇨",
@@ -100,6 +104,22 @@ export function SettingsModal() {
     message: null,
     success: null,
   });
+
+  // 공공데이터 7대 API 진단 상태
+  const [diagReport, setDiagReport] = useState<ApiDiagnosticsReport | null>(null);
+  const [isDiagRunning, setIsDiagRunning] = useState(false);
+
+  const handleRunApiDiagnostics = async () => {
+    setIsDiagRunning(true);
+    try {
+      const report = await runApiDiagnostics();
+      setDiagReport(report);
+    } catch (err: any) {
+      console.error("API Diagnostics failed:", err);
+    } finally {
+      setIsDiagRunning(false);
+    }
+  };
 
   if (!isSettingsModalOpen) return null;
 
@@ -823,6 +843,98 @@ export function SettingsModal() {
                   </p>
                 </div>
               </div>
+              {/* 공공데이터 7대 API 실시간 무결성 진단 */}
+              <div className="p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>🌐</span>
+                      <span>공공데이터 7대 API 실시간 무결성 진단</span>
+                    </span>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      한국관광공사 4대 API 및 식약처 3대 API의 실시간 연결 상태와 응답 지연을 측정합니다.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRunApiDiagnostics}
+                    disabled={isDiagRunning}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 text-white rounded-xl text-xs font-semibold transition-all active:scale-95 shrink-0 flex items-center gap-1 shadow-sm"
+                  >
+                    {isDiagRunning ? (
+                      <>
+                        <span className="animate-spin text-xs">⏳</span>
+                        <span>진단 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>⚡</span>
+                        <span>전수 점검 실행</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {diagReport && (
+                  <div className="space-y-2 mt-2 pt-2 border-t border-gray-700/80">
+                    <div
+                      className={`p-2 rounded-lg text-xs font-bold flex items-center justify-between ${
+                        diagReport.overallStatus === "ALL_PASSED"
+                          ? "bg-emerald-950/40 text-emerald-300 border border-emerald-500/40"
+                          : diagReport.overallStatus === "PARTIAL_SUCCESS"
+                          ? "bg-amber-950/40 text-amber-300 border border-amber-500/40"
+                          : "bg-red-950/40 text-red-300 border border-red-500/40"
+                      }`}
+                    >
+                      <span>
+                        {diagReport.overallStatus === "ALL_PASSED"
+                          ? "🎉 모든 7대 공공 API가 정상 작동 중입니다."
+                          : "⚠️ 일부 API 응답 지연 또는 오류 발생"}
+                      </span>
+                      <span className="text-[10px] opacity-80">
+                        {new Date(diagReport.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                      {diagReport.results.map((r, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2 bg-gray-900/90 border border-gray-700/60 rounded-lg text-[11px] space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-gray-200 truncate max-w-[210px]">
+                              {r.apiName}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] text-gray-400 font-mono">
+                                {r.responseTimeMs}ms
+                              </span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  r.status === "SUCCESS"
+                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                    : r.status === "WARN"
+                                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                    : "bg-red-500/20 text-red-300 border border-red-500/40"
+                                }`}
+                              >
+                                {r.status === "SUCCESS" ? "정상" : r.status === "WARN" ? "주의" : "실패"}
+                              </span>
+                            </div>
+                          </div>
+                          {r.details && (
+                            <p className="text-[10px] text-gray-400 truncate">
+                              {r.details}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* 화면 UI 레이아웃 초기화 설정 */}
               <div className="p-3.5 bg-gray-800/60 border border-gray-700 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
