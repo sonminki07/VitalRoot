@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { WellnessCourseSet } from "../../../types/wellness.types";
 import { calculateDistanceMeters } from "../../../utils/pedestrianRouter";
+import { useMapStore } from "../../../store/mapStore";
 
 interface UseMapFlightControllerProps {
   mapRef: React.RefObject<naver.maps.Map | null>;
@@ -17,6 +18,8 @@ export function useMapFlightController({
   center,
   zoom,
 }: UseMapFlightControllerProps) {
+  const flightTarget = useMapStore((s) => s.flightTarget);
+  const lastFlightTsRef = useRef<number>(0);
   const prevCourseRef = useRef<{ id: string; lat: number; lng: number } | null>(null);
   const flightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastHandledCenterRef = useRef<string | null>(null);
@@ -149,7 +152,35 @@ export function useMapFlightController({
     };
   }, [activeCourse?.id, isMapLoaded]);
 
-  // 2. 지도 뷰포트 센터 및 줌 연동 (morph로 부드러운 위치/줌 동시 이동)
+  // 2. flyToPlace 명시적 호출 감지 및 즉시 부드러운 지도 비행 (morph/panTo)
+  useEffect(() => {
+    if (!flightTarget || !isMapLoaded || !mapRef.current || !window.naver?.maps) return;
+    if (flightTarget.timestamp === lastFlightTsRef.current) return;
+    lastFlightTsRef.current = flightTarget.timestamp;
+
+    // 진행 중인 코스 비행 타이머 정리
+    if (flightTimerRef.current) {
+      clearTimeout(flightTimerRef.current);
+      flightTimerRef.current = null;
+    }
+
+    const targetLatLng = new window.naver.maps.LatLng(flightTarget.latitude, flightTarget.longitude);
+    const targetZoom = Math.round(flightTarget.zoom || 14);
+    const map = mapRef.current as any;
+
+    lastHandledCenterRef.current = `${flightTarget.longitude.toFixed(4)},${flightTarget.latitude.toFixed(4)},${targetZoom}`;
+
+    if (typeof map.morph === "function") {
+      map.morph(targetLatLng, targetZoom, { duration: 650, easing: "easeInOutCubic" });
+    } else {
+      map.panTo(targetLatLng, { duration: 500 });
+      if (map.getZoom() !== targetZoom) {
+        map.setZoom(targetZoom);
+      }
+    }
+  }, [flightTarget, isMapLoaded]);
+
+  // 3. 지도 뷰포트 센터 및 줌 연동 (morph로 부드러운 위치/줌 동시 이동)
   useEffect(() => {
     const key = `${center[0].toFixed(4)},${center[1].toFixed(4)},${zoom}`;
     if (!lastHandledCenterRef.current) {

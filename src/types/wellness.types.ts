@@ -61,7 +61,7 @@ export interface NutritionInfo {
 export interface WaypointFacility {
   id: string;
   name: string;
-  category: '화장실' | '쉼터' | '배리어프리';
+  category: '화장실' | '쉼터' | '배리어프리' | '의료';
   description: string;
   address: string;
   latitude: number;
@@ -70,22 +70,24 @@ export interface WaypointFacility {
   distanceMetersFromRoute: number; // 경로에서 거리 (예: 180m)
   features: string[];              // 예: ['장애인 화장실', '비데', '냉난방', '그늘 벤치']
   naverPlaceName?: string;
+  imageUrl?: string;
 }
 
 export interface WellnessPlace {
   id: string;
   name: string;
-  category: '안심식당' | '산책로' | '관광지' | '로컬제휴처';
+  category: '안심식당' | '산책로' | '관광지' | '로컬제휴처' | '의료';
   description: string;
   address: string;
   latitude: number;
   longitude: number;
   safeTags: string[];
-  healthBenefit: string;
+  healthBenefit?: string;
   nutrition?: NutritionInfo;       // 안심식당 대표 메뉴 식약처 영양정보
   tourApiContentId?: string;
   isMajorRoute?: boolean;
   naverPlaceName?: string;
+  imageUrl?: string;
 }
 
 export interface WellnessCourseSet {
@@ -118,6 +120,7 @@ export interface WellnessStay {
   safeBadges: string[];
   contact?: string;
   naverPlaceName?: string;
+  imageUrl?: string;
 }
 
 // 1박 2일 다일정 장기 웰니스 코스

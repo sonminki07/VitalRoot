@@ -70,6 +70,24 @@ export function ConditionFilterTab({
                   <span className="font-bold text-white">• {m.name}</span>
                   <span className="text-[10px] text-gray-400">{m.timing}</span>
                 </div>
+                {m.durWarningTags && m.durWarningTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {m.durWarningTags.map((tag, tIdx) => (
+                      <button
+                        key={tIdx}
+                        onClick={() => onOpenSettingsModal("health")}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                          tag.includes("금기")
+                            ? "bg-red-500/25 text-red-300 border-red-500/60 shadow-xs"
+                            : "bg-amber-500/25 text-amber-300 border-amber-500/60 shadow-xs"
+                        }`}
+                        title="클릭하여 약물 주의사항 및 세부 정보 관리"
+                      >
+                        ⚠️ {m.name} ({tag})
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <p className="text-[11px] text-amber-300">{m.cautionNote}</p>
               </div>
             ))}

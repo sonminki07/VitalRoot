@@ -110,10 +110,6 @@ export function MapContainer() {
 
       mapRef.current = map;
       setIsMapLoaded(true);
-
-      setTimeout(() => {
-        focusActiveCourse(false);
-      }, 200);
     };
 
     if (window.naver && window.naver.maps) {

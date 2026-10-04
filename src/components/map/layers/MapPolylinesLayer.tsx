@@ -63,13 +63,13 @@ export function MapPolylinesLayer({
             path: passedPath,
             strokeColor: "#64748b",
             strokeWeight: 4,
-            strokeOpacity: 0.35,
+            strokeOpacity: 0.4,
             strokeStyle: "shortdash",
             strokeLineCap: "round",
           });
         }
 
-        // 2) 앞으로 걸어갈 남은 경로 (Remaining Route): 선명한 네온 에메랄드 실선
+        // 2) 앞으로 걸어갈 남은 경로 (Remaining Route): 선명한 네온 에메랄드 실선 + 보행로 외곽선(Casing)
         const remainingCoords = roadRouteCoords.slice(splitIdx);
         const remainingPath = remainingCoords.map(
           ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
@@ -79,13 +79,13 @@ export function MapPolylinesLayer({
           map,
           path: remainingPath,
           strokeColor: "#10b981",
-          strokeWeight: 7,
+          strokeWeight: 6,
           strokeOpacity: 0.98,
           strokeLineCap: "round",
           strokeLineJoin: "round",
         });
       } else {
-        // 일반 탐색 모드: 전체 보행로를 선명한 에메랄드 라인으로 표시
+        // 일반 탐색 모드: 보행자 전용 완만 곡선 폴리라인 (외곽 부드러운 케이싱 + 에메랄드 코어)
         const path = roadRouteCoords.map(
           ([lng, lat]) => new window.naver.maps.LatLng(lat, lng)
         );
@@ -119,7 +119,7 @@ export function MapPolylinesLayer({
           map,
           path: hoverPath,
           strokeColor: "#a855f7",
-          strokeWeight: 6,
+          strokeWeight: 5,
           strokeOpacity: 0.9,
           strokeStyle: "shortdash",
           strokeLineCap: "round",
@@ -143,7 +143,7 @@ export function MapPolylinesLayer({
         map,
         path: userPath,
         strokeColor: "#0284c7",
-        strokeWeight: 6,
+        strokeWeight: 5,
         strokeOpacity: 0.95,
         strokeLineCap: "round",
         strokeLineJoin: "round",

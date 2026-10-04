@@ -52,18 +52,17 @@ export interface ApiConfig {
 const STORAGE_KEY_API_OVERRIDES = "vitalroot_api_config_overrides";
 const DEFAULT_PUBLIC_KEY = "403b2fe19eec414cb6ba3fbdaed716ee3a54adb732b82e1c9aca7e2d1835e9d7";
 
-// 브라우저 Vite 환경(import.meta.env) 및 Node.js/테스트 환경(process.env) 겸용 환경변수 리더
+// 브라우저 Vite 환경(import.meta.env) 및 Node.js/테스트 환경(process.env) 겸용 안전 환경변수 리더
 function getEnv(key: string): string | undefined {
   try {
-    // 1. Vite import.meta.env
-    if (typeof import.meta !== "undefined" && (import.meta as any).env) {
-      const val = (import.meta as any).env[key];
-      if (val !== undefined && val !== "") return val;
+    const envFn = new Function("try { return import.meta.env; } catch(e) { return undefined; }");
+    const metaEnv = envFn();
+    if (metaEnv && metaEnv[key] !== undefined && metaEnv[key] !== "") {
+      return metaEnv[key];
     }
   } catch {}
 
   try {
-    // 2. Node.js process.env
     const gProcess = (globalThis as any).process;
     if (gProcess && gProcess.env) {
       const val = gProcess.env[key];

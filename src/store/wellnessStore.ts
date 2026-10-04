@@ -19,11 +19,56 @@ import {
 } from "../config/wellnessData";
 import { supabase } from "../utils/supabase";
 import { calculateDistanceMeters } from "../utils/pedestrianRouter";
-import { fetchComprehensiveRegionalTourData } from "../utils/tourApi";
+import { fetchComprehensiveRegionalTourData, fetchMedicalTourPlaces, UnifiedTourItem } from "../utils/tourApi";
 import { buildRegionalCourses, buildRegionalQuests } from "../utils/regionalCourseQuestBuilder";
 import { resolveKoreaRegion } from "../utils/koreaRegionResolver";
 
-export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리";
+export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리" | "의료";
+
+export const SEOUL_CITY_HALL = { latitude: 37.5665, longitude: 126.9780 };
+
+export const INITIAL_MEDICAL_PLACES: UnifiedTourItem[] = [
+  {
+    id: "med-seoul-1",
+    sourceApi: "medical",
+    title: "국립중앙의료원",
+    address: "서울특별시 중구 을지로 245",
+    category: "종합병원·응급의료센터",
+    longitude: 127.0053,
+    latitude: 37.5672,
+    tel: "02-2260-7114",
+  },
+  {
+    id: "med-seoul-2",
+    sourceApi: "medical",
+    title: "강북삼성병원",
+    address: "서울특별시 종로구 새문안로 29",
+    category: "상급종합병원·응급의료센터",
+    longitude: 126.9678,
+    latitude: 37.5684,
+    tel: "02-2001-2001",
+  },
+  {
+    id: "med-seoul-3",
+    sourceApi: "medical",
+    title: "서울대학교병원",
+    address: "서울특별시 종로구 대학로 101",
+    category: "상급종합병원·권역응급의료센터",
+    longitude: 126.9996,
+    latitude: 37.5796,
+    tel: "1588-5700",
+  },
+  {
+    id: "med-seoul-4",
+    sourceApi: "medical",
+    title: "연세대학교 세브란스병원",
+    address: "서울특별시 서대문구 연세로 50-1",
+    category: "상급종합병원·권역응급의료센터",
+    longitude: 126.9416,
+    latitude: 37.5623,
+    tel: "1599-1004",
+  },
+];
 
 const STORAGE_KEY_PROFILE = "vitalroot_user_profile";
 const STORAGE_KEY_QUESTS = "vitalroot_user_quests";
@@ -302,6 +347,14 @@ interface WellnessState {
   equipTitle: (title: string | null) => void;
   fastForwardWalkSession: () => void;
   completeQuest: (questId: string) => void;
+  // 편의시설 및 의료 인프라
+  medicalPlaces: UnifiedTourItem[];
+
+  // 전역 토스트 알림 상태
+  toastMessage: string | null;
+  showToast: (message: string) => void;
+  hideToast: () => void;
+
   setUserLocation: (loc: { latitude: number; longitude: number } | null) => void;
   setIsLocationModalOpen: (open: boolean) => void;
   setIsPinningHome: (pinning: boolean) => void;
@@ -312,15 +365,16 @@ interface WellnessState {
 
 const initialProfile = getSavedProfile();
 const initialSavedLoc = getSavedLocation();
+const initialEffectiveLoc = initialSavedLoc ?? SEOUL_CITY_HALL;
 const initialFiltered = computeFilteredCourses(
   INITIAL_WELLNESS_COURSES,
   initialProfile.chronicConditions,
-  initialSavedLoc,
+  initialEffectiveLoc,
   "local"
 );
 const initialQuestData = getSavedQuests();
-const initialCenterLat = initialSavedLoc?.latitude ?? initialFiltered[0]?.trail.latitude ?? 37.5512;
-const initialCenterLng = initialSavedLoc?.longitude ?? initialFiltered[0]?.trail.longitude ?? 126.9882;
+const initialCenterLat = initialEffectiveLoc.latitude;
+const initialCenterLng = initialEffectiveLoc.longitude;
 const initialGeneratedQuests = buildRegionalQuests(initialCenterLat, initialCenterLng);
 
 const initialTheme = getSavedTheme();
@@ -328,9 +382,7 @@ const initialFontSize = getSavedFontSize();
 const initialMapType = getSavedMapType();
 const initialDistUnit = getSavedDistanceUnit();
 const initialSavedCourses = getSavedCustomCourses();
-const initialRegion = initialSavedLoc
-  ? resolveKoreaRegion(initialSavedLoc.latitude, initialSavedLoc.longitude).shortName
-  : resolveKoreaRegion(initialCenterLat, initialCenterLng).shortName;
+const initialRegion = resolveKoreaRegion(initialCenterLat, initialCenterLng).shortName;
 
 if (typeof document !== "undefined") {
   try {
@@ -351,6 +403,19 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   multiDayCourses: INITIAL_MULTI_DAY_COURSES,
   activeMultiDayCourseId: INITIAL_MULTI_DAY_COURSES[0]?.id ?? "multi-course-1",
   activeWaypointFilter: "전체",
+  medicalPlaces: INITIAL_MEDICAL_PLACES,
+  toastMessage: null,
+  showToast: (msg: string) => {
+    set({ toastMessage: msg });
+    if (typeof window !== "undefined") {
+      const timer = (window as any).__vitalToastTimer;
+      if (timer) clearTimeout(timer);
+      (window as any).__vitalToastTimer = setTimeout(() => {
+        set({ toastMessage: null });
+      }, 4000);
+    }
+  },
+  hideToast: () => set({ toastMessage: null }),
   stays: INITIAL_WELLNESS_STAYS,
   activeStayId: INITIAL_WELLNESS_STAYS[0]?.id ?? null,
   stayFilter: {
@@ -366,7 +431,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   earnedTitles: initialQuestData.earnedTitles,
   equippedTitle: getSavedEquippedTitle(),
   activeWalkSession: null,
-  userLocation: initialSavedLoc,
+  userLocation: initialEffectiveLoc,
   isLocationModalOpen: false,
   isPinningHome: false,
 
@@ -485,6 +550,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
   },
 
   setUserLocation: (loc) => {
+    const targetLoc = loc ?? SEOUL_CITY_HALL;
     try {
       if (loc) {
         localStorage.setItem(STORAGE_KEY_LOCATION, JSON.stringify(loc));
@@ -495,17 +561,15 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
       // ignore
     }
     const { courses, profile, courseMode, activeCourseId } = get();
-    const updated = computeFilteredCourses(courses, profile.chronicConditions, loc, courseMode);
+    const updated = computeFilteredCourses(courses, profile.chronicConditions, targetLoc, courseMode);
     const activeCourseExists = updated.some((c) => c.id === activeCourseId);
     set({
-      userLocation: loc,
+      userLocation: targetLoc,
       isPinningHome: false,
       filteredCourses: updated,
       activeCourseId: activeCourseExists ? activeCourseId : updated[0]?.id || "course-1",
     });
-    if (loc) {
-      get().loadRegionData(loc.latitude, loc.longitude);
-    }
+    get().loadRegionData(targetLoc.latitude, targetLoc.longitude);
   },
 
   loadRegionData: async (lat: number, lng: number) => {
@@ -543,6 +607,10 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
 
       const activeCourseExists = allCourses.some((c) => c.id === activeCourseId);
 
+      const medicalSpots = collection.medicalSpots && collection.medicalSpots.length > 0
+        ? collection.medicalSpots
+        : INITIAL_MEDICAL_PLACES;
+
       set({
         currentRegionName: region.shortName,
         courses: allCourses,
@@ -550,6 +618,7 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
         activeCourseId: activeCourseExists ? activeCourseId : filtered[0]?.id || regionalCourses[0]?.id || "course-1",
         quests: mergedQuests,
         activeQuestId: mergedQuests[0]?.id || null,
+        medicalPlaces: medicalSpots,
         isRegionLoading: false,
       });
     } catch (err) {
@@ -835,7 +904,17 @@ export const useWellnessStore = create<WellnessState>((set, get) => ({
 
   setActiveMultiDayCourseId: (activeMultiDayCourseId) => set({ activeMultiDayCourseId }),
 
-  setActiveWaypointFilter: (activeWaypointFilter) => set({ activeWaypointFilter }),
+  setActiveWaypointFilter: (activeWaypointFilter) => {
+    set({ activeWaypointFilter });
+    if (activeWaypointFilter === "의료") {
+      const loc = get().userLocation || SEOUL_CITY_HALL;
+      fetchMedicalTourPlaces(loc.longitude, loc.latitude, 20000, 15).then((places) => {
+        if (places && places.length > 0) {
+          set({ medicalPlaces: places });
+        }
+      });
+    }
+  },
 
   fetchSupabaseData: async () => {
     set({ isLoading: true });

@@ -9,24 +9,40 @@ import { OnboardingModal } from "./components/auth/OnboardingModal";
 import { SettingsModal } from "./components/common/SettingsModal";
 import { WalkSessionTimerController } from "./components/walk/WalkSessionTimerController";
 import { useAuthStore } from "./store/authStore";
-import { useWellnessStore, checkIsOnboardingComplete } from "./store/wellnessStore";
+import { useWellnessStore, checkIsOnboardingComplete, SEOUL_CITY_HALL } from "./store/wellnessStore";
+import { useMapStore } from "./store/mapStore";
 
 function App() {
   const initAuth = useAuthStore((s) => s.initAuth);
   const authUserId = useAuthStore((s) => s.user?.id);
 
-  const { profile, openOnboardingModal, themeMode, userLocation, loadRegionData } =
-    useWellnessStore(
-      useShallow((s) => ({
-        profile: s.profile,
-        openOnboardingModal: s.openOnboardingModal,
-        themeMode: s.themeMode,
-        userLocation: s.userLocation,
-        loadRegionData: s.loadRegionData,
-      }))
-    );
+  const {
+    profile,
+    openOnboardingModal,
+    themeMode,
+    userLocation,
+    setUserLocation,
+    loadRegionData,
+    toastMessage,
+    showToast,
+    hideToast,
+  } = useWellnessStore(
+    useShallow((s) => ({
+      profile: s.profile,
+      openOnboardingModal: s.openOnboardingModal,
+      themeMode: s.themeMode,
+      userLocation: s.userLocation,
+      setUserLocation: s.setUserLocation,
+      loadRegionData: s.loadRegionData,
+      toastMessage: s.toastMessage,
+      showToast: s.showToast,
+      hideToast: s.hideToast,
+    }))
+  );
 
+  const { flyToPlace } = useMapStore();
   const hasCheckedOnboarding = useRef(false);
+  const hasCheckedGeolocation = useRef(false);
 
   // 전역 Supabase 세션 리스너 및 OAuth 복귀 파라미터 초기화
   useEffect(() => {
@@ -52,12 +68,40 @@ function App() {
     }
   }, [authUserId]);
 
-  // 최초 로드 시 현재 사용자 위치(또는 기본 서울)의 4대 공공 Tour API 데이터 온디맨드 로딩
+  // 브라우저 위치 권한 요청 및 권한 거부 시 서울시청 강제 초기화 (TC-01)
   useEffect(() => {
-    const lat = userLocation?.latitude ?? 37.5583;
-    const lng = userLocation?.longitude ?? 126.9825;
-    loadRegionData(lat, lng);
-  }, []);
+    if (hasCheckedGeolocation.current) return;
+    hasCheckedGeolocation.current = true;
+
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      const savedLoc = localStorage.getItem("vitalroot_user_location");
+      if (!savedLoc) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            setUserLocation({ latitude: lat, longitude: lng });
+            flyToPlace(lng, lat, 14);
+          },
+          (err) => {
+            console.warn("[App] Geolocation denied or unavailable:", err);
+            // TC-01: 위치 권한 거부 시 서울시청 강제 전환, 토스트 알림 표출, 지도 부드러운 이동 (Zoom 14)
+            setUserLocation(SEOUL_CITY_HALL);
+            flyToPlace(SEOUL_CITY_HALL.longitude, SEOUL_CITY_HALL.latitude, 14);
+            showToast("📍 위치 권한이 거부되어 기본 위치(서울시청)로 안내합니다.");
+          },
+          { enableHighAccuracy: false, timeout: 8000 }
+        );
+      } else {
+        const lat = userLocation?.latitude ?? SEOUL_CITY_HALL.latitude;
+        const lng = userLocation?.longitude ?? SEOUL_CITY_HALL.longitude;
+        loadRegionData(lat, lng);
+      }
+    } else {
+      setUserLocation(SEOUL_CITY_HALL);
+      flyToPlace(SEOUL_CITY_HALL.longitude, SEOUL_CITY_HALL.latitude, 14);
+    }
+  }, [setUserLocation, loadRegionData, flyToPlace, showToast, userLocation]);
 
   // 최초 진입 시 건강 프로필 미완료(미흡) 상태인 경우 온보딩 팝업 자동 호출
   useEffect(() => {
@@ -80,6 +124,20 @@ function App() {
         themeMode === "light" ? "bg-slate-100" : "bg-gray-900"
       } overflow-hidden`}
     >
+      {/* 전역 상단 토스트 알림 */}
+      {toastMessage && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-2xl bg-gray-950/95 text-white border border-emerald-500/50 shadow-2xl backdrop-blur-md flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 duration-200">
+          <span className="text-base">📢</span>
+          <span className="text-xs sm:text-sm font-semibold">{toastMessage}</span>
+          <button
+            onClick={hideToast}
+            className="text-gray-400 hover:text-white ml-2 text-xs font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* 완보 세션 실시간 1초 틱 헤드리스 컨트롤러 (0 UI 렌더링, 전역 격리) */}
       <WalkSessionTimerController />
       {/* 반응형 컨트롤 패널 (데스크톱: 좌측 플로팅 / 모바일: 하단 바텀 시트) */}

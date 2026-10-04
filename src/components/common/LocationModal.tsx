@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useWellnessStore } from "../../store/wellnessStore";
+import { useWellnessStore, SEOUL_CITY_HALL } from "../../store/wellnessStore";
 import { useMapStore } from "../../store/mapStore";
 
 interface CityTarget {
@@ -63,6 +63,7 @@ export function LocationModal() {
     setUserLocation,
     setIsPinningHome,
     loadRegionData,
+    showToast,
   } = useWellnessStore(
     useShallow((s) => ({
       isLocationModalOpen: s.isLocationModalOpen,
@@ -70,6 +71,7 @@ export function LocationModal() {
       setUserLocation: s.setUserLocation,
       setIsPinningHome: s.setIsPinningHome,
       loadRegionData: s.loadRegionData,
+      showToast: s.showToast,
     }))
   );
   const { flyToPlace } = useMapStore();
@@ -115,18 +117,19 @@ export function LocationModal() {
         const lng = pos.coords.longitude;
 
         setUserLocation({ latitude: lat, longitude: lng });
-        loadRegionData(lat, lng);
         setIsLocationModalOpen(false);
 
         // 지도 중심을 사용자 현재 위치로 부드럽게 이동
-        flyToPlace(lng, lat, 15);
+        flyToPlace(lng, lat, 14);
       },
       (err) => {
         setIsLoading(false);
         console.warn("Geolocation error:", err);
-        setErrorMessage(
-          "위치 접근이 거부되었거나 신호를 찾을 수 없습니다. 브라우저 주소창의 위치 권한 허용을 확인해 주세요."
-        );
+        // TC-01: 위치 권한 거부 시 서울시청 강제 초기화 및 안내 토스트 표출, 지도 부드러운 이동 (Zoom 14)
+        setUserLocation(SEOUL_CITY_HALL);
+        flyToPlace(SEOUL_CITY_HALL.longitude, SEOUL_CITY_HALL.latitude, 14);
+        setIsLocationModalOpen(false);
+        showToast("📍 위치 권한이 거부되어 기본 위치(서울시청)로 안내합니다.");
       },
       {
         enableHighAccuracy: true,

@@ -140,6 +140,113 @@ async function fetchTmapPedestrian(
 }
 
 /**
+ * 자동차 도로망 중앙선으로 튀는 좌표에 대해 보행자용 스무딩(Smoothing) 및 지능형 인도(Sidewalk) 오프셋 적용
+ * 1) 1.5m 이내 불필요한 미세 흔들림(jitter) 제거
+ * 2) 차도 중앙선에서 우측 보행로(인도) 방향으로 약 2.0m 법선 오프셋 적용
+ * 3) 3점 가중 이동평균(0.25, 0.5, 0.25) 2-Pass 스무딩 필터 적용으로 완만한 보행 곡선 생성
+ * 4) 출발지와 도착지 핀 마커 좌표의 정밀한 위치 고정 유지
+ */
+export function smoothPedestrianCoordinates(
+  rawCoords: [number, number][],
+  startLng: number,
+  startLat: number,
+  endLng: number,
+  endLat: number
+): [number, number][] {
+  if (!rawCoords || rawCoords.length <= 2) {
+    return [
+      [startLng, startLat],
+      [endLng, endLat],
+    ];
+  }
+
+  // 1. 미세 흔들림(jitter) 중복 제거 (< 1.5m)
+  const deduped: [number, number][] = [[startLng, startLat]];
+  for (let i = 1; i < rawCoords.length - 1; i++) {
+    const prev = deduped[deduped.length - 1];
+    const curr = rawCoords[i];
+    if (!prev || !curr) continue;
+    const dist = calculateDistanceMeters(prev[1], prev[0], curr[1], curr[0]);
+    if (dist >= 1.5) {
+      deduped.push(curr);
+    }
+  }
+  deduped.push([endLng, endLat]);
+
+  if (deduped.length <= 2) {
+    return [
+      [startLng, startLat],
+      [endLng, endLat],
+    ];
+  }
+
+  // 2. 차도 중앙선 ➔ 보행자 인도(Sidewalk) 방향 지능형 법선 오프셋 (~2.0m)
+  const firstDeduped = deduped[0];
+  const lastDeduped = deduped[deduped.length - 1];
+  if (!firstDeduped || !lastDeduped) {
+    return [
+      [startLng, startLat],
+      [endLng, endLat],
+    ];
+  }
+
+  const offsetPoints: [number, number][] = [firstDeduped];
+  for (let i = 1; i < deduped.length - 1; i++) {
+    const prev = deduped[i - 1];
+    const curr = deduped[i];
+    const next = deduped[i + 1];
+    if (!prev || !curr || !next) continue;
+
+    const dxMeters = (next[0] - prev[0]) * 88000;
+    const dyMeters = (next[1] - prev[1]) * 111000;
+    const segLen = Math.hypot(dxMeters, dyMeters);
+
+    if (segLen > 1.0) {
+      // 우측 보행로 방향 단위 법선 벡터
+      const nx = dyMeters / segLen;
+      const ny = -dxMeters / segLen;
+      const offsetLng = (nx * 2.0) / 88000;
+      const offsetLat = (ny * 2.0) / 111000;
+      offsetPoints.push([
+        Number((curr[0] + offsetLng).toFixed(6)),
+        Number((curr[1] + offsetLat).toFixed(6)),
+      ]);
+    } else {
+      offsetPoints.push(curr);
+    }
+  }
+  offsetPoints.push(lastDeduped);
+
+  // 3. 가중 이동평균 2-Pass 스무딩 (중간 지점의 급격한 중앙선 꺾임 완화)
+  let smoothed = [...offsetPoints];
+  for (let pass = 0; pass < 2; pass++) {
+    const first = smoothed[0];
+    const last = smoothed[smoothed.length - 1];
+    if (!first || !last) break;
+    const nextPass: [number, number][] = [first];
+    for (let i = 1; i < smoothed.length - 1; i++) {
+      const prev = smoothed[i - 1];
+      const curr = smoothed[i];
+      const next = smoothed[i + 1];
+      if (!prev || !curr || !next) continue;
+
+      // 가중 이동평균: 0.25 prev + 0.50 curr + 0.25 next
+      const smoothLng = 0.25 * prev[0] + 0.5 * curr[0] + 0.25 * next[0];
+      const smoothLat = 0.25 * prev[1] + 0.5 * curr[1] + 0.25 * next[1];
+      nextPass.push([Number(smoothLng.toFixed(6)), Number(smoothLat.toFixed(6))]);
+    }
+    nextPass.push(last);
+    smoothed = nextPass;
+  }
+
+  // 출발지/도착지 핀 마커 일치 보장
+  smoothed[0] = [startLng, startLat];
+  smoothed[smoothed.length - 1] = [endLng, endLat];
+
+  return smoothed;
+}
+
+/**
  * 2순위: 공공 도로망 기반 안전 라우터 (포장도로/인도 준수, 비포장 산길/물 관통 철저 배제)
  */
 async function fetchRoadNetworkRoute(
@@ -160,8 +267,16 @@ async function fetchRoadNetworkRoute(
           coords[0] = [startLng, startLat];
           coords[coords.length - 1] = [endLng, endLat];
         }
+        // 보행자용 스무딩 필터 적용 (차도 중앙선 튐 보정)
+        const smoothedCoords = smoothPedestrianCoordinates(
+          coords,
+          startLng,
+          startLat,
+          endLng,
+          endLat
+        );
         return {
-          coordinates: coords,
+          coordinates: smoothedCoords,
           distanceMeters: Math.round(data.routes[0].distance || 750),
         };
       }
@@ -204,14 +319,27 @@ export async function fetchPedestrianRoute(
     return roadResult;
   }
 
-  // 3순위: L자형 도로 격자 보간 (직선으로 산/호수를 가로지르지 않고 블록 도로망을 따라 꺾임)
-  const midPoint1: [number, number] = [endLng, startLat]; // 동서로 이동 후 남북 전환
+  // 3순위: L자형 도로 격자 보간 (직선으로 산/호수를 가로지르지 않고 블록 도로망을 따라 꺾임 및 코너 스무딩)
+  const midPoint: [number, number] = [endLng, startLat];
+  // 코너 라운딩 보간 포인트 생성
+  const cornerNear1: [number, number] = [startLng + 0.8 * (endLng - startLng), startLat];
+  const cornerNear2: [number, number] = [endLng, startLat + 0.2 * (endLat - startLat)];
+  const rawFallback = [
+    [startLng, startLat] as [number, number],
+    cornerNear1,
+    midPoint,
+    cornerNear2,
+    [endLng, endLat] as [number, number],
+  ];
+  const smoothedFallback = smoothPedestrianCoordinates(
+    rawFallback,
+    startLng,
+    startLat,
+    endLng,
+    endLat
+  );
   const fallback = {
-    coordinates: [
-      [startLng, startLat] as [number, number],
-      midPoint1,
-      [endLng, endLat] as [number, number],
-    ],
+    coordinates: smoothedFallback,
     distanceMeters: Math.round(calculateDistanceMeters(startLat, startLng, endLat, endLng) * 1.25),
   };
   return fallback;

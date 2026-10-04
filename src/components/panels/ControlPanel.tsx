@@ -8,6 +8,7 @@ import { MultiDayTab } from "./tabs/MultiDayTab";
 import { StayTab } from "./tabs/StayTab";
 import { QuestTab } from "./tabs/QuestTab";
 import { ConditionFilterTab } from "./tabs/ConditionFilterTab";
+import { DurWarningSummaryCard } from "./DurWarningSummaryCard";
 
 const ALL_CONDITIONS: ChronicCondition[] = [
   "당뇨",
@@ -17,7 +18,6 @@ const ALL_CONDITIONS: ChronicCondition[] = [
   "신장질환",
   "관절/근골격계",
 ];
-
 
 export function ControlPanel() {
   const [activeTab, setActiveTab] = useState<
@@ -477,6 +477,13 @@ export function ControlPanel() {
 
         {/* 탭 본문 영역 (스크롤 지원) */}
         <div className="p-4 overflow-y-auto space-y-4 flex-1 text-sm custom-scrollbar">
+          {/* 식약처 DUR 복약 안전 주의보 상시 노출 요약 카드 (TC-07) */}
+          <DurWarningSummaryCard
+            medications={profile.medications || []}
+            isLight={isLight}
+            onOpenSettingsModal={openSettingsModal}
+          />
+
           {/* TAB 1: 추천 코스 */}
           {activeTab === "courses" && (
             <CourseTab

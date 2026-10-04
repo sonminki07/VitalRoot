@@ -12,6 +12,7 @@ const RADAR_CATEGORIES: { type: WaypointFilterType; label: string; icon: string 
   { type: "화장실", label: "화장실", icon: "🚻" },
   { type: "쉼터", label: "쉼터", icon: "🪑" },
   { type: "배리어프리", label: "무장애", icon: "♿" },
+  { type: "의료", label: "의료/병원", icon: "🏥" },
 ];
 
 function formatDistance(meters: number, unit: "auto" | "km" | "m"): string {

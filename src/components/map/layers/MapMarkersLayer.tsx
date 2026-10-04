@@ -3,10 +3,12 @@ import {
   WellnessCourseSet,
   WellnessStay,
   WellnessQuest,
+  WellnessPlace,
 } from "../../../types/wellness.types";
-import { WaypointFilterType } from "../../../store/wellnessStore";
+import { WaypointFilterType, useWellnessStore } from "../../../store/wellnessStore";
 import { calculateDistanceMeters } from "../../../utils/pedestrianRouter";
 import { getNaverMapDetailUrl } from "../../../utils/naverMapUtils";
+import { getCategoryPlaceholder } from "../../../utils/placePlaceholders";
 
 interface MapMarkersLayerProps {
   mapRef: React.RefObject<naver.maps.Map | null>;
@@ -19,7 +21,21 @@ interface MapMarkersLayerProps {
   activeStayId: string | null;
   quests: WellnessQuest[];
   activeQuestId: string | null;
-  setSelectedPlace: (place: any) => void;
+  setSelectedPlace: (place: WellnessPlace | null) => void;
+}
+
+function cleanHtmlText(text?: string): string {
+  if (!text) return "";
+  return text
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function MapMarkersLayer({
@@ -40,6 +56,8 @@ export function MapMarkersLayer({
   const infoWindowRef = useRef<naver.maps.InfoWindow | null>(null);
   const prevActiveQuestIdRef = useRef<string | null>(null);
   const prevActiveStayIdRef = useRef<string | null>(null);
+
+  const medicalPlaces = useWellnessStore((s) => s.medicalPlaces);
 
   useEffect(() => {
     if (!mapRef.current || !window.naver?.maps) return;
@@ -144,7 +162,18 @@ export function MapMarkersLayer({
           activeCourse.restaurant.latitude,
           activeCourse.restaurant.longitude
         );
-        if (distTrailToActiveTrail < 70 || distTrailToActiveRest < 70) {
+        // 국립중앙박물관 및 주요 무장애/의료 거점 마커는 70m 이내여도 스킵하지 않고 온전히 유지
+        const isProtectedTrail =
+          course.trail.name.includes("박물관") ||
+          course.trail.name.includes("무장애") ||
+          course.trail.name.includes("의료") ||
+          course.trail.name.includes("병원") ||
+          (course.trail.safeTags &&
+            course.trail.safeTags.some(
+              (t) => t.includes("무장애") || t.includes("휠체어")
+            ));
+
+        if (!isProtectedTrail && (distTrailToActiveTrail < 70 || distTrailToActiveRest < 70)) {
           skipTrail = true;
         }
 
@@ -160,7 +189,14 @@ export function MapMarkersLayer({
           activeCourse.trail.latitude,
           activeCourse.trail.longitude
         );
-        if (distRestToActiveRest < 70 || distRestToActiveTrail < 70) {
+        const isProtectedRest =
+          course.restaurant.name.includes("박물관") ||
+          course.restaurant.name.includes("무장애") ||
+          course.restaurant.name.includes("의료") ||
+          course.restaurant.name.includes("병원") ||
+          course.restaurant.name.includes("국립중앙박물관");
+
+        if (!isProtectedRest && (distRestToActiveRest < 70 || distRestToActiveTrail < 70)) {
           skipRest = true;
         }
       }
@@ -239,9 +275,20 @@ export function MapMarkersLayer({
 
           const naverSearchUrl = getNaverMapDetailUrl(course.restaurant);
 
+          const restPlaceholder = getCategoryPlaceholder("음식점", course.restaurant.name);
           const popupContent = `
             <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3.5 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/50 animate-in fade-in zoom-in-95 duration-150">
               <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+              
+              <div class="w-full h-24 mb-2.5 rounded-xl overflow-hidden border border-emerald-500/30 bg-gray-900">
+                <img
+                  src="${course.restaurant.imageUrl || restPlaceholder}"
+                  alt="${course.restaurant.name}"
+                  class="w-full h-full object-cover"
+                  onerror="this.onerror=null; this.src='${restPlaceholder}';"
+                />
+              </div>
+
               <div class="flex items-center justify-between gap-1 mb-1 pr-6">
                 <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-bold">안심식당</span>
                 <span class="text-[10px] text-gray-400 font-medium">${course.targetCondition.split(" ")[0]}</span>
@@ -316,9 +363,20 @@ export function MapMarkersLayer({
 
           const naverSearchUrl = getNaverMapDetailUrl(course.trail);
 
+          const trailPlaceholder = getCategoryPlaceholder("산책로", course.trail.name);
           const popupContent = `
             <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3.5 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/50 animate-in fade-in zoom-in-95 duration-150">
               <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+              
+              <div class="w-full h-24 mb-2.5 rounded-xl overflow-hidden border border-teal-500/30 bg-gray-900">
+                <img
+                  src="${course.trail.imageUrl || trailPlaceholder}"
+                  alt="${course.trail.name}"
+                  class="w-full h-full object-cover"
+                  onerror="this.onerror=null; this.src='${trailPlaceholder}';"
+                />
+              </div>
+
               <div class="flex items-center justify-between gap-1 mb-1 pr-6">
                 <span class="text-[10px] bg-teal-950 text-teal-300 border border-teal-500/40 px-1.5 py-0.5 rounded font-bold">완만 산책로</span>
                 <span class="text-[10px] text-teal-300 font-semibold">${course.slopeGrade}</span>
@@ -368,6 +426,14 @@ export function MapMarkersLayer({
                       ))
                   );
                 }
+                if (activeWaypointFilter === "의료") {
+                  return (
+                    wp.category === "의료" ||
+                    wp.name.includes("병원") ||
+                    wp.name.includes("약국") ||
+                    wp.name.includes("의료")
+                  );
+                }
                 return wp.category === activeWaypointFilter;
               });
 
@@ -384,7 +450,25 @@ export function MapMarkersLayer({
             course.restaurant.latitude,
             course.restaurant.longitude
           );
-          if (wpDistToTrail < 70 || wpDistToRest < 70) {
+          // 국립중앙박물관 및 배리어프리/의료 거점 마커는 70m 이내여도 스킵하지 않고 온전히 유지
+          const isProtectedWp =
+            wp.category === "배리어프리" ||
+            wp.category === "의료" ||
+            wp.name.includes("국립중앙박물관") ||
+            wp.name.includes("박물관") ||
+            wp.name.includes("무장애") ||
+            wp.name.includes("의료") ||
+            wp.name.includes("병원") ||
+            (wp.features &&
+              wp.features.some(
+                (f) =>
+                  f.includes("무장애") ||
+                  f.includes("장애인") ||
+                  f.includes("휠체어") ||
+                  f.includes("자동문")
+              ));
+
+          if (!isProtectedWp && (wpDistToTrail < 70 || wpDistToRest < 70)) {
             return;
           }
 
@@ -396,10 +480,18 @@ export function MapMarkersLayer({
               ? "bg-sky-600 border-sky-300"
               : wp.category === "쉼터"
               ? "bg-amber-600 border-amber-300"
+              : wp.category === "의료"
+              ? "bg-red-600 border-red-300"
               : "bg-purple-600 border-purple-300";
 
           const iconText =
-            wp.category === "화장실" ? "🚻" : wp.category === "쉼터" ? "🪑" : "♿";
+            wp.category === "화장실"
+              ? "🚻"
+              : wp.category === "쉼터"
+              ? "🪑"
+              : wp.category === "의료"
+              ? "🏥"
+              : "♿";
 
           wpContent.innerHTML = `
             <div class="w-7 h-7 flex items-center justify-center rounded-full shadow-lg border-2 ${badgeBg} hover:scale-125 transition-transform duration-200 z-10">
@@ -426,15 +518,28 @@ export function MapMarkersLayer({
               )
               .join(" ");
 
+            const wpPlaceholder = getCategoryPlaceholder(wp.category, wp.name);
             const popupContent = `
               <div style="width: 270px; min-width: 270px; max-width: 290px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-700/80 animate-in fade-in zoom-in-95 duration-150">
                 <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+                
+                <div class="w-full h-20 mb-2 rounded-xl overflow-hidden border border-gray-700 bg-gray-900">
+                  <img
+                    src="${wp.imageUrl || wpPlaceholder}"
+                    alt="${wp.name}"
+                    class="w-full h-full object-cover"
+                    onerror="this.onerror=null; this.src='${wpPlaceholder}';"
+                  />
+                </div>
+
                 <div class="flex items-center justify-between gap-1 mb-1 pr-6">
                   <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     wp.category === "화장실"
                       ? "bg-sky-950 text-sky-300 border border-sky-500/40"
                       : wp.category === "쉼터"
                       ? "bg-amber-950 text-amber-300 border border-amber-500/40"
+                      : wp.category === "의료"
+                      ? "bg-red-950 text-red-300 border border-red-500/40"
                       : "bg-purple-950 text-purple-300 border border-purple-500/40"
                   }">안심 ${wp.category}</span>
                   <span class="text-[10px] font-semibold text-emerald-400">도보 ${wp.walkingMinutesFromRoute}분 (${wp.distanceMetersFromRoute}m)</span>
@@ -499,9 +604,20 @@ export function MapMarkersLayer({
           )
           .join(" ");
 
+        const stayPlaceholder = getCategoryPlaceholder("숙소", stay.name);
         const popupContent = `
           <div style="width: 270px; min-width: 270px; max-width: 290px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3 font-sans bg-gray-950/90 backdrop-blur-md rounded-2xl shadow-2xl border border-teal-500/50 animate-in fade-in zoom-in-95 duration-150">
             <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2 right-2 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+            
+            <div class="w-full h-24 mb-2 rounded-xl overflow-hidden border border-teal-500/30 bg-gray-900">
+              <img
+                src="${stay.imageUrl || stayPlaceholder}"
+                alt="${stay.name}"
+                class="w-full h-full object-cover"
+                onerror="this.onerror=null; this.src='${stayPlaceholder}';"
+              />
+            </div>
+
             <div class="flex items-center justify-between gap-1 mb-1 pr-6">
               <span class="text-[10px] bg-teal-950 text-teal-300 border border-teal-500/40 font-bold px-1.5 py-0.5 rounded">안심 숙소</span>
             </div>
@@ -570,9 +686,20 @@ export function MapMarkersLayer({
           naverPlaceName: quest.naverPlaceName,
         });
 
+        const questPlaceholder = getCategoryPlaceholder("관광지", quest.landmarkName);
         const popupContent = `
           <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-gray-900 p-3.5 font-sans bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-purple-500/40">
             <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-gray-900 p-1 rounded-lg hover:bg-gray-100 text-xs font-bold transition-colors">✕</button>
+            
+            <div class="w-full h-24 mb-2 rounded-xl overflow-hidden border border-purple-200 bg-purple-50">
+              <img
+                src="${quest.imageUrl || questPlaceholder}"
+                alt="${quest.landmarkName}"
+                class="w-full h-full object-cover"
+                onerror="this.onerror=null; this.src='${questPlaceholder}';"
+              />
+            </div>
+
             <div class="flex items-center justify-between gap-1 mb-1 pr-6">
               <span class="text-[10px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">관광명소 퀘스트</span>
             </div>
@@ -610,6 +737,106 @@ export function MapMarkersLayer({
       markersRef.current.push(questMarker);
     });
 
+    // (D) 의료/병원 인프라 마커 렌더링 (TC-08 및 TC-03)
+    if (activeWaypointFilter === "의료" || activeWaypointFilter === "전체") {
+      medicalPlaces.forEach((med) => {
+        const medContent = document.createElement("div");
+        medContent.className = "vital-marker-wrapper cursor-pointer select-none";
+        const cleanTitle = med.title.replace(/<[^>]*>/g, "").trim();
+        medContent.innerHTML = `
+          <div class="group relative flex flex-col items-center">
+            <div class="w-8 h-8 rounded-full bg-red-600 border-2 border-white shadow-xl flex items-center justify-center text-sm font-bold text-white hover:scale-125 transition-transform duration-200 ring-2 ring-red-400">
+              <span>🏥</span>
+            </div>
+            <div class="w-2 h-2 -mt-0.5 rotate-45 bg-red-600 border-r border-b border-white"></div>
+            <div class="hidden group-hover:flex absolute -top-7 px-2 py-0.5 rounded-md bg-gray-950/90 text-white text-[10px] whitespace-nowrap border border-red-500/40 font-bold shadow-lg">
+              ${cleanTitle}
+            </div>
+          </div>
+        `;
+
+        const medMarker = new window.naver.maps.Marker({
+          map,
+          position: new window.naver.maps.LatLng(med.latitude, med.longitude),
+          icon: {
+            content: medContent,
+            anchor: new window.naver.maps.Point(16, 16),
+          },
+          zIndex: 85,
+        });
+
+        window.naver.maps.Event.addListener(medMarker, "click", () => {
+          const cleanAddress = cleanHtmlText(med.address);
+          const rawTelClean = cleanHtmlText(med.tel);
+          const cleanTel = rawTelClean || "안내 전화 정보 없음";
+
+          setSelectedPlace({
+            id: med.id,
+            name: cleanTitle,
+            category: "의료",
+            description: med.category || "응급·의료기관 인프라",
+            address: cleanAddress,
+            latitude: med.latitude,
+            longitude: med.longitude,
+            safeTags: ["응급의료", "병원"],
+            healthBenefit: "응급의료 및 진료 연계",
+            imageUrl: med.imageUrl,
+          });
+
+          const naverSearchUrl = `https://map.naver.com/v5/search/${encodeURIComponent(cleanTitle)}`;
+          const placeholderImg = getCategoryPlaceholder("의료", cleanTitle);
+
+          const popupContent = `
+            <div style="width: 280px; min-width: 280px; max-width: 300px; box-sizing: border-box; word-break: keep-all; white-space: normal;" class="relative text-white p-3.5 font-sans bg-gray-950/95 backdrop-blur-md rounded-2xl shadow-2xl border border-red-500/60 animate-in fade-in zoom-in-95 duration-150">
+              <button onclick="window.__closeVitalInfoWindow()" class="absolute top-2.5 right-2.5 text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 text-xs font-bold transition-colors">✕</button>
+              
+              <div class="w-full h-24 mb-2.5 rounded-xl overflow-hidden border border-red-500/30 bg-gray-900">
+                <img
+                  src="${med.imageUrl || placeholderImg}"
+                  alt="${cleanTitle}"
+                  class="w-full h-full object-cover"
+                  onerror="this.onerror=null; this.src='${placeholderImg}';"
+                />
+              </div>
+
+              <div class="flex items-center justify-between gap-1 mb-1 pr-6">
+                <span class="text-[10px] bg-red-950 text-red-300 border border-red-500/50 px-2 py-0.5 rounded font-extrabold flex items-center gap-1">
+                  <span>🏥</span>
+                  <span>응급·의료기관</span>
+                </span>
+                <span class="text-[10px] text-red-300 font-semibold">${med.category || "의료 인프라"}</span>
+              </div>
+
+              <h4 class="font-bold text-sm text-white leading-snug mt-1" style="word-break: keep-all;">${cleanTitle}</h4>
+              <p class="text-[11px] text-gray-300 mt-1 leading-snug" style="word-break: keep-all;">📍 ${cleanAddress}</p>
+
+              <div class="mt-2 p-2 bg-red-950/60 rounded-xl border border-red-500/30 text-[11px] text-red-200 font-medium flex items-center gap-1.5">
+                <span class="text-xs">📞</span>
+                <span class="font-bold font-mono">${cleanTel}</span>
+              </div>
+
+              <div class="mt-2.5 pt-2 border-t border-gray-800">
+                <a
+                  href="${naverSearchUrl}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="w-full flex items-center justify-center gap-1 py-1.5 bg-[#03C75A] hover:bg-[#02b350] text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
+                >
+                  <span>🟢</span>
+                  <span>네이버 지도 병원 상세</span>
+                </a>
+              </div>
+            </div>
+          `;
+
+          infoWindowRef.current?.setContent(popupContent);
+          infoWindowRef.current?.open(map, medMarker);
+        });
+
+        markersRef.current.push(medMarker);
+      });
+    }
+
     return () => {
       markersRef.current.forEach((m) => m.setMap(null));
       if (userMarkerRef.current) {
@@ -622,6 +849,7 @@ export function MapMarkersLayer({
     filteredCourses,
     activeCourse?.id,
     activeWaypointFilter,
+    medicalPlaces,
     stays,
     activeStayId,
     quests,

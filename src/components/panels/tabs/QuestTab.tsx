@@ -1,5 +1,6 @@
 import { WellnessQuest } from "../../../types/wellness.types";
 import { QuestWalkSessionCard } from "./QuestWalkSessionCard";
+import { getCategoryPlaceholder } from "../../../utils/placePlaceholders";
 
 interface QuestTabProps {
   quests: WellnessQuest[];
@@ -117,20 +118,15 @@ export function QuestTab({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  {q.imageUrl ? (
-                    <img
-                      src={q.imageUrl}
-                      alt={q.landmarkName}
-                      className="w-10 h-10 rounded-xl object-cover border border-purple-500/30 shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <span className="text-xl shrink-0 p-1.5 bg-gray-800/80 rounded-xl border border-gray-700">
-                      {q.badgeIcon}
-                    </span>
-                  )}
+                  <img
+                    src={q.imageUrl || getCategoryPlaceholder("관광지", q.landmarkName)}
+                    alt={q.landmarkName}
+                    className="w-10 h-10 rounded-xl object-cover border border-purple-500/30 shrink-0"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = getCategoryPlaceholder("관광지", q.landmarkName);
+                    }}
+                  />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h4 className="font-bold text-xs text-white truncate">
