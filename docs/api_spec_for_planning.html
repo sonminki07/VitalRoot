@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>VitalRoot 프론트-백엔드 연동 변수 명세서 (기획서용)</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", helvetica, sans-serif; line-height: 1.6; color: #222; max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    h1 { color: #1e3a8a; border-bottom: 3px solid #3b82f6; padding-bottom: 12px; font-size: 26px; }
+    h2 { color: #1e40af; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-top: 36px; font-size: 20px; }
+    h3 { color: #1e293b; margin-top: 24px; font-size: 17px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0 24px 0; font-size: 13px; }
+    th, td { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: left; }
+    th { background-color: #f1f5f9; color: #0f172a; font-weight: bold; }
+    tr:nth-child(even) { background-color: #f8fafc; }
+    code { background-color: #f1f5f9; color: #d97706; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+    pre { background-color: #0f172a; color: #f8fafc; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+    .req { background-color: #fee2e2; color: #b91c1c; }
+    .opt { background-color: #f3f4f6; color: #4b5563; }
+    .guide-box { background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 14px 18px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+  </style>
+</head>
+<body>
+
+<h1>[기획서 & 개발자 가이드] VitalRoot 프론트-백엔드 연동 데이터 규약 및 변수 상세 설명서</h1>
+
+<div class="guide-box">
+  <strong>💡 구글 닥스 기획서 적용 방법</strong><br>
+  이 브라우저 창에서 <code>Ctrl + A</code> (전체 선택) 누르고 <code>Ctrl + C</code> (복사)한 뒤, 구글 닥스에 <code>Ctrl + V</code> (붙여넣기)를 누르면 모든 표(Table)와 서식이 완벽하게 삽입됩니다.
+</div>
+
+<h2>1. 전사 공통 통신 원칙 & 프론트엔드 연동 가이드</h2>
+<p>모든 API 통신은 <strong><code>camelCase</code></strong> JSON 형식을 사용하며, 표준 공통 래퍼(Envelope Pattern)로 감싸서 전달됩니다.</p>
+<pre><code>// 성공 응답 (200 OK)
+{
+  "success": true,
+  "data": { ... },
+  "error": null
+}
+
+// 실패 응답 (에러)
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "해당 조건에 맞는 데이터를 찾을 수 없습니다."
+  }
+}</code></pre>
+
+<h2>화면 1: 회원가입 및 온보딩 건강 프로필 (Auth & Onboarding)</h2>
+<p><strong>Endpoint</strong>: <code>GET /api/user/profile</code> (조회), <code>PUT /api/user/profile</code> (저장)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>변수명 (Key)</th>
+      <th>타입</th>
+      <th>필수</th>
+      <th>UI 표시 위치 & 컴포넌트</th>
+      <th>상세 설명 & 비즈니스 로직</th>
+      <th>예시값</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>userId</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>시스템 관리용 (비노출)</td>
+      <td>사용자 고유 UUID (Supabase Auth ID)</td>
+      <td>"usr_a1b2c3d4"</td>
+    </tr>
+    <tr>
+      <td><code>userName</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>마이페이지 상단, 환영 문구</td>
+      <td>사용자가 설정한 닉네임 또는 본명</td>
+      <td>"김민기"</td>
+    </tr>
+    <tr>
+      <td><code>chronicConditions</code></td>
+      <td>string[]</td>
+      <td><span class="badge req">필수</span></td>
+      <td>온보딩 질환 선택 칩 태그</td>
+      <td>보유 만성질환 목록 (당뇨, 고혈압, 저혈압, 이상지질혈증, 신장질환, 관절/근골격계)</td>
+      <td>["당뇨", "고혈압"]</td>
+    </tr>
+    <tr>
+      <td><code>medications</code></td>
+      <td>object[]</td>
+      <td><span class="badge opt">선택</span></td>
+      <td>복용 의약품 리스트</td>
+      <td>식약처 DUR 연계 복용 약물 목록 (id, name, ingredientName, timing, cautionNote, durWarningTags)</td>
+      <td>약품 상세 객체 리스트</td>
+    </tr>
+    <tr>
+      <td><code>walkFitnessLevel</code></td>
+      <td>string</td>
+      <td><span class="badge opt">선택</span></td>
+      <td>보행 체력 슬라이더</td>
+      <td>보행 체력 수준 ("초급(완만)", "중급", "고급")</td>
+      <td>"초급(완만)"</td>
+    </tr>
+    <tr>
+      <td><code>requiredInfra</code></td>
+      <td>string[]</td>
+      <td><span class="badge opt">선택</span></td>
+      <td>필수 편의시설 체크박스</td>
+      <td>보행 시 3~5분 필수 편의시설 ("화장실", "쉼터", "엘리베이터", "약국")</td>
+      <td>["화장실", "쉼터"]</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>화면 2: 메인 탐색 & 지도 주변 안심 장소/식당 (Map & Places)</h2>
+<p><strong>Endpoint</strong>: <code>GET /api/places/nearby?latitude=37.3158&longitude=126.8523&radiusMeters=3000</code></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>변수명 (Key)</th>
+      <th>타입</th>
+      <th>필수</th>
+      <th>UI 표시 위치 & 컴포넌트</th>
+      <th>상세 설명 & 비즈니스 로직</th>
+      <th>공공데이터 매핑</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>장소 카드 고유 키</td>
+      <td>장소 고유 식별자</td>
+      <td>TourAPI contentid</td>
+    </tr>
+    <tr>
+      <td><code>name</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>장소명 타이틀</td>
+      <td>식당 또는 관광명소 명칭</td>
+      <td>TourAPI title</td>
+    </tr>
+    <tr>
+      <td><code>category</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>카테고리 뱃지/아이콘</td>
+      <td>장소 분류 ("안심식당", "산책로", "관광지", "의료")</td>
+      <td>contentTypeId / cat3</td>
+    </tr>
+    <tr>
+      <td><code>address</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>주소 텍스트, 길찾기 복사</td>
+      <td>기본 도로명 또는 지번 주소</td>
+      <td>TourAPI addr1</td>
+    </tr>
+    <tr>
+      <td><code>latitude</code></td>
+      <td>number</td>
+      <td><span class="badge req">필수</span></td>
+      <td>네이버 지도 마커 핀</td>
+      <td>위도 GPS 좌표 (Y축)</td>
+      <td>TourAPI mapy</td>
+    </tr>
+    <tr>
+      <td><code>longitude</code></td>
+      <td>number</td>
+      <td><span class="badge req">필수</span></td>
+      <td>네이버 지도 마커 핀</td>
+      <td>경도 GPS 좌표 (X축)</td>
+      <td>TourAPI mapx</td>
+    </tr>
+    <tr>
+      <td><code>imageUrl</code></td>
+      <td>string | null</td>
+      <td><span class="badge opt">선택</span></td>
+      <td>장소 썸네일/대표 이미지</td>
+      <td>대표 사진 URL (없을 시 null)</td>
+      <td>TourAPI firstimage</td>
+    </tr>
+    <tr>
+      <td><code>safeTags</code></td>
+      <td>string[]</td>
+      <td><span class="badge req">필수</span></td>
+      <td>안심 인증 태그 칩</td>
+      <td>안심식당 및 무장애 편의시설 검증 태그</td>
+      <td>TourAPI detailWithTour2</td>
+    </tr>
+    <tr>
+      <td><code>nutrition</code></td>
+      <td>object | null</td>
+      <td><span class="badge opt">선택</span></td>
+      <td>식당 영양성분 아코디언</td>
+      <td>식약처 식품영양성분 (calories, carbohydrate, sugars, sodium, sugarGrade, sodiumGrade)</td>
+      <td>식약처 식품영양 DB</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>화면 3: 질환 맞춤형 식후 걷기 추천 코스 (Course Recommendation)</h2>
+<p><strong>Endpoint</strong>: <code>GET /api/courses/recommend?condition=당뇨</code></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>변수명 (Key)</th>
+      <th>타입</th>
+      <th>필수</th>
+      <th>UI 표시 위치 & 컴포넌트</th>
+      <th>상세 설명 & 비즈니스 로직</th>
+      <th>예시값</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>코스 식별자</td>
+      <td>코스 고유 ID</td>
+      <td>"course_ansan_01"</td>
+    </tr>
+    <tr>
+      <td><code>title</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>코스 헤더 타이틀</td>
+      <td>코스 기획 명칭</td>
+      <td>"식후 혈당 케어 안산 호수공원 완보길"</td>
+    </tr>
+    <tr>
+      <td><code>totalDistanceMeters</code></td>
+      <td>number</td>
+      <td><span class="badge req">필수</span></td>
+      <td>총 보행 거리 (1.8km)</td>
+      <td>TMap 보행자 API 기반 실제 보행 도로망 거리 (단위: m)</td>
+      <td>1850</td>
+    </tr>
+    <tr>
+      <td><code>walkMinutes</code></td>
+      <td>number</td>
+      <td><span class="badge req">필수</span></td>
+      <td>소요 시간 (28분)</td>
+      <td>시니어 보행 속도 기준 완보 예상 시간 (단위: 분)</td>
+      <td>28</td>
+    </tr>
+    <tr>
+      <td><code>slopeGrade</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>난이도 뱃지</td>
+      <td>경사도 등급 ("완만(무장애)", "보통", "도전")</td>
+      <td>"완만(무장애)"</td>
+    </tr>
+    <tr>
+      <td><code>walkingRoute</code></td>
+      <td>[number, number][]</td>
+      <td><span class="badge req">필수</span></td>
+      <td>지도 위 경로 폴리라인</td>
+      <td>GeoJSON 도로망 좌표 배열 [[lng, lat], ...]</td>
+      <td>[[126.834, 37.301], ...]</td>
+    </tr>
+    <tr>
+      <td><code>waypoints</code></td>
+      <td>object[]</td>
+      <td><span class="badge opt">선택</span></td>
+      <td>경로 상 편의시설 마커</td>
+      <td>동선 3~5분 공공 편의시설 리스트 (화장실, 쉼터 등)</td>
+      <td>편의시설 상세 리스트</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>화면 4: 1박 2일 웰니스 안심 숙소 (Wellness Stays)</h2>
+<p><strong>Endpoint</strong>: <code>GET /api/stays</code></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>변수명 (Key)</th>
+      <th>타입</th>
+      <th>필수</th>
+      <th>UI 표시 위치 & 컴포넌트</th>
+      <th>상세 설명 & 비즈니스 로직</th>
+      <th>공공데이터 매핑</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>id</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>숙소 카드 키</td>
+      <td>숙소 고유 ID</td>
+      <td>TourAPI contentid</td>
+    </tr>
+    <tr>
+      <td><code>name</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>숙소명 타이틀</td>
+      <td>숙박 시설 명칭</td>
+      <td>TourAPI title</td>
+    </tr>
+    <tr>
+      <td><code>chkCooking</code></td>
+      <td>boolean</td>
+      <td><span class="badge req">필수</span></td>
+      <td>취사 가능 뱃지</td>
+      <td>객실 내 취사 가능 여부 (저염식 환자 자가 조리)</td>
+      <td>detailIntro2 chkcooking</td>
+    </tr>
+    <tr>
+      <td><code>roomRefrigerator</code></td>
+      <td>boolean</td>
+      <td><span class="badge req">필수</span></td>
+      <td>냉장고 보유 뱃지</td>
+      <td>객실 내 냉장고 보유 여부 (인슐린 보관 필수)</td>
+      <td>detailIntro2 roomrefrigerator</td>
+    </tr>
+    <tr>
+      <td><code>hasFitness</code></td>
+      <td>boolean</td>
+      <td><span class="badge req">필수</span></td>
+      <td>피트니스 뱃지</td>
+      <td>헬스장/체력단련실 보유 여부 (식후 혈당 루틴)</td>
+      <td>detailIntro2 fitness</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>화면 5: 관광명소 퀘스트 & 실시간 GPS 완보 세션 (Quest & Walk Session)</h2>
+<p><strong>Endpoint</strong>: <code>POST /api/walk-session/ping</code> (주기적 동기화), <code>POST /api/walk-session/complete</code> (완보 완료)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>변수명 (Key)</th>
+      <th>타입</th>
+      <th>필수</th>
+      <th>UI 표시 위치 & 컴포넌트</th>
+      <th>상세 설명 & 비즈니스 로직</th>
+      <th>예시값</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>questId</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>퀘스트 식별자</td>
+      <td>퀘스트 고유 ID</td>
+      <td>"qst_reed_wetland"</td>
+    </tr>
+    <tr>
+      <td><code>targetName</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>상단 위젯 목적지 명칭</td>
+      <td>완보 목표 관광명소 명칭</td>
+      <td>"안산 갈대습지공원"</td>
+    </tr>
+    <tr>
+      <td><code>targetDurationMinutes</code></td>
+      <td>number</td>
+      <td><span class="badge req">필수</span></td>
+      <td>목표 시간 (20분)</td>
+      <td>완보 인정에 필요한 최소 산책 시간 (분)</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <td><code>titleReward</code></td>
+      <td>string</td>
+      <td><span class="badge req">필수</span></td>
+      <td>획득 칭호 뱃지</td>
+      <td>완보 성공 시 지급되는 리워드 칭호</td>
+      <td>"갈대습지 생태 수호자"</td>
+    </tr>
+    <tr>
+      <td><code>elapsedSeconds</code></td>
+      <td>number</td>
+      <td><span class="badge req">필수</span></td>
+      <td>원형 프로그레스바 타이머</td>
+      <td>현재까지 누적된 실제 보행 시간 (단위: 초)</td>
+      <td>720</td>
+    </tr>
+    <tr>
+      <td><code>isGpsValid</code></td>
+      <td>boolean</td>
+      <td><span class="badge req">필수</span></td>
+      <td>GPS 연결 상태 신호등</td>
+      <td>사용자가 명소 반경 500m 이내 정상 체류 중인지 여부</td>
+      <td>true</td>
+    </tr>
+    <tr>
+      <td><code>isEligible</code></td>
+      <td>boolean</td>
+      <td><span class="badge req">필수</span></td>
+      <td>완보 인증 버튼 활성화</td>
+      <td>목표 시간 이상 체류하여 리워드 획득 자격을 갖췄는지 여부</td>
+      <td>false</td>
+    </tr>
+  </tbody>
+</table>
+
+</body>
+</html>
