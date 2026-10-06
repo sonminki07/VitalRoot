@@ -2,466 +2,636 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>VitalRoot 프론트-백엔드 연동 변수 명세서 (구글 닥스 최적화)</title>
+  <title>VitalRoot 연동 변수 명세서 (1화면 1페이지 양옆 2열 정갈형)</title>
   <style>
-    /* 구글 닥스 A4 용지 규격에 딱 맞는 콤팩트 & 정갈한 스타일 */
+    /* 구글 닥스 A4 인쇄/페이지 단위에 100% 최적화된 양옆 2열 스타일 */
     body {
       font-family: "Malgun Gothic", "맑은 고딕", -apple-system, sans-serif;
-      font-size: 12px;
-      line-height: 1.5;
-      color: #1e293b;
-      margin: 20px auto;
-      max-width: 820px;
-      padding: 0 10px;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #111827;
+      margin: 0 auto;
+      max-width: 750px;
     }
-    h1 {
-      font-size: 18px;
-      color: #0f172a;
-      border-bottom: 2px solid #0284c7;
-      padding-bottom: 6px;
-      margin: 18px 0 12px 0;
+    
+    /* 각 화면마다 무조건 구글 닥스에서 새 페이지로 넘어가도록 강제 분리 */
+    .page-section {
+      page-break-before: always;
+      margin-top: 30px;
+      padding-top: 10px;
     }
+    .page-section:first-of-type {
+      page-break-before: avoid;
+      margin-top: 0;
+    }
+
     h2 {
-      font-size: 14px;
-      color: #0369a1;
-      margin: 20px 0 6px 0;
-      padding-bottom: 4px;
-      border-bottom: 1px solid #e2e8f0;
+      font-size: 14pt;
+      color: #1d4ed8;
+      border-bottom: 2px solid #3b82f6;
+      padding-bottom: 6px;
+      margin: 0 0 10px 0;
     }
-    .endpoint {
-      display: inline-block;
-      font-size: 11px;
+
+    .api-endpoint {
+      font-size: 9.5pt;
+      font-family: Consolas, monospace;
       background-color: #f1f5f9;
       color: #0f172a;
-      padding: 3px 8px;
-      border-radius: 4px;
-      margin-bottom: 8px;
+      padding: 4px 8px;
       border: 1px solid #cbd5e1;
-      font-family: Consolas, monospace;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      display: inline-block;
     }
+
+    /* 양옆 2열 레이아웃 테이블 (좌: 변수/타입, 우: UI위치/설명/예시) */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 6px 0 18px 0;
-      font-size: 11px;
+      margin-bottom: 20px;
       table-layout: fixed;
     }
+
     th, td {
       border: 1px solid #cbd5e1;
-      padding: 6px 8px;
+      padding: 8px 12px;
       vertical-align: middle;
-      word-break: keep-all;
-      overflow-wrap: break-word;
+      font-size: 10pt;
     }
+
     th {
       background-color: #f8fafc;
-      color: #334155;
-      font-weight: 700;
+      color: #1e293b;
+      font-weight: bold;
       text-align: center;
+      padding: 9px;
     }
-    tr:nth-child(even) {
-      background-color: #fbfcfe;
+
+    .col-var {
+      width: 32%;
+      background-color: #fafafa;
     }
-    code {
+    .col-desc {
+      width: 68%;
+      background-color: #ffffff;
+    }
+
+    .var-name {
       font-family: Consolas, monospace;
-      color: #0284c7;
-      font-weight: 600;
-      font-size: 11px;
+      font-weight: bold;
+      color: #0369a1;
+      font-size: 10.5pt;
     }
+    .var-kr {
+      font-weight: bold;
+      color: #334155;
+      font-size: 9.5pt;
+      margin-top: 2px;
+    }
+    .var-meta {
+      font-size: 8.5pt;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
     .tag-req {
-      display: inline-block;
-      background-color: #fef2f2;
       color: #dc2626;
-      border: 1px solid #fecaca;
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-size: 10px;
-      font-weight: 600;
-      margin-left: 4px;
+      font-weight: bold;
     }
     .tag-opt {
-      display: inline-block;
-      background-color: #f1f5f9;
       color: #64748b;
-      border: 1px solid #e2e8f0;
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-size: 10px;
-      margin-left: 4px;
     }
-    .type-text {
-      color: #64748b;
-      font-size: 10px;
-      display: block;
-      margin-top: 2px;
-      font-family: Consolas, monospace;
+
+    .desc-ui {
+      font-size: 9pt;
+      color: #2563eb;
+      font-weight: bold;
+      margin-bottom: 3px;
     }
-    .sub-item {
-      padding-left: 10px;
-      color: #475569;
+    .desc-text {
+      color: #374151;
+      line-height: 1.5;
     }
-    .rule-box {
+    .desc-example {
+      margin-top: 4px;
+      font-size: 9pt;
+      color: #059669;
       background-color: #f0fdf4;
-      border: 1px solid #bbf7d0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    .rule-card {
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
       border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 11px;
-      color: #166534;
-      margin-bottom: 16px;
+      padding: 10px 14px;
+      font-size: 10pt;
+      color: #1e40af;
+      margin-bottom: 24px;
     }
   </style>
 </head>
 <body>
 
-<h1>VitalRoot 프론트-백엔드 연동 데이터 규약 및 변수 명세서</h1>
-
-<div class="rule-box">
-  <strong>통신 기본 규칙</strong>: 모든 JSON 키는 <code>camelCase</code>로 통일하며, 응답은 <code>{ "success": true, "data": ..., "error": null }</code> 래퍼로 전달됩니다.
+<div class="rule-card">
+  <strong>📌 전사 공통 규칙</strong>: 모든 JSON Key는 <code>camelCase</code>로 통일하며, 공통 래퍼 <code>{ "success": true, "data": ..., "error": null }</code>를 사용합니다.
 </div>
 
-<h2>화면 1. 회원가입 및 온보딩 건강 프로필 (Auth & Health Profile)</h2>
-<div class="endpoint">API: GET /api/user/profile (조회) | PUT /api/user/profile (수정)</div>
+<!-- 화면 1 -->
+<div class="page-section">
+  <h2>화면 1. 회원가입 및 온보딩 건강 프로필 (Auth & Health Profile)</h2>
+  <div class="api-endpoint">Endpoint: GET /api/user/profile (조회) | PUT /api/user/profile (저장)</div>
 
-<table>
-  <colgroup>
-    <col style="width: 26%;">
-    <col style="width: 24%;">
-    <col style="width: 36%;">
-    <col style="width: 14%;">
-  </colgroup>
-  <thead>
-    <tr>
-      <th>변수명 (JSON Key)</th>
-      <th>한글명 & UI 표시 위치</th>
-      <th>상세 설명 & 비즈니스 로직</th>
-      <th>예시값</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>userId</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>사용자 ID (시스템)</td>
-      <td>사용자 고유 UUID (Supabase Auth ID)</td>
-      <td>"usr_a1b2c3"</td>
-    </tr>
-    <tr>
-      <td><code>userName</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>닉네임 / 본명 (헤더/프로필)</td>
-      <td>마이페이지 및 상단 환영 문구 표출명</td>
-      <td>"김민기"</td>
-    </tr>
-    <tr>
-      <td><code>chronicConditions</code> <span class="tag-req">필수</span><span class="type-text">string[]</span></td>
-      <td>만성질환 (온보딩 선택 칩)</td>
-      <td>맞춤 코스/식당 필터링 기준 (당뇨, 고혈압, 저혈압, 이상지질혈증, 신장질환, 관절/근골격계)</td>
-      <td>["당뇨", "고혈압"]</td>
-    </tr>
-    <tr>
-      <td><code>medications</code> <span class="tag-opt">선택</span><span class="type-text">object[]</span></td>
-      <td>복용 약물 리스트 (마이페이지)</td>
-      <td>식약처 DUR 연계 복용 의약품 정보</td>
-      <td>하단 상세 참조</td>
-    </tr>
-    <tr class="sub-item">
-      <td>&nbsp;└ <code>name</code> <span class="tag-req">필수</span></td>
-      <td>약품명 (약품 카드)</td>
-      <td>복용 중인 의약품 이름</td>
-      <td>"다이아벡스정"</td>
-    </tr>
-    <tr class="sub-item">
-      <td>&nbsp;└ <code>ingredientName</code> <span class="tag-req">필수</span></td>
-      <td>성분명 (DUR 대조 뱃지)</td>
-      <td>식약처 DUR 성분 매칭 기준 주성분명</td>
-      <td>"메트포르민"</td>
-    </tr>
-    <tr class="sub-item">
-      <td>&nbsp;└ <code>cautionNote</code> <span class="tag-req">필수</span></td>
-      <td>보행 가이드 (주의 배너)</td>
-      <td>약물 복용자의 보행 시 주의사항 (저혈당 대비 등)</td>
-      <td>"식후 30분 완보"</td>
-    </tr>
-    <tr class="sub-item">
-      <td>&nbsp;└ <code>durWarningTags</code> <span class="tag-req">필수</span></td>
-      <td>DUR 경고 태그 (경고 뱃지)</td>
-      <td>식약처 7대 안전 경고 (노인주의, 용량주의 등)</td>
-      <td>["노인주의"]</td>
-    </tr>
-    <tr>
-      <td><code>walkFitnessLevel</code> <span class="tag-opt">선택</span><span class="type-text">string</span></td>
-      <td>보행 체력 (슬라이더)</td>
-      <td>코스 난이도 추천 기준 ("초급(완만)", "중급", "고급")</td>
-      <td>"초급(완만)"</td>
-    </tr>
-    <tr>
-      <td><code>requiredInfra</code> <span class="tag-opt">선택</span><span class="type-text">string[]</span></td>
-      <td>필수 편의시설 (체크박스)</td>
-      <td>산책 시 필수 인프라 ("화장실", "쉼터", "엘리베이터", "약국")</td>
-      <td>["화장실", "쉼터"]</td>
-    </tr>
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th class="col-var">변수 정보 (Key / 타입 / 한글명)</th>
+        <th class="col-desc">UI 표시 위치 & 상세 설명 & 예시값</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">userId</div>
+          <div class="var-kr">사용자 고유 ID</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 시스템 관리 (화면 비노출)</div>
+          <div class="desc-text">사용자 식별용 Supabase Auth UUID</div>
+          <div class="desc-example">예시: "usr_a1b2c3d4"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">userName</div>
+          <div class="var-kr">닉네임 / 본명</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 상단 헤더 & 마이페이지 환영 문구</div>
+          <div class="desc-text">사용자가 설정한 표출 닉네임</div>
+          <div class="desc-example">예시: "김민기"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">chronicConditions</div>
+          <div class="var-kr">보유 만성질환 목록</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string[]</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 온보딩 설문 및 필터 칩 태그</div>
+          <div class="desc-text">코스 및 식당 필터링 기준 ("당뇨", "고혈압", "저혈압", "이상지질혈증", "신장질환", "관절/근골격계")</div>
+          <div class="desc-example">예시: ["당뇨", "고혈압"]</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">medications</div>
+          <div class="var-kr">복용 의약품 리스트</div>
+          <div class="var-meta"><span class="tag-opt">[선택]</span> object[]</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 마이페이지 복용 약물 카드</div>
+          <div class="desc-text">식약처 DUR 연계 약물 (name: 약품명, ingredientName: 성분명, cautionNote: 보행 가이드, durWarningTags: 7대 주의 태그)</div>
+          <div class="desc-example">예시: name: "다이아벡스정", cautionNote: "식후 30분 완보", tags: ["노인주의"]</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">walkFitnessLevel</div>
+          <div class="var-kr">보행 체력 수준</div>
+          <div class="var-meta"><span class="tag-opt">[선택]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 온보딩 체력 슬라이더</div>
+          <div class="desc-text">코스 추천 시 경사도 및 보행 거리 반영 기준 ("초급(완만)", "중급", "고급")</div>
+          <div class="desc-example">예시: "초급(완만)"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">requiredInfra</div>
+          <div class="var-kr">필수 편의시설 요구</div>
+          <div class="var-meta"><span class="tag-opt">[선택]</span> string[]</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 온보딩 시설 체크박스</div>
+          <div class="desc-text">산책로 동선 3~5분 필수 인프라 ("화장실", "쉼터", "엘리베이터", "약국")</div>
+          <div class="desc-example">예시: ["화장실", "쉼터"]</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-<h2>화면 2. 메인 탐색 & 지도 주변 안심 장소/식당 (Map & Places)</h2>
-<div class="endpoint">API: GET /api/places/nearby?latitude=37.315&longitude=126.834&radiusMeters=3000</div>
+<!-- 화면 2 -->
+<div class="page-section">
+  <h2>화면 2. 메인 탐색 & 지도 주변 안심 장소/식당 (Map & Places)</h2>
+  <div class="api-endpoint">Endpoint: GET /api/places/nearby?latitude=37.315&longitude=126.834&radiusMeters=3000</div>
 
-<table>
-  <colgroup>
-    <col style="width: 26%;">
-    <col style="width: 24%;">
-    <col style="width: 36%;">
-    <col style="width: 14%;">
-  </colgroup>
-  <thead>
-    <tr>
-      <th>변수명 (JSON Key)</th>
-      <th>한글명 & UI 표시 위치</th>
-      <th>상세 설명 & 비즈니스 로직 (공공데이터 출처)</th>
-      <th>예시값</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>id</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>장소 ID (장소 카드 키)</td>
-      <td>장소 고유 식별자 (TourAPI <code>contentid</code>)</td>
-      <td>"129619"</td>
-    </tr>
-    <tr>
-      <td><code>name</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>장소/식당명 (카드 헤더)</td>
-      <td>관광지 또는 식당 명칭 (TourAPI <code>title</code>)</td>
-      <td>"안산 호수공원"</td>
-    </tr>
-    <tr>
-      <td><code>category</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>분류 (카테고리 뱃지)</td>
-      <td>장소 유형 ("안심식당", "산책로", "관광지", "의료")</td>
-      <td>"산책로"</td>
-    </tr>
-    <tr>
-      <td><code>address</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>주소 (상세 정보 텍스트)</td>
-      <td>도로명/지번 주소 (TourAPI <code>addr1</code>)</td>
-      <td>"경기도 안산시..."</td>
-    </tr>
-    <tr>
-      <td><code>latitude</code> <span class="tag-req">필수</span><span class="type-text">number</span></td>
-      <td>위도 GPS (지도 마커 핀)</td>
-      <td>Y축 좌표 (TourAPI <code>mapy</code> 정제)</td>
-      <td>37.301248</td>
-    </tr>
-    <tr>
-      <td><code>longitude</code> <span class="tag-req">필수</span><span class="type-text">number</span></td>
-      <td>경도 GPS (지도 마커 핀)</td>
-      <td>X축 좌표 (TourAPI <code>mapx</code> 정제)</td>
-      <td>126.834192</td>
-    </tr>
-    <tr>
-      <td><code>imageUrl</code> <span class="tag-opt">선택</span><span class="type-text">string | null</span></td>
-      <td>사진 (대표 썸네일)</td>
-      <td>대표 이미지 URL (없을 시 null 처리 및 기본 이미지 대체)</td>
-      <td>"https://..."</td>
-    </tr>
-    <tr>
-      <td><code>safeTags</code> <span class="tag-req">필수</span><span class="type-text">string[]</span></td>
-      <td>안심 태그 (안심 칩)</td>
-      <td>검증된 안심 시설 태그 (TourAPI 무장애 연계)</td>
-      <td>["무장애 경사로"]</td>
-    </tr>
-    <tr>
-      <td><code>nutrition</code> <span class="tag-opt">선택</span><span class="type-text">object | null</span></td>
-      <td>영양 정보 (식당 아코디언)</td>
-      <td>식약처 식품영양 DB (열량, 당류, 나트륨, 안심 등급)</td>
-      <td>당 3g, 나트륨 420mg</td>
-    </tr>
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th class="col-var">변수 정보 (Key / 타입 / 한글명)</th>
+        <th class="col-desc">UI 표시 위치 & 상세 설명 & 예시값</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">id</div>
+          <div class="var-kr">장소 고유 식별자</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 장소 카드 및 지도 마커 키</div>
+          <div class="desc-text">한국관광공사 TourAPI의 contentid 매핑</div>
+          <div class="desc-example">예시: "129619"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">name</div>
+          <div class="var-kr">장소 / 식당 명칭</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 장소 카드 상단 볼드 타이틀</div>
+          <div class="desc-text">식당 또는 관광명소의 공식 상호명 (TourAPI title)</div>
+          <div class="desc-example">예시: "안산 호수공원"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">category</div>
+          <div class="var-kr">장소 분류 유형</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 카드 좌측 아이콘 & 카테고리 뱃지</div>
+          <div class="desc-text">장소 분류 ("안심식당", "산책로", "관광지", "의료")</div>
+          <div class="desc-example">예시: "산책로"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">address</div>
+          <div class="var-kr">소재지 주소</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 상세 주소 텍스트 (클릭 시 복사)</div>
+          <div class="desc-text">도로명 또는 지번 주소 (TourAPI addr1)</div>
+          <div class="desc-example">예시: "경기도 안산시 단원구 광덕동로 25"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">latitude, longitude</div>
+          <div class="var-kr">위도, 경도 (GPS 좌표)</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> number</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 네이버 지도 마커 핀 위치</div>
+          <div class="desc-text">지도에 표시할 정확한 좌표 (TourAPI mapy, mapx 정제)</div>
+          <div class="desc-example">예시: latitude: 37.301248, longitude: 126.834192</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">imageUrl</div>
+          <div class="var-kr">대표 사진 URL</div>
+          <div class="var-meta"><span class="tag-opt">[선택]</span> string | null</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 장소 카드 대표 썸네일 이미지</div>
+          <div class="desc-text">장소 사진 URL (없을 경우 null이며 기본 플레이스홀더 표출)</div>
+          <div class="desc-example">예시: "https://tong.visitkorea.or.kr/..."</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">safeTags</div>
+          <div class="var-kr">안심 시설 인증 태그</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string[]</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 카드 하단 안심 태그 칩</div>
+          <div class="desc-text">무장애 편의시설 및 안심식당 검증 태그 목록</div>
+          <div class="desc-example">예시: ["무장애 경사로", "장애인 화장실", "저염식"]</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">nutrition</div>
+          <div class="var-kr">식당 대표메뉴 영양정보</div>
+          <div class="var-meta"><span class="tag-opt">[선택]</span> object | null</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 식당 카드 클릭 시 펼쳐지는 아코디언</div>
+          <div class="desc-text">식약처 공공 DB 영양성분 (calories, sugars, sodium, sugarGrade, sodiumGrade)</div>
+          <div class="desc-example">예시: 당 3.1g (안심), 나트륨 680mg (안심)</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-<h2>화면 3. 질환 맞춤형 식후 걷기 추천 코스 (Course Recommendation)</h2>
-<div class="endpoint">API: GET /api/courses/recommend?condition=당뇨</div>
+<!-- 화면 3 -->
+<div class="page-section">
+  <h2>화면 3. 질환 맞춤형 식후 걷기 추천 코스 (Course Recommendation)</h2>
+  <div class="api-endpoint">Endpoint: GET /api/courses/recommend?condition=당뇨</div>
 
-<table>
-  <colgroup>
-    <col style="width: 26%;">
-    <col style="width: 24%;">
-    <col style="width: 36%;">
-    <col style="width: 14%;">
-  </colgroup>
-  <thead>
-    <tr>
-      <th>변수명 (JSON Key)</th>
-      <th>한글명 & UI 표시 위치</th>
-      <th>상세 설명 & 비즈니스 로직</th>
-      <th>예시값</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>id</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>코스 ID (코스 식별자)</td>
-      <td>코스 세트 고유 ID</td>
-      <td>"course_01"</td>
-    </tr>
-    <tr>
-      <td><code>title</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>코스 제목 (카드 상단 헤더)</td>
-      <td>기획된 웰니스 코스 명칭</td>
-      <td>"호수공원 완보길"</td>
-    </tr>
-    <tr>
-      <td><code>targetCondition</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>타겟 질환 (질환 뱃지)</td>
-      <td>추천 대상 만성질환 ("당뇨", "고혈압")</td>
-      <td>"당뇨"</td>
-    </tr>
-    <tr>
-      <td><code>totalDistanceMeters</code> <span class="tag-req">필수</span><span class="type-text">number</span></td>
-      <td>총 보행 거리 (거리 표기)</td>
-      <td>TMap 보행자 API 기반 실제 보행 도로망 거리 (단위: m)</td>
-      <td>1850 (1.8km)</td>
-    </tr>
-    <tr>
-      <td><code>walkMinutes</code> <span class="tag-req">필수</span><span class="type-text">number</span></td>
-      <td>소요 시간 (시간 표기)</td>
-      <td>시니어 보행 속도 기준 예상 완보 시간 (단위: 분)</td>
-      <td>28 (28분)</td>
-    </tr>
-    <tr>
-      <td><code>slopeGrade</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>난이도 (경사도 뱃지)</td>
-      <td>지형 경사도 등급 ("완만(무장애)", "보통", "도전")</td>
-      <td>"완만(무장애)"</td>
-    </tr>
-    <tr>
-      <td><code>walkingRoute</code> <span class="tag-req">필수</span><span class="type-text">[lng, lat][]</span></td>
-      <td>보행 경로 (지도 폴리라인 선)</td>
-      <td>GeoJSON 표준 도로망 좌표 배열: <code>[[경도, 위도], ...]</code></td>
-      <td>[[126.8, 37.3], ...]</td>
-    </tr>
-    <tr>
-      <td><code>waypoints</code> <span class="tag-opt">선택</span><span class="type-text">object[]</span></td>
-      <td>중간 편의시설 (지도 아이콘)</td>
-      <td>경로 3~5분 내 화장실, 쉼터, 무장애 시설 목록</td>
-      <td>화장실 2곳, 쉼터 1곳</td>
-    </tr>
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th class="col-var">변수 정보 (Key / 타입 / 한글명)</th>
+        <th class="col-desc">UI 표시 위치 & 상세 설명 & 예시값</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">id</div>
+          <div class="var-kr">코스 고유 ID</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 코스 카드 식별자</div>
+          <div class="desc-text">코스 세트의 고유 키</div>
+          <div class="desc-example">예시: "course_ansan_01"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">title</div>
+          <div class="var-kr">코스 기획 명칭</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 코스 카드 최상단 헤더 타이틀</div>
+          <div class="desc-text">질환 맞춤형 코스 이름</div>
+          <div class="desc-example">예시: "식후 혈당 케어 안산 호수공원 완보길"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">targetCondition</div>
+          <div class="var-kr">추천 대상 질환</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 코스 카드 좌측 상단 타겟 뱃지</div>
+          <div class="desc-text">추천 대상 만성질환 ("당뇨", "고혈압")</div>
+          <div class="desc-example">예시: "당뇨"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">totalDistanceMeters</div>
+          <div class="var-kr">실제 보행 거리</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> number</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 카드 중간 거리 텍스트 ("1.8km")</div>
+          <div class="desc-text">TMap 보행자 도로망 기준 실제 걷는 거리 (미터 단위)</div>
+          <div class="desc-example">예시: 1850 (1.8km 표출)</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">walkMinutes</div>
+          <div class="var-kr">예상 소요 시간</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> number</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 카드 중간 시간 텍스트 ("28분")</div>
+          <div class="desc-text">시니어 보행 속도 기준 완보 예상 시간 (분 단위)</div>
+          <div class="desc-example">예시: 28</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">slopeGrade</div>
+          <div class="var-kr">경사도 난이도</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 코스 난이도 뱃지</div>
+          <div class="desc-text">지형 난이도 등급 ("완만(무장애)", "보통", "도전")</div>
+          <div class="desc-example">예시: "완만(무장애)"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">walkingRoute</div>
+          <div class="var-kr">보행 경로 좌표 배열</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> [lng, lat][]</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 지도 위 보행선 (Polyline)</div>
+          <div class="desc-text">GeoJSON 표준 도로망 좌표셋 [[경도, 위도], ...]</div>
+          <div class="desc-example">예시: [[126.834, 37.301], [126.835, 37.302], ...]</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">waypoints</div>
+          <div class="var-kr">경로 3~5분 편의시설</div>
+          <div class="var-meta"><span class="tag-opt">[선택]</span> object[]</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 지도 위 편의시설 핀 & 레이더 바</div>
+          <div class="desc-text">동선 3~5분 내 화장실, 쉼터, 무장애 시설 목록 (이탈 시간, 거리 포함)</div>
+          <div class="desc-example">예시: "호수공원 화장실 (도보 2분, 120m)"</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-<h2>화면 4. 1박 2일 웰니스 안심 숙소 (Wellness Stays)</h2>
-<div class="endpoint">API: GET /api/stays</div>
+<!-- 화면 4 -->
+<div class="page-section">
+  <h2>화면 4. 1박 2일 웰니스 안심 숙소 (Wellness Stays)</h2>
+  <div class="api-endpoint">Endpoint: GET /api/stays</div>
 
-<table>
-  <colgroup>
-    <col style="width: 26%;">
-    <col style="width: 24%;">
-    <col style="width: 36%;">
-    <col style="width: 14%;">
-  </colgroup>
-  <thead>
-    <tr>
-      <th>변수명 (JSON Key)</th>
-      <th>한글명 & UI 표시 위치</th>
-      <th>상세 설명 & 비즈니스 로직 (공공데이터 출처)</th>
-      <th>예시값</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>id</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>숙소 ID (카드 고유 키)</td>
-      <td>숙소 식별자 (TourAPI <code>contentid</code>)</td>
-      <td>"stay_102"</td>
-    </tr>
-    <tr>
-      <td><code>name</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>숙소명 (타이틀 텍스트)</td>
-      <td>숙박 시설 이름 (TourAPI <code>title</code>)</td>
-      <td>"해솔길 한옥스테이"</td>
-    </tr>
-    <tr>
-      <td><code>chkCooking</code> <span class="tag-req">필수</span><span class="type-text">boolean</span></td>
-      <td>자가 취사 (안심 뱃지)</td>
-      <td>객실 내 취사 가능 여부 (저염식 자가 조리 안심)</td>
-      <td>true</td>
-    </tr>
-    <tr>
-      <td><code>roomRefrigerator</code> <span class="tag-req">필수</span><span class="type-text">boolean</span></td>
-      <td>냉장고 구비 (안심 뱃지)</td>
-      <td><strong>인슐린 보관용 냉장고 보유 여부 (당뇨 환자 필수)</strong></td>
-      <td>true</td>
-    </tr>
-    <tr>
-      <td><code>hasFitness</code> <span class="tag-req">필수</span><span class="type-text">boolean</span></td>
-      <td>피트니스 (안심 뱃지)</td>
-      <td>식후 혈당 조절용 피트니스/운동 시설 보유 여부</td>
-      <td>false</td>
-    </tr>
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th class="col-var">변수 정보 (Key / 타입 / 한글명)</th>
+        <th class="col-desc">UI 표시 위치 & 상세 설명 & 예시값</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">id</div>
+          <div class="var-kr">숙소 식별 ID</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 숙소 카드 고유 키</div>
+          <div class="desc-text">TourAPI 숙박 정보의 contentid</div>
+          <div class="desc-example">예시: "stay_30491"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">name</div>
+          <div class="var-kr">숙박 시설 명칭</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 숙소 카드 상단 헤더명</div>
+          <div class="desc-text">숙박 시설의 공식 상호명 (TourAPI title)</div>
+          <div class="desc-example">예시: "대부도 해솔길 한옥스테이"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">chkCooking</div>
+          <div class="var-kr">객실 내 취사 가능 여부</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> boolean</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 숙소 안심 뱃지 ("자가 취사")</div>
+          <div class="desc-text">만성질환자 저염식 조리를 위한 취사 설비 보유 여부</div>
+          <div class="desc-example">예시: true</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">roomRefrigerator</div>
+          <div class="var-kr">객실 냉장고 보유 여부</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> boolean</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ <strong>숙소 핵심 안심 뱃지 ("인슐린 보관")</strong></div>
+          <div class="desc-text"><strong>당뇨 환자 인슐린 보관 필수 조건 충족 여부</strong></div>
+          <div class="desc-example">예시: true</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">hasFitness</div>
+          <div class="var-kr">피트니스 시설 여부</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> boolean</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 숙소 안심 뱃지 ("헬스장 보유")</div>
+          <div class="desc-text">식후 혈당 조절 유산소 운동 시설 보유 여부</div>
+          <div class="desc-example">예시: false</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-<h2>화면 5. 관광명소 퀘스트 & 실시간 GPS 완보 세션 (Quest & Walk Session)</h2>
-<div class="endpoint">API: POST /api/walk-session/ping (동기화) | POST /api/walk-session/complete (완료)</div>
+<!-- 화면 5 -->
+<div class="page-section">
+  <h2>화면 5. 관광명소 퀘스트 & 실시간 GPS 완보 세션 (Quest & Walk Session)</h2>
+  <div class="api-endpoint">Endpoint: POST /api/walk-session/ping | POST /api/walk-session/complete</div>
 
-<table>
-  <colgroup>
-    <col style="width: 26%;">
-    <col style="width: 24%;">
-    <col style="width: 36%;">
-    <col style="width: 14%;">
-  </colgroup>
-  <thead>
-    <tr>
-      <th>변수명 (JSON Key)</th>
-      <th>한글명 & UI 표시 위치</th>
-      <th>상세 설명 & 비즈니스 로직</th>
-      <th>예시값</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>questId</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>퀘스트 ID (퀘스트 카드 키)</td>
-      <td>퀘스트 고유 식별자</td>
-      <td>"qst_lake_01"</td>
-    </tr>
-    <tr>
-      <td><code>targetName</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>목표 명소명 (상단 위젯 타이틀)</td>
-      <td>완보 목표 관광지 명칭</td>
-      <td>"갈대습지공원"</td>
-    </tr>
-    <tr>
-      <td><code>targetDurationMinutes</code> <span class="tag-req">필수</span><span class="type-text">number</span></td>
-      <td>목표 시간 (목표 시간 라벨)</td>
-      <td>완보 인정 최소 체류/보행 시간 (단위: 분)</td>
-      <td>20</td>
-    </tr>
-    <tr>
-      <td><code>titleReward</code> <span class="tag-req">필수</span><span class="type-text">string</span></td>
-      <td>보상 칭호 (리워드 뱃지)</td>
-      <td>완보 시 프로필에 장착되는 리워드 칭호명</td>
-      <td>"습지 생태 지킴이"</td>
-    </tr>
-    <tr>
-      <td><code>elapsedSeconds</code> <span class="tag-req">필수</span><span class="type-text">number</span></td>
-      <td>경과 시간 (타이머 숫자)</td>
-      <td>실시간 누적 보행 시간 (단위: 초)</td>
-      <td>720 (12분)</td>
-    </tr>
-    <tr>
-      <td><code>isGpsValid</code> <span class="tag-req">필수</span><span class="type-text">boolean</span></td>
-      <td>GPS 정상 (신호등 상태창)</td>
-      <td>사용자가 명소 반경 500m 이내 정상 체류 중인지 여부</td>
-      <td>true</td>
-    </tr>
-    <tr>
-      <td><code>isEligible</code> <span class="tag-req">필수</span><span class="type-text">boolean</span></td>
-      <td>완보 버튼 활성화 (인증 버튼)</td>
-      <td>목표 시간 충족 여부 (경과 시간 ≥ 목표 시간)</td>
-      <td>false</td>
-    </tr>
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th class="col-var">변수 정보 (Key / 타입 / 한글명)</th>
+        <th class="col-desc">UI 표시 위치 & 상세 설명 & 예시값</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">questId</div>
+          <div class="var-kr">퀘스트 식별 ID</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 퀘스트 카드 고유 키</div>
+          <div class="desc-text">퀘스트 고유 식별자</div>
+          <div class="desc-example">예시: "qst_ansan_lake"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">targetName</div>
+          <div class="var-kr">목표 명소명</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 상단 고정 플로팅 위젯 타이틀</div>
+          <div class="desc-text">완보 목표가 되는 관광 명소 이름</div>
+          <div class="desc-example">예시: "안산 갈대습지공원"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">targetDurationMinutes</div>
+          <div class="var-kr">목표 산책 시간</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> number</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 목표 시간 라벨 ("20분")</div>
+          <div class="desc-text">완보 인정에 필요한 최소 산책 시간 (분 단위)</div>
+          <div class="desc-example">예시: 20</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">titleReward</div>
+          <div class="var-kr">완보 리워드 칭호</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> string</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 획득 칭호 뱃지</div>
+          <div class="desc-text">완보 성공 시 사용자 프로필에 영구 지급되는 칭호명</div>
+          <div class="desc-example">예시: "갈대습지 생태 수호자"</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">elapsedSeconds</div>
+          <div class="var-kr">실시간 누적 보행시간</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> number</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ 상단 위젯 원형 타이머 숫자</div>
+          <div class="desc-text">현재 세션에서 실제로 걸은 시간 (초 단위)</div>
+          <div class="desc-example">예시: 720 (12분 경과)</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">isGpsValid</div>
+          <div class="var-kr">GPS 500m 체류 여부</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> boolean</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ GPS 연결 상태 신호등 램프</div>
+          <div class="desc-text">사용자가 명소 반경 500m 이내에 정상 체류 중인지 여부</div>
+          <div class="desc-example">예시: true</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="col-var">
+          <div class="var-name">isEligible</div>
+          <div class="var-kr">완보 자격 충족 여부</div>
+          <div class="var-meta"><span class="tag-req">[필수]</span> boolean</div>
+        </td>
+        <td class="col-desc">
+          <div class="desc-ui">🖥️ [칭호 획득하기] 버튼 활성화 여부</div>
+          <div class="desc-text">목표 시간 이상 체류하여 완보 조건을 달성했는지 여부</div>
+          <div class="desc-example">예시: false (미달성) / true (달성)</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
 </body>
 </html>
