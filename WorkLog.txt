@@ -364,3 +364,39 @@
 - 서울 중구, 강원 강릉시, 전남 여수시, 경북 영양군 4개 권역 대상 4대 Tour API 라이브 호출 검증 완료 (영양군 식당 9건/무장애 3건/웰니스 1건 정상 응답 확인).
 - 데스크톱 및 모바일 뷰포트 레이아웃 겹침 및 텍스트 렌더링 정상 검증.
 
+
+## [2026-10-06] 한국관광공사 공공데이터 공식 매뉴얼 분석, 기획서용 변수 명세서 구축 및 프론트-백엔드 공유 계약 DTO 정의 완료
+
+### 1. 작업 개요
+- **사용자 요청**:
+  1. 기획서(구글 닥스) 작성을 위해 프론트엔드와 백엔드를 잇기 위한 공통 통신 변수명 정리 요청.
+  2. 실무에서 프론트-백엔드 통신 및 데이터 관리를 어떻게 수행하는지 가이드 제공 요청.
+  3. 로컬 카카오톡 다운로드 폴더의 공공데이터 공식 매뉴얼 5종을 프로젝트 내 편입하여 다른 AI도 열람할 수 있도록 GitHub 푸시 지시.
+  4. 프론트엔드 레포지토리와 백엔드 레포지토리가 분리된 상황에서, 사람이 보고 이해하여 양측을 통합할 수 있도록 상세한 UI 위치, 비즈니스 로직, 예외 처리 주석을 포함한 명세서 작성 지시.
+
+### 2. 주요 구현 내용
+1. **공공데이터 API 공식 매뉴얼 5종 프로젝트 편입 및 AI용 마크다운 변환 (`docs/public_api_docs/`)**:
+   - `한국관광공사_개방데이터_활용매뉴얼(국문)_v4.4` (.docx -> .md)
+   - `한국관광공사_개방데이터_활용매뉴얼(무장애여행)_v4.3` (.docx -> .md)
+   - `한국관광공사_개방데이터_활용매뉴얼(웰니스)_v4.1` (.docx -> .md)
+   - `한국관광공사_개방데이터_활용매뉴얼(의료)_v4.1` (.docx -> .md)
+   - `신분류체계정보 관광타입정보 연계 정의서` (.xlsx -> .md)
+   - 파싱 자동화 스크립트(`scripts/parse_docx_to_md.ps1`, `scripts/parse_xlsx_to_md.ps1`) 구축 및 GitHub 푸시 완료.
+2. **구글 닥스 기획서 및 개발자용 상세 변수 명세서 작성 (`docs/api_spec_for_planning.md`, `.html`)**:
+   - **통신 원칙**: `camelCase` 표준, `{ success, data, error }` 공통 래퍼(Envelope Pattern), 직관적 한글 Enum(`"당뇨"`, `"화장실"`) 확정.
+   - **5대 핵심 화면별 1:1 UI 매핑 명세**:
+     1. [회원가입/온보딩]: `userId`, `userName`, `chronicConditions`, `medications`(DUR 연계), `walkFitnessLevel`, `requiredInfra`.
+     2. [메인 지도/안심장소]: `id`, `name`, `category`, `address`, `latitude`, `longitude`, `imageUrl`, `safeTags`, `nutrition`(열량/당류/나트륨/등급).
+     3. [식후 맞춤코스]: `id`, `title`, `totalDistanceMeters`, `walkMinutes`, `slopeGrade`, `walkingRoute`, `waypoints`(편의시설).
+     4. [1박 2일 숙소]: `id`, `name`, `address`, `latitude`, `longitude`, `chkCooking`, `roomRefrigerator`, `hasFitness`.
+     5. [명소 퀘스트/실시간 세션]: `questId`, `targetName`, `targetDurationMinutes`, `titleReward`, `elapsedSeconds`, `isGpsValid`, `isEligible`.
+   - 구글 닥스에 서식/표 그대로 복사-붙여넣기 가능한 전용 HTML 문서(`docs/api_spec_for_planning.html`) 동시 배포.
+3. **프론트-백엔드 공유 단일 진실 공급원 DTO 정의 (`src/types/contract.types.ts`)**:
+   - 신규 프론트엔드 레포지토리에서 즉시 임포트하여 사용할 수 있는 TypeScript 계약 인터페이스 12종 선언 완료.
+
+### 3. 발견된 예외 사항 및 우회법
+- **구글 닥스 직접 원격 쓰기 보안 제약**: Google Docs는 구글 계정 OAuth 웹 세션을 요구하여 외부 CLI/스크립트의 직접 원격 타이핑이 제한됨. 이를 우회하기 위해 브라우저에서 `Ctrl + A` -> `Ctrl + C` 후 구글 닥스에 `Ctrl + V` 하면 표 서식, 뱃지, 폰트 스타일이 100% 온전히 삽입되는 스타일링된 HTML 명세서(`docs/api_spec_for_planning.html`)를 함께 생성하여 제공함.
+
+### 4. 검증 결과
+- TypeScript 정적 분석 통과 (0 에러, 순환 참조 없음, Null 방어 완료 - "QA 통과").
+- GitHub `main` 브랜치에 커밋 `0a4137f`, `48c490a`, `69f41c5`, `78f425b` 일괄 푸시 완료.
