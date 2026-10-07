@@ -1,42 +1,53 @@
+// Zustand 상태 관리 라이브러리 스토어 생성 함수 불러오기
 import { create } from "zustand";
+// 웰니스 관련 TypeScript 타입 인터페이스들 불러오기
 import {
-  UserProfile,
-  WellnessCourseSet,
-  ChronicCondition,
-  MultiDayCourseSet,
-  WellnessStay,
-  WellnessQuest,
-  FontSizeSetting,
-  AppThemeMode,
-  SavedCustomCourse,
-  ActiveWalkSession,
+  UserProfile, // 사용자 건강 및 맞춤 설정 프로필
+  WellnessCourseSet, // 웰니스 코스 세트 (식당 + 산책로 조합)
+  ChronicCondition, // 만성질환 구분 타입
+  MultiDayCourseSet, // 1박 2일 연계 코스 타입
+  WellnessStay, // 안심 숙소 정보 타입
+  WellnessQuest, // 웰니스 걷기 퀘스트 정보 타입
+  FontSizeSetting, // 글자 크기 설정 타입 (normal, large, xlarge)
+  AppThemeMode, // 테마 모드 타입 (light, dark)
+  SavedCustomCourse, // 저장된 맞춤 코스 타입
+  ActiveWalkSession, // 진행 중인 실시간 완보 걷기 세션 타입
 } from "../types/wellness.types";
+// 초기 정적 시드 데이터 불러오기
 import {
-  INITIAL_USER_PROFILE,
-  INITIAL_WELLNESS_COURSES,
-  INITIAL_MULTI_DAY_COURSES,
-  INITIAL_WELLNESS_STAYS,
+  INITIAL_USER_PROFILE, // 기본 사용자 프로필
+  INITIAL_WELLNESS_COURSES, // 기본 웰니스 코스 목록
+  INITIAL_MULTI_DAY_COURSES, // 기본 1박 2일 코스 목록
+  INITIAL_WELLNESS_STAYS, // 기본 안심 숙소 목록
 } from "../config/wellnessData";
+// Supabase 클라우드 데이터베이스 클라이언트 불러오기
 import { supabase } from "../utils/supabase";
+// 두 위경도 좌표 간 거리(미터) 산출 유틸리티 함수 불러오기
 import { calculateDistanceMeters } from "../utils/pedestrianRouter";
+// 한국관광공사 및 의료관광 통합 공공데이터 API 연동 함수 불러오기
 import { fetchComprehensiveRegionalTourData, fetchMedicalTourPlaces, UnifiedTourItem } from "../utils/tourApi";
+// 공공데이터 기반 동적 지역 코스 및 퀘스트 빌더 유틸리티 불러오기
 import { buildRegionalCourses, buildRegionalQuests } from "../utils/regionalCourseQuestBuilder";
+// GPS 좌표 기반 전국 시도/시군구 행정구역 역지오코딩 해석기 불러오기
 import { resolveKoreaRegion } from "../utils/koreaRegionResolver";
 
+// 지도 상단 안심 편의시설 레이더 필터 타입 정의
 export type WaypointFilterType = "전체" | "화장실" | "쉼터" | "배리어프리" | "의료";
 
+// 서울시청 기본 표준 좌표 (위치 권한 미허용 시 기본 위치)
 export const SEOUL_CITY_HALL = { latitude: 37.5665, longitude: 126.9780 };
 
+// 초기 의료 시설 시드 목록 (응급의료센터 및 상급종합병원)
 export const INITIAL_MEDICAL_PLACES: UnifiedTourItem[] = [
   {
-    id: "med-seoul-1",
-    sourceApi: "medical",
-    title: "국립중앙의료원",
-    address: "서울특별시 중구 을지로 245",
-    category: "종합병원·응급의료센터",
-    longitude: 127.0053,
-    latitude: 37.5672,
-    tel: "02-2260-7114",
+    id: "med-seoul-1", // 고유 ID
+    sourceApi: "medical", // 의료 데이터 출처
+    title: "국립중앙의료원", // 기관명
+    address: "서울특별시 중구 을지로 245", // 도로명 주소
+    category: "종합병원·응급의료센터", // 진료 구분
+    longitude: 127.0053, // 경도
+    latitude: 37.5672, // 위도
+    tel: "02-2260-7114", // 전화번호
   },
   {
     id: "med-seoul-2",
@@ -70,16 +81,18 @@ export const INITIAL_MEDICAL_PLACES: UnifiedTourItem[] = [
   },
 ];
 
-const STORAGE_KEY_PROFILE = "vitalroot_user_profile";
-const STORAGE_KEY_QUESTS = "vitalroot_user_quests";
-const STORAGE_KEY_LOCATION = "vitalroot_user_location";
-const STORAGE_KEY_THEME = "vitalroot_theme_mode";
-const STORAGE_KEY_FONT_SIZE = "vitalroot_font_size";
-const STORAGE_KEY_MAP_TYPE = "vitalroot_map_type";
-const STORAGE_KEY_DISTANCE_UNIT = "vitalroot_distance_unit";
-const STORAGE_KEY_SAVED_COURSES = "vitalroot_saved_courses";
-const STORAGE_KEY_EQUIPPED_TITLE = "vitalroot_equipped_title";
+// 브라우저 로컬 스토리지 키 상수 정의
+const STORAGE_KEY_PROFILE = "vitalroot_user_profile"; // 건강 프로필 저장 키
+const STORAGE_KEY_QUESTS = "vitalroot_user_quests"; // 퀘스트 완료 내역 저장 키
+const STORAGE_KEY_LOCATION = "vitalroot_user_location"; // 사용자 최근 위치 좌표 키
+const STORAGE_KEY_THEME = "vitalroot_theme_mode"; // 테마 모드 키
+const STORAGE_KEY_FONT_SIZE = "vitalroot_font_size"; // 폰트 크기 키
+const STORAGE_KEY_MAP_TYPE = "vitalroot_map_type"; // 지도 타일 유형 키
+const STORAGE_KEY_DISTANCE_UNIT = "vitalroot_distance_unit"; // 거리 단위 키
+const STORAGE_KEY_SAVED_COURSES = "vitalroot_saved_courses"; // 북마크 코스 키
+const STORAGE_KEY_EQUIPPED_TITLE = "vitalroot_equipped_title"; // 장착 칭호 키
 
+// 로컬 스토리지에서 장착 칭호 불러오기 헬퍼 함수
 function getSavedEquippedTitle(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEY_EQUIPPED_TITLE);
@@ -88,6 +101,7 @@ function getSavedEquippedTitle(): string | null {
   }
 }
 
+// 로컬 스토리지에서 최근 사용자 위치 좌표 불러오기 헬퍼 함수
 function getSavedLocation(): { latitude: number; longitude: number } | null {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_LOCATION);
@@ -95,27 +109,30 @@ function getSavedLocation(): { latitude: number; longitude: number } | null {
       return JSON.parse(saved);
     }
   } catch {
-    // fallback
+    // 파싱 실패 시 폴백
   }
   return null;
 }
 
+// 로컬 스토리지에서 테마 모드 불러오기 헬퍼 함수
 function getSavedTheme(): AppThemeMode {
   try {
     const s = localStorage.getItem(STORAGE_KEY_THEME);
     if (s === "light" || s === "dark") return s;
   } catch {}
-  return "dark";
+  return "dark"; // 기본값 다크 모드
 }
 
+// 로컬 스토리지에서 폰트 크기 설정 불러오기 헬퍼 함수
 function getSavedFontSize(): FontSizeSetting {
   try {
     const s = localStorage.getItem(STORAGE_KEY_FONT_SIZE);
     if (s === "normal" || s === "large" || s === "xlarge") return s;
   } catch {}
-  return "large"; // 기본 폰트 크기 'large' (가독성 향상)
+  return "large"; // 기본 폰트 크기 'large' (시니어 및 야외 가독성 향상)
 }
 
+// 로컬 스토리지에서 지도 맵 타입 불러오기 헬퍼 함수
 function getSavedMapType(): "NORMAL" | "HYBRID" {
   try {
     const s = localStorage.getItem(STORAGE_KEY_MAP_TYPE);

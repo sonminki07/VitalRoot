@@ -147,22 +147,26 @@ export function MapMarkersLayer({
       const isSelected = course.id === activeCourse?.id;
 
       let skipRest = false;
+      // [마커 겹침 방지 필터링]: 현재 활성화된 코스가 아닐 때 주변 핀들과의 거리 검사
       let skipTrail = false;
 
       if (!isSelected && activeCourse) {
+        // 비활성 코스의 산책로와 현재 활성 코스 산책로 간 거리(m) 계산
         const distTrailToActiveTrail = calculateDistanceMeters(
           course.trail.latitude,
           course.trail.longitude,
           activeCourse.trail.latitude,
           activeCourse.trail.longitude
         );
+        // 비활성 코스의 산책로와 현재 활성 코스 식당 간 거리(m) 계산
         const distTrailToActiveRest = calculateDistanceMeters(
           course.trail.latitude,
           course.trail.longitude,
           activeCourse.restaurant.latitude,
           activeCourse.restaurant.longitude
         );
-        // 국립중앙박물관 및 주요 무장애/의료 거점 마커는 70m 이내여도 스킵하지 않고 온전히 유지
+        // [보호 거점 판별]: 보행 약자/응급 환자에게 필수적인 핵심 거점(박물관, 무장애 시설, 휠체어 전용로, 병원 등)은
+        // 70m 이내로 인접하더라도 지도에서 숨기지 않고 항상 온전히 표출
         const isProtectedTrail =
           course.trail.name.includes("박물관") ||
           course.trail.name.includes("무장애") ||
@@ -173,22 +177,26 @@ export function MapMarkersLayer({
               (t) => t.includes("무장애") || t.includes("휠체어")
             ));
 
+        // 보호 대상이 아니고 70m 이내로 과도하게 밀집된 경우 지도 가독성을 위해 마커 렌더링 스킵
         if (!isProtectedTrail && (distTrailToActiveTrail < 70 || distTrailToActiveRest < 70)) {
           skipTrail = true;
         }
 
+        // 비활성 코스 식당과 현재 활성 식당 간 거리 계산
         const distRestToActiveRest = calculateDistanceMeters(
           course.restaurant.latitude,
           course.restaurant.longitude,
           activeCourse.restaurant.latitude,
           activeCourse.restaurant.longitude
         );
+        // 비활성 코스 식당과 현재 활성 산책로 간 거리 계산
         const distRestToActiveTrail = calculateDistanceMeters(
           course.restaurant.latitude,
           course.restaurant.longitude,
           activeCourse.trail.latitude,
           activeCourse.trail.longitude
         );
+        // 식당 역시 의료/복지/무장애 관련 핵심 시설인 경우 보호 처리
         const isProtectedRest =
           course.restaurant.name.includes("박물관") ||
           course.restaurant.name.includes("무장애") ||
@@ -196,6 +204,7 @@ export function MapMarkersLayer({
           course.restaurant.name.includes("병원") ||
           course.restaurant.name.includes("국립중앙박물관");
 
+        // 70m 이내 일반 식당 마커 스킵 처리
         if (!isProtectedRest && (distRestToActiveRest < 70 || distRestToActiveTrail < 70)) {
           skipRest = true;
         }
@@ -642,6 +651,9 @@ export function MapMarkersLayer({
         infoWindowRef.current?.open(map, stayMarker);
       });
 
+      // [사이드바 연동 자동 인포윈도우 팝업]: 사용자가 사이드바 패널의 '안심 숙소' 탭에서 카드를 클릭했을 때,
+      // 지도가 해당 좌표로 비행(flyTo) 이동하는 시간(약 150ms)을 대기한 뒤,
+      // 프로그래밍 방식으로 마커의 'click' 이벤트를 강제 트리거하여 상세 인포윈도우를 자동으로 열어줌
       if (isStayActive && prevActiveStayIdRef.current !== activeStayId) {
         prevActiveStayIdRef.current = activeStayId;
         setTimeout(() => {

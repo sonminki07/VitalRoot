@@ -1,15 +1,27 @@
+// React 핵심 상태 및 생명주기 훅 불러오기
 import { useState, useEffect } from "react";
+// Zustand 스토어 구독 시 불필요한 리렌더링을 차단하는 shallow 비교 유틸
 import { useShallow } from "zustand/react/shallow";
+// 웰니스 코스 및 질환/프로필 전역 상태 관리 스토어 불러오기
 import { useWellnessStore } from "../../store/wellnessStore";
+// 네이버 지도 뷰포트 이동 및 포커스 제어 스토어 불러오기
 import { useMapStore } from "../../store/mapStore";
+// 만성질환 타입 선언 불러오기
 import { ChronicCondition } from "../../types/wellness.types";
+// 추천 웰니스 코스 탭 뷰 컴포넌트 불러오기
 import { CourseTab } from "./tabs/CourseTab";
+// 1박 2일 장기 코스 탭 뷰 컴포넌트 불러오기
 import { MultiDayTab } from "./tabs/MultiDayTab";
+// 안심 숙소 탭 뷰 컴포넌트 불러오기
 import { StayTab } from "./tabs/StayTab";
+// 웰니스 퀘스트 및 칭호 리워드 탭 뷰 컴포넌트 불러오기
 import { QuestTab } from "./tabs/QuestTab";
+// 질환별 필터 설정 탭 뷰 컴포넌트 불러오기
 import { ConditionFilterTab } from "./tabs/ConditionFilterTab";
+// 식약처 DUR 복약 주의보 상시 요약 카드 컴포넌트 불러오기
 import { DurWarningSummaryCard } from "./DurWarningSummaryCard";
 
+// 지원하는 6대 만성질환 전체 목록 상수
 const ALL_CONDITIONS: ChronicCondition[] = [
   "당뇨",
   "고혈압",
@@ -19,28 +31,35 @@ const ALL_CONDITIONS: ChronicCondition[] = [
   "관절/근골격계",
 ];
 
+// 통합 제어 사이드바/바텀시트 패널 컴포넌트 선언
 export function ControlPanel() {
+  // 현재 활성화된 탭 상태 ("courses" | "multiday" | "stays" | "quests" | "profile")
   const [activeTab, setActiveTab] = useState<
     "courses" | "multiday" | "stays" | "quests" | "profile"
   >("courses");
+  // 모바일 뷰에서 바텀시트가 위로 펼쳐졌는지 여부 상태
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+  // 코스별 영양소 세부 정보 아코디언 펼침/접힘 상태 맵
   const [expandedNutritionCourseIds, setExpandedNutritionCourseIds] = useState<Record<string, boolean>>({});
 
-  // 사이드바 가로/세로/대각선 3방향 리사이즈 및 접힘 상태 (크기 영구 기억)
+  // 데스크톱 패널 가로 너비 상태 (로컬 스토리지에서 복원 또는 기본 380px)
   const [panelWidth, setPanelWidth] = useState<number>(() => {
     if (typeof window === "undefined") return 380;
     const saved = localStorage.getItem("vital_panel_width");
     return saved ? Math.min(Math.max(Number(saved), 280), 750) : 380;
   });
+  // 데스크톱 패널 세로 높이 상태 (로컬 스토리지에서 복원 또는 화면 전체)
   const [panelHeight, setPanelHeight] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const saved = localStorage.getItem("vital_panel_height");
     return saved ? Math.max(Number(saved), 360) : null;
   });
+  // 사이드바 완전 접힘 모드 여부
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // 마우스 드래그로 크기 조절 중인지 여부 플래그
   const [isResizing, setIsResizing] = useState(false);
 
-  // CSS custom property 동기화 (--vital-sidebar-width) -> 지도 플로팅 위젯들과 유동 간격 연동
+  // CSS 전역 변수(--vital-sidebar-width)에 패널 너비를 실시간 동기화하여 지도 위젯 위치 자동 연동
   useEffect(() => {
     if (typeof document !== "undefined") {
       const effectiveWidth = isCollapsed ? 0 : panelWidth;
@@ -51,7 +70,7 @@ export function ControlPanel() {
     }
   }, [panelWidth, isCollapsed]);
 
-  // 전역 UI 초기화 이벤트 리스너 (설정 모달의 UI 초기화 버튼과 연동)
+  // 설정 모달 등에서 'UI 기본값 초기화' 이벤트 발생 시 사이드바 크기 원복
   useEffect(() => {
     const handleResetUI = () => {
       setPanelWidth(380);
@@ -65,7 +84,7 @@ export function ControlPanel() {
     return () => window.removeEventListener("vital-reset-ui", handleResetUI);
   }, []);
 
-  // 3방향 드래그 리사이즈 핸들러 (horizontal, vertical, both/diagonal)
+  // 사이드바 테두리 드래그 시 3방향(가로, 세로, 대각선) 리사이즈 시작 핸들러
   const handleStartResize = (direction: "horizontal" | "vertical" | "both") => (e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizing(true);
@@ -74,9 +93,10 @@ export function ControlPanel() {
     const startW = panelWidth;
     const startH = panelHeight ?? (window.innerHeight - 24);
 
+    // 마우스 이동 시 실시간 크기 계산 및 적용
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (direction === "horizontal" || direction === "both") {
-        // 지도 우측 컨트롤 영역(최소 450px)을 침범하지 않도록 최대 가로폭 동적 제한
+        // 지도 우측 조작 영역(최소 450px) 보장
         const maxW = Math.max(Math.min(window.innerWidth - 450, 750), 380);
         const nextW = Math.min(Math.max(startW + (moveEvent.clientX - startX), 280), maxW);
         setPanelWidth(nextW);
@@ -91,6 +111,7 @@ export function ControlPanel() {
       }
     };
 
+    // 마우스 버튼 뗐을 때 리사이즈 이벤트 제거
     const onMouseUp = () => {
       setIsResizing(false);
       window.removeEventListener("mousemove", onMouseMove);
@@ -101,6 +122,7 @@ export function ControlPanel() {
     window.addEventListener("mouseup", onMouseUp);
   };
 
+  // 특정 코스의 식단 영양소 카드 펼치기/접기 토글
   const toggleNutritionExpand = (courseId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedNutritionCourseIds((prev) => ({
@@ -109,7 +131,7 @@ export function ControlPanel() {
     }));
   };
 
-  // 스토어 구독 (useShallow 적용으로 필요한 필드 변경 시에만 리렌더링)
+  // 웰니스 전역 스토어 상태 및 조작 함수들을 얕은 비교로 안전하게 구독
   const {
     profile,
     filteredCourses,
@@ -143,47 +165,51 @@ export function ControlPanel() {
     isRegionLoading,
   } = useWellnessStore(
     useShallow((s) => ({
-      profile: s.profile,
-      filteredCourses: s.filteredCourses,
-      activeCourseId: s.activeCourseId,
-      setActiveCourseId: s.setActiveCourseId,
-      setHoveredCourseId: s.setHoveredCourseId,
-      multiDayCourses: s.multiDayCourses,
-      activeMultiDayCourseId: s.activeMultiDayCourseId,
-      setActiveMultiDayCourseId: s.setActiveMultiDayCourseId,
-      stays: s.stays,
-      activeStayId: s.activeStayId,
-      setActiveStayId: s.setActiveStayId,
-      stayFilter: s.stayFilter,
-      toggleStayFilter: s.toggleStayFilter,
-      quests: s.quests,
-      activeQuestId: s.activeQuestId,
-      setActiveQuestId: s.setActiveQuestId,
-      earnedTitles: s.earnedTitles,
-      equippedTitle: s.equippedTitle,
-      equipTitle: s.equipTitle,
-      startWalkSession: s.startWalkSession,
-      toggleCondition: s.toggleCondition,
-      userLocation: s.userLocation,
-      setIsLocationModalOpen: s.setIsLocationModalOpen,
-      setIsPinningHome: s.setIsPinningHome,
-      courseMode: s.courseMode,
-      setCourseMode: s.setCourseMode,
-      openSettingsModal: s.openSettingsModal,
-      themeMode: s.themeMode,
-      currentRegionName: s.currentRegionName,
-      isRegionLoading: s.isRegionLoading,
+      profile: s.profile, // 건강 프로필 데이터
+      filteredCourses: s.filteredCourses, // 질환 맞춤 필터링된 코스 목록
+      activeCourseId: s.activeCourseId, // 선택된 코스 고유 ID
+      setActiveCourseId: s.setActiveCourseId, // 코스 선택 변경 함수
+      setHoveredCourseId: s.setHoveredCourseId, // 마우스 호버 코스 ID 설정
+      multiDayCourses: s.multiDayCourses, // 1박 2일 코스 목록
+      activeMultiDayCourseId: s.activeMultiDayCourseId, // 선택된 장기 코스 ID
+      setActiveMultiDayCourseId: s.setActiveMultiDayCourseId, // 장기 코스 선택 함수
+      stays: s.stays, // 안심 숙소 목록
+      activeStayId: s.activeStayId, // 선택된 숙소 ID
+      setActiveStayId: s.setActiveStayId, // 숙소 선택 함수
+      stayFilter: s.stayFilter, // 취사/냉장고/피트니스 편의시설 필터
+      toggleStayFilter: s.toggleStayFilter, // 편의시설 필터 토글 함수
+      quests: s.quests, // 웰니스 퀘스트 목록
+      activeQuestId: s.activeQuestId, // 선택된 퀘스트 ID
+      setActiveQuestId: s.setActiveQuestId, // 퀘스트 선택 함수
+      earnedTitles: s.earnedTitles, // 획득한 칭호 리스트
+      equippedTitle: s.equippedTitle, // 현재 장착 중인 칭호
+      equipTitle: s.equipTitle, // 칭호 장착 함수
+      startWalkSession: s.startWalkSession, // 실시간 완보 걷기 세션 시작
+      toggleCondition: s.toggleCondition, // 질환 선택 토글 함수
+      userLocation: s.userLocation, // 사용자 위치 좌표
+      setIsLocationModalOpen: s.setIsLocationModalOpen, // 위치 모달 표시 여부
+      setIsPinningHome: s.setIsPinningHome, // 출발지 핀 찍기 활성화
+      courseMode: s.courseMode, // 지역 기반 vs 테마 기반 추천 모드
+      setCourseMode: s.setCourseMode, // 추천 모드 변경 함수
+      openSettingsModal: s.openSettingsModal, // 환경설정 모달 열기 함수
+      themeMode: s.themeMode, // 라이트/다크 테마
+      currentRegionName: s.currentRegionName, // 현재 선택된 행정구역 이름
+      isRegionLoading: s.isRegionLoading, // 지역 데이터 로딩 중 여부
     }))
   );
 
-  // 활성 퀘스트 세션 ID (원시값으로 구독하여 1초 타이머 틱에 의한 ControlPanel 리렌더링 완전 차단)
+  // 진행 중인 퀘스트 세션 ID (타이머 틱으로 인한 리렌더링을 방지하기 위해 원시값으로만 별도 구독)
   const activeQuestSessionId = useWellnessStore((s) => s.activeWalkSession?.questId ?? null);
 
+  // 라이트 테마 플래그
   const isLight = themeMode === "light";
 
+  // 지도 이동 액션 함수
   const { flyToPlace } = useMapStore();
+  // 추천 모드 전환 시 부드러운 페이드 효과를 위한 상태
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // 지역 중심 추천 ↔ 전국 테마 추천 간 모드 변경 핸들러
   const handleModeChange = (mode: "local" | "theme") => {
     if (courseMode === mode) return;
     setIsTransitioning(true);
@@ -200,6 +226,7 @@ export function ControlPanel() {
     }, 150);
   };
 
+  // 거리 단위 변환 유틸 함수 (미터 ➔ km 표기)
   const formatDistance = (meters: number) => {
     if (meters >= 1000) {
       return `${(meters / 1000).toFixed(1)}km`;
@@ -207,15 +234,15 @@ export function ControlPanel() {
     return `${meters}m`;
   };
 
-  // 코스 선택 핸들러 (지도는 MapContainer의 fitCourseAndHomeBounds가 부드럽게 통합 포커스)
+  // 코스 카드 클릭 시 선택 처리 핸들러
   const handleSelectCourse = (courseId: string) => {
     setActiveCourseId(courseId);
     if (typeof window !== "undefined" && window.innerWidth < 640) {
-      setIsMobileExpanded(false);
+      setIsMobileExpanded(false); // 모바일에서는 선택 시 지도를 볼 수 있게 바텀시트 축소
     }
   };
 
-  // 장기 코스 선택 핸들러
+  // 장기(1박 2일) 코스 선택 시 해당 숙소로 지도 비행 이동
   const handleSelectMultiDayCourse = (courseId: string) => {
     setActiveMultiDayCourseId(courseId);
     const target = multiDayCourses.find((c) => c.id === courseId);
@@ -227,7 +254,7 @@ export function ControlPanel() {
     }
   };
 
-  // 안심 숙소 선택 핸들러
+  // 안심 숙소 카드 클릭 시 해당 숙소 좌표로 지도 이동
   const handleSelectStay = (stayId: string) => {
     setActiveStayId(stayId);
     const target = stays.find((s) => s.id === stayId);
@@ -239,7 +266,7 @@ export function ControlPanel() {
     }
   };
 
-  // 퀘스트 선택 핸들러
+  // 퀘스트 카드 클릭 시 해당 목적지로 지도 이동
   const handleSelectQuest = (questId: string) => {
     setActiveQuestId(questId);
     const target = quests.find((q) => q.id === questId);
@@ -251,7 +278,7 @@ export function ControlPanel() {
     }
   };
 
-  // 필터링된 숙소 리스트
+  // 편의시설 체크박스(취사, 냉장고, 피트니스) 조건에 맞춘 숙소 목록 필터링
   const filteredStays = stays.filter((stay) => {
     if (stayFilter.chkcooking && !stay.chkcooking) return false;
     if (stayFilter.roomrefrigerator && !stay.roomrefrigerator) return false;
@@ -259,6 +286,7 @@ export function ControlPanel() {
     return true;
   });
 
+  // 사이드바가 완전히 접혀 있는 상태일 때의 미니 토글 버튼 렌더링
   if (isCollapsed) {
     return (
       <button
@@ -277,6 +305,7 @@ export function ControlPanel() {
     );
   }
 
+  // 기본 제어 패널 UI 렌더링
   return (
     <div
       style={{
@@ -295,7 +324,7 @@ export function ControlPanel() {
         ${isMobileExpanded ? "h-[85vh] sm:h-auto" : "h-14 sm:h-auto"}
       `}
     >
-      {/* 모바일 접힘 상태 퀵 바 (sm:hidden) */}
+      {/* 모바일 접힘 상태 퀵 바 (모바일에서 축소 시 한 줄 바로 노출) */}
       {!isMobileExpanded && (
         <div
           onClick={() => setIsMobileExpanded(true)}
@@ -317,7 +346,7 @@ export function ControlPanel() {
         </div>
       )}
 
-      {/* 내부 콘텐츠 (모바일 펼침 시 또는 데스크톱에서 항상 표시) */}
+      {/* 내부 콘텐츠 컨테이너 (모바일 펼침 시 또는 데스크톱에서 항시 노출) */}
       <div
         className={
           !isMobileExpanded
@@ -325,7 +354,7 @@ export function ControlPanel() {
             : "flex flex-col flex-1 overflow-hidden"
         }
       >
-        {/* 모바일 상단 드래그 핸들 및 닫기 버튼 */}
+        {/* 모바일 상단 드래그 인디케이터 핸들 및 닫기 버튼 */}
         <div className="sm:hidden relative flex items-center justify-center pt-2.5 pb-2 border-b border-gray-800 bg-gray-950/60">
           <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
           <button
@@ -336,7 +365,7 @@ export function ControlPanel() {
           </button>
         </div>
 
-        {/* 상단 헤더 */}
+        {/* 패널 상단 브랜드 헤더 */}
         <div
           className={`p-3.5 sm:p-4 border-b ${
             isLight
@@ -352,6 +381,7 @@ export function ControlPanel() {
               </h1>
             </div>
             <div className="flex items-center gap-1.5">
+              {/* 데스크톱 사이드바 접기 버튼 */}
               <button
                 onClick={() => setIsCollapsed(true)}
                 className={`hidden sm:flex items-center justify-center w-7 h-7 rounded-lg border text-xs transition-colors shadow-sm ${
@@ -363,6 +393,7 @@ export function ControlPanel() {
               >
                 ◀
               </button>
+              {/* 환경 설정 모달 열기 버튼 */}
               <button
                 onClick={() => openSettingsModal("health")}
                 className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors shadow-sm ${
@@ -375,6 +406,7 @@ export function ControlPanel() {
                 <span>⚙️</span>
                 <span>설정</span>
               </button>
+              {/* 네이버 지도 연동 뱃지 */}
               <span
                 className={`text-xs px-2.5 py-1 rounded-full border font-bold ${
                   isLight
@@ -386,6 +418,7 @@ export function ControlPanel() {
               </span>
             </div>
           </div>
+          {/* 서비스 한 줄 설명 문구 */}
           <p
             className={`text-xs mt-1 ${
               isLight ? "text-slate-500 font-medium" : "text-gray-400"
@@ -395,7 +428,7 @@ export function ControlPanel() {
           </p>
         </div>
 
-        {/* 5개 탭 네비게이션 */}
+        {/* 5개 메인 탭 전환 네비게이션 바 */}
         <div
           className={`grid grid-cols-5 border-b text-[11px] sm:text-xs font-semibold ${
             isLight
@@ -403,6 +436,7 @@ export function ControlPanel() {
               : "bg-gray-950/80 border-gray-800"
           }`}
         >
+          {/* 1. 추천 코스 탭 */}
           <button
             onClick={() => setActiveTab("courses")}
             className={`py-2.5 transition-colors text-center ${
@@ -417,6 +451,7 @@ export function ControlPanel() {
           >
             추천 코스
           </button>
+          {/* 2. 장기 코스 탭 */}
           <button
             onClick={() => setActiveTab("multiday")}
             className={`py-2.5 transition-colors text-center ${
@@ -431,6 +466,7 @@ export function ControlPanel() {
           >
             장기 코스
           </button>
+          {/* 3. 안심 숙소 탭 */}
           <button
             onClick={() => setActiveTab("stays")}
             className={`py-2.5 transition-colors text-center ${
@@ -445,6 +481,7 @@ export function ControlPanel() {
           >
             안심 숙소
           </button>
+          {/* 4. 퀘스트 탭 */}
           <button
             onClick={() => setActiveTab("quests")}
             className={`py-2.5 transition-colors text-center ${
@@ -459,6 +496,7 @@ export function ControlPanel() {
           >
             퀘스트
           </button>
+          {/* 5. 조건 필터 탭 */}
           <button
             onClick={() => setActiveTab("profile")}
             className={`py-2.5 transition-colors text-center ${
@@ -475,7 +513,7 @@ export function ControlPanel() {
           </button>
         </div>
 
-        {/* 탭 본문 영역 (스크롤 지원) */}
+        {/* 탭 본문 스크롤 영역 */}
         <div className="p-4 overflow-y-auto space-y-4 flex-1 text-sm custom-scrollbar">
           {/* 식약처 DUR 복약 안전 주의보 상시 노출 요약 카드 (TC-07) */}
           <DurWarningSummaryCard
@@ -484,7 +522,7 @@ export function ControlPanel() {
             onOpenSettingsModal={openSettingsModal}
           />
 
-          {/* TAB 1: 추천 코스 */}
+          {/* TAB 1: 추천 코스 본문 */}
           {activeTab === "courses" && (
             <CourseTab
               courseMode={courseMode}
@@ -506,7 +544,7 @@ export function ControlPanel() {
             />
           )}
 
-          {/* TAB 2: 장기 코스 (1박 2일) */}
+          {/* TAB 2: 장기 코스 본문 (1박 2일) */}
           {activeTab === "multiday" && (
             <MultiDayTab
               multiDayCourses={multiDayCourses}
@@ -516,7 +554,7 @@ export function ControlPanel() {
             />
           )}
 
-          {/* TAB 3: 안심 숙소 (취사, 냉장고, 피트니스 필터 지원) */}
+          {/* TAB 3: 안심 숙소 본문 (취사, 냉장고, 피트니스 필터 지원) */}
           {activeTab === "stays" && (
             <StayTab
               filteredStays={filteredStays}
@@ -528,7 +566,7 @@ export function ControlPanel() {
             />
           )}
 
-          {/* TAB 4: 웰니스 퀘스트 & 칭호 리워드 */}
+          {/* TAB 4: 웰니스 퀘스트 & 칭호 리워드 본문 */}
           {activeTab === "quests" && (
             <QuestTab
               quests={quests}
@@ -544,7 +582,7 @@ export function ControlPanel() {
             />
           )}
 
-          {/* TAB 5: 조건 필터링 (저혈압, 고혈압, 당뇨) */}
+          {/* TAB 5: 조건 필터링 본문 (저혈압, 고혈압, 당뇨 등) */}
           {activeTab === "profile" && (
             <ConditionFilterTab
               profile={profile}
@@ -556,7 +594,7 @@ export function ControlPanel() {
           )}
         </div>
 
-        {/* 하단 네이버 지도 연동 상태 */}
+        {/* 패널 최하단 공공데이터 API 연동 상태 바 */}
         <div
           className={`p-3 border-t text-[11px] flex items-center justify-between ${
             isLight
@@ -572,7 +610,7 @@ export function ControlPanel() {
         </div>
       </div>
 
-      {/* 데스크톱 3방향 자유 리사이즈 핸들 (좌우 폭, 상하 높이, 우하단 대각선 코너) */}
+      {/* 데스크톱 3방향 자유 리사이즈 핸들 (너비 조절, 높이 조절, 대각선 조절) */}
       <div className="hidden sm:block select-none pointer-events-auto">
         {/* 1. 우측 세로 테두리 핸들 (가로 폭 조절) */}
         <div

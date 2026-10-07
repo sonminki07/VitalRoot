@@ -192,51 +192,65 @@ export function smoothPedestrianCoordinates(
 
   const offsetPoints: [number, number][] = [firstDeduped];
   for (let i = 1; i < deduped.length - 1; i++) {
-    const prev = deduped[i - 1];
-    const curr = deduped[i];
-    const next = deduped[i + 1];
+    const prev = deduped[i - 1]; // 이전 좌표 지점
+    const curr = deduped[i];     // 현재 좌표 지점
+    const next = deduped[i + 1]; // 다음 좌표 지점
     if (!prev || !curr || !next) continue;
 
+    // [기하학 투영] 대한민국 평균 위도(37.5도) 기준 WGS84 좌표를 미터 단위로 투영 변환
+    // 경도 1도당 미터: 111,000m * cos(37.5°) ≈ 88,000m
     const dxMeters = (next[0] - prev[0]) * 88000;
+    // 위도 1도당 미터: 자오선 호의 길이에 따라 약 111,000m 고정
     const dyMeters = (next[1] - prev[1]) * 111000;
+    // 이전 지점에서 다음 지점으로 향하는 세그먼트의 실제 거리(빗변 길이, 미터)
     const segLen = Math.hypot(dxMeters, dyMeters);
 
+    // 유효한 세그먼트 길이(1미터 초과)일 때만 우측 인도 오프셋 계산 수행
     if (segLen > 1.0) {
-      // 우측 보행로 방향 단위 법선 벡터
+      // 진행 방향 벡터 (dxMeters, dyMeters)에 수직인 우측 단위 법선 벡터 (dy / segLen, -dx / segLen)
       const nx = dyMeters / segLen;
       const ny = -dxMeters / segLen;
+      // 차도 중앙선에서 우측 보행자 전용 보도(인도) 방향으로 2.0미터 평행 이동량 산출 (경도/위도로 역환산)
       const offsetLng = (nx * 2.0) / 88000;
       const offsetLat = (ny * 2.0) / 111000;
+      // 소수점 6자리(약 11cm 정밀도)로 반올림하여 보정 좌표 목록에 추가
       offsetPoints.push([
         Number((curr[0] + offsetLng).toFixed(6)),
         Number((curr[1] + offsetLat).toFixed(6)),
       ]);
     } else {
+      // 정체 구간이거나 중복된 미세 세그먼트는 원래 좌표 유지
       offsetPoints.push(curr);
     }
   }
+  // 보정된 경로의 종점은 정확한 원본 목적지 좌표로 유지
   offsetPoints.push(lastDeduped);
 
-  // 3. 가중 이동평균 2-Pass 스무딩 (중간 지점의 급격한 중앙선 꺾임 완화)
+  // 3. 가중 이동평균 2-Pass 스무딩 (법선 이동으로 인한 급격한 꺾임 완화 및 자연스러운 곡선화)
   let smoothed = [...offsetPoints];
+  // 2단계(2-Pass) 반복 필터링 적용
   for (let pass = 0; pass < 2; pass++) {
     const first = smoothed[0];
     const last = smoothed[smoothed.length - 1];
     if (!first || !last) break;
-    const nextPass: [number, number][] = [first];
+    const nextPass: [number, number][] = [first]; // 시작점 불변 고정
     for (let i = 1; i < smoothed.length - 1; i++) {
       const prev = smoothed[i - 1];
       const curr = smoothed[i];
       const next = smoothed[i + 1];
       if (!prev || !curr || !next) continue;
 
-      // 가중 이동평균: 0.25 prev + 0.50 curr + 0.25 next
+      // 3점 이항 가중 이동평균 필터 (0.25 prev + 0.50 curr + 0.25 next): 고주파 노이즈 제거
       const smoothLng = 0.25 * prev[0] + 0.5 * curr[0] + 0.25 * next[0];
       const smoothLat = 0.25 * prev[1] + 0.5 * curr[1] + 0.25 * next[1];
-      nextPass.push([Number(smoothLng.toFixed(6)), Number(smoothLat.toFixed(6))]);
+      // 평활화된 중간 좌표 저장
+      nextPass.push([
+        Number(smoothLng.toFixed(6)),
+        Number(smoothLat.toFixed(6)),
+      ]);
     }
-    nextPass.push(last);
-    smoothed = nextPass;
+    nextPass.push(last); // 도착점 불변 고정
+    smoothed = nextPass; // 다음 패스용 결과 갱신
   }
 
   // 출발지/도착지 핀 마커 일치 보장
@@ -319,11 +333,14 @@ export async function fetchPedestrianRoute(
     return roadResult;
   }
 
-  // 3순위: L자형 도로 격자 보간 (직선으로 산/호수를 가로지르지 않고 블록 도로망을 따라 꺾임 및 코너 스무딩)
+  // 3순위: L자형 도로 격자 보간 (직선으로 산/호수를 가로지르지 않고 도시 블록 도로망을 따라 L자로 우회)
+  // 직각으로 꺾이는 중간 기준점 설정 (경도는 목적지, 위도는 출발지)
   const midPoint: [number, number] = [endLng, startLat];
-  // 코너 라운딩 보간 포인트 생성
+  // 코너 베벨(Chamfering/라운딩) 보간점 1: 코너 진입 전 80% 지점에서 완만하게 방향 전환 유도
   const cornerNear1: [number, number] = [startLng + 0.8 * (endLng - startLng), startLat];
+  // 코너 베벨(Chamfering/라운딩) 보간점 2: 코너 탈출 후 20% 지점에서 완만하게 합류
   const cornerNear2: [number, number] = [endLng, startLat + 0.2 * (endLat - startLat)];
+  // L자형 도로망 기본 제어점 배열 생성
   const rawFallback = [
     [startLng, startLat] as [number, number],
     cornerNear1,
@@ -331,6 +348,7 @@ export async function fetchPedestrianRoute(
     cornerNear2,
     [endLng, endLat] as [number, number],
   ];
+  // L자 제어점에 2-Pass 스무딩 필터를 적용하여 자연스러운 도심 골목길 곡선 산출
   const smoothedFallback = smoothPedestrianCoordinates(
     rawFallback,
     startLng,
@@ -340,6 +358,7 @@ export async function fetchPedestrianRoute(
   );
   const fallback = {
     coordinates: smoothedFallback,
+    // [맨해튼 그리드 우회율 1.25배 보정]: 도심 도보 이동은 직선이 아닌 건물/블록을 우회하므로 유클리드 거리에 1.25배 곱연산 적용
     distanceMeters: Math.round(calculateDistanceMeters(startLat, startLng, endLat, endLng) * 1.25),
   };
   return fallback;

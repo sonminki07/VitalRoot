@@ -213,14 +213,17 @@ export async function checkLiveDurWarnings(ingredientName: string): Promise<DURC
   };
 
   try {
+    // [식약처 DUR 7대 공공데이터 API 비동기 병렬 호출]
+    // ⚠️ 주의: 식약처 공공데이터포털 API 규격상 '병용금기(usjntTaboo)' 엔드포인트만 검색 파라미터 키로 'ingrKorName'을 사용하며,
+    // 나머지 6개 엔드포인트(임부금기, 노인주의, 특정연령금기 등)는 'ingrName'을 필수 파라미터명으로 요구하는 레거시 비대칭 규격 준수
     const [usjnt, pwnm, odsn, cpcty, spcify, efcy, mdctn] = await Promise.all([
-      fetchOp(config.operations.usjntTaboo, "ingrKorName"),
-      fetchOp(config.operations.pwnmTaboo, "ingrName"),
-      fetchOp(config.operations.odsnAtent, "ingrName"),
-      fetchOp(config.operations.cpctyAtent, "ingrName"),
-      fetchOp(config.operations.spcifyAgrdeTaboo, "ingrName"),
-      fetchOp(config.operations.efcyDplct, "ingrName"),
-      fetchOp(config.operations.mdctnPdAtent, "ingrName"),
+      fetchOp(config.operations.usjntTaboo, "ingrKorName"),   // 1. 병용금기: 혼합 투여 시 위험 성분
+      fetchOp(config.operations.pwnmTaboo, "ingrName"),        // 2. 임부금기: 임산부 투여 금기
+      fetchOp(config.operations.odsnAtent, "ingrName"),        // 3. 노인주의: 65세 이상 투여 주의
+      fetchOp(config.operations.cpctyAtent, "ingrName"),       // 4. 용량주의: 1일 최대 투여량 초과 경고
+      fetchOp(config.operations.spcifyAgrdeTaboo, "ingrName"), // 5. 특정연령대금기: 소아/청소년 등 연령 제한
+      fetchOp(config.operations.efcyDplct, "ingrName"),        // 6. 효능군중복: 유사 효능 의약품 중복 처방 방지
+      fetchOp(config.operations.mdctnPdAtent, "ingrName"),     // 7. 투여기간주의: 장기 연속 투여 위험 경고
     ]);
 
     const analysis: DURDetailAnalysis = {

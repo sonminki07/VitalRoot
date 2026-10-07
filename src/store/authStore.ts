@@ -1,20 +1,25 @@
+// 상태 관리 라이브러리 Zustand 스토어 생성 함수 불러오기
 import { create } from "zustand";
+// 인증 상태, 탭('signin'|'signup'), 단계('form'|'otp'|'success'), 뷰 타입 불러오기
 import { AuthState, AuthTab, AuthStep, AuthView } from "../types/auth.types";
+// Supabase 클라우드 인증 클라이언트 불러오기
 import { supabase } from "../utils/supabase";
 
+// 전역 인증 상태 관리 스토어 (Supabase Auth 연동 및 인증 모달 상태 머신 제어)
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  session: null,
-  isLoading: false,
-  isInitializing: true,
-  isModalOpen: false,
-  authTab: "signin",
-  authStep: "form",
-  authView: "emailInput",
-  errorMessage: null,
-  successMessage: null,
-  targetEmail: "",
+  user: null,             // 현재 로그인된 Supabase 사용자 객체
+  session: null,          // 활성 JWT 세션 객체
+  isLoading: false,       // 비동기 인증 요청 처리 중 플래그
+  isInitializing: true,   // 초기 세션 복구 및 검증 진행 중 플래그
+  isModalOpen: false,     // 인증 팝업 모달 노출 여부
+  authTab: "signin",      // 현재 선택된 탭: 'signin'(로그인) 또는 'signup'(회원가입)
+  authStep: "form",       // 모달 단계: 'form'(입력폼) -> 'otp'(6자리 인증번호) -> 'success'(완료)
+  authView: "emailInput", // 상세 뷰: 'emailInput' 또는 기타 인증 단계
+  errorMessage: null,     // 오류 발생 시 사용자 노출 에러 메시지
+  successMessage: null,   // 성공 시 안내 메시지 (예: OTP 발송 완료)
+  targetEmail: "",        // 인증번호 검증 대상 이메일 주소
 
+  // 인증 모달 열기 액션 (로그인 모드 또는 회원가입 모드로 진입)
   openModal: (initialView?: AuthTab | AuthView) => {
     let tab: AuthTab = "signin";
     if (initialView === "signup") {
@@ -30,6 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
   },
 
+  // 인증 모달 닫기 액션 (상태 초기화)
   closeModal: () =>
     set({
       isModalOpen: false,
@@ -38,6 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       successMessage: null,
     }),
 
+  // 로그인 탭 ↔ 회원가입 탭 전환 액션
   setAuthTab: (tab: AuthTab) =>
     set({
       authTab: tab,
@@ -46,6 +53,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       successMessage: null,
     }),
 
+  // 모달 단계('form' | 'otp' | 'success') 수동 전환 액션
   setAuthStep: (step: AuthStep) =>
     set({
       authStep: step,
@@ -53,6 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       successMessage: null,
     }),
 
+  // 세부 뷰 전환 액션
   setAuthView: (view: AuthView) =>
     set({
       authView: view,
@@ -60,8 +69,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       successMessage: null,
     }),
 
+  // 인증 대상 이메일 주소 저장 액션
   setTargetEmail: (targetEmail: string) => set({ targetEmail }),
 
+  // 에러 및 성공 메시지 초기화 액션
   clearMessages: () =>
     set({
       errorMessage: null,
@@ -252,25 +263,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // 레거시 호환 OTP 발송 및 검증
+  // [레거시 호환 OTP 발송]: Supabase 기본 설정상 비밀번호 없는 이메일 OTP 가입을 에뮬레이트하기 위해
+  // 임시 고정 비밀번호("TempPass123!@#")를 전송하여 계정을 생성하고 6자리 OTP 메일을 유도하는 우회 패턴
   sendOtp: async (email: string) => {
     return get().signUpWithPassword(email, "TempPass123!@#");
   },
+  // 6자리 OTP 인증번호 검증 및 세션 확정
   verifyOtp: async (email: string, token: string) => {
     return get().verifySignupOtp(email, token);
   },
 
-  // 로그아웃
+  // Supabase 세션 종료(로그아웃) 처리
   signOut: async () => {
     set({ isLoading: true });
     try {
+      // 백엔드 세션 무효화
       await supabase.auth.signOut();
+      // 프론트엔드 상태 초기화
       set({
         user: null,
         session: null,
         isModalOpen: false,
         isLoading: false,
       });
+      // [주의]: Supabase 로컬 토큰 캐시 및 인메모리 상태를 완전히 비우고 초기 화면으로 원복하기 위해 300ms 후 새로고침 수행
       setTimeout(() => {
         window.location.reload();
       }, 300);
@@ -280,8 +296,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // 초기 세션 복원 및 리스너 등록
+  // 애플리케이션 시작 시 세션 복원 및 전역 authStateChange 리스너 등록
   initAuth: () => {
+    // 1. 현재 로컬에 저장된 기존 JWT 세션 조회
     supabase.auth.getSession().then(({ data: { session } }) => {
       set({
         session,
@@ -289,7 +306,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitializing: false,
       });
 
-
+      // OAuth 소셜 로그인 완료 후 URL에 남아있는 '?code=' 또는 '#access_token=' 파라미터를 브라우저 히스토리에서 깔끔하게 정리
       if (window.location.search.includes("code=") || window.location.hash.includes("access_token=")) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
